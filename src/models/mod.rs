@@ -4,7 +4,7 @@
 // [x] Route
 // [x] Trip
 // [x] StopTime
-// [ ] Shape
+// [x] Shape
 
 mod area;
 mod coordinate;
@@ -13,6 +13,7 @@ mod idx;
 mod opt;
 mod route;
 mod sentinel;
+mod shape;
 mod slice;
 mod stop;
 mod stoptime;
@@ -25,6 +26,7 @@ pub use distance::*;
 pub use idx::*;
 pub use opt::*;
 pub use route::*;
+pub use shape::*;
 pub use slice::*;
 pub use stop::*;
 pub use stoptime::*;
