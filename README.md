@@ -87,6 +87,9 @@ gtfs-bin compile ./sweden.zip -o sweden.blaise
 ## References
 
 - [GTFS Specification](https://gtfs.org/documentation/schedule/reference/)
+- [bytemuck](https://docs.rs/bytemuck/latest/bytemuck/)
+- [memmap2](https://docs.rs/memmap2/latest/memmap2/)
+- [mmap](https://en.wikipedia.org/wiki/Mmap)
 - [blaise](https://github.com/vincbro/blaise) - A high-performance transit routing engine (soon to be) built on top of `gtfs-bin`.
 
 ## License
