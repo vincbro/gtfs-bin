@@ -1,0 +1,22 @@
+[package]
+name = "gtfs-bin"
+version = "0.0.1"
+edition = "2024"
+description = "Pre compute GTFS transit networks into memory mapped binary files. Features zero copy deserialization, RAPTOR ready structures, and instant server startup."
+authors = ["Vincent Brodin <vincent.brodin21@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/vincbro/gtfs-bin"
+keywords = [
+  "gtfs",
+]
+
+[lib]
+name = "gtfs-bin"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gtfs-bin"
+path = "src/main.rs"
+
+[dependencies]
