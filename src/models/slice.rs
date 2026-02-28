@@ -42,4 +42,5 @@ macro_rules! define_slice {
 define_slice!(StringSlice);
 define_slice!(AreaIdSlice);
 define_slice!(StopIdSlice);
+define_slice!(RouteIdSlice);
 define_slice!(TripIdSlice);
