@@ -1,16 +1,16 @@
 # gtfs-bin
 
-*gtfs-bin* is a library for compiling standard GTFS data into highly optimized, memory-mappable binary graphs.
+*gtfs-bin* is a library for building standard GTFS data into highly optimized, memory-mappable binary graphs.
 
 It provides the data structures, serialization tools, and zero-copy reading interfaces needed to build distributed transit applications, whether for high-throughput routing engines, research simulations, or spatial analytics.
 
 ## The Architecture
 
-In standard transit applications, every server in a fleet parses raw GTFS text files directly into physical RAM at startup. For large networks, this creates massive CPU overhead, slow initialization times, and cost-prohibitive memory requirements when scaling horizontally.
+In many transit applications, servers parse raw GTFS text files directly into memory at startup. For large networks, this creates massive CPU overhead, slow initialization times, and cost-prohibitive memory requirements when scaling horizontally.
 
 *gtfs-bin* facilitates a different architecture: **Builder once, distribute everywhere.**
 
-1. **The Master Node (Builder)**: A single server or build pipeline uses the `gtfs-bin` builder API to ingest raw GTFS data. It computes spatial hashes, groups routes, generates walkable transfers, and packs the results into a flat, contiguous `.blaise` binary file.
+1. **The Master Node (Builder)**: A single server or build pipeline uses the `gtfs-bin` builder API to ingest raw GTFS data. It computes spatial hashes, groups routes, generates walkable transfers, and packs the results into a flat, contiguous `.gtfs` binary file.
 2. **The Fleet (Consumers)**: The compiled artifact is distributed to any number of worker nodes.
 3. **Instant Memory Mapping**: The consumer nodes use `mmap` to map the file directly into virtual memory. Because the structures are `#[repr(C)]` and rely on zero-copy deserialization, startup is completely decoupled from dataset size.
 
