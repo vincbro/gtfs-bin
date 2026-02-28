@@ -12,7 +12,7 @@ keywords = [
 ]
 
 [lib]
-name = "gtfs-bin"
+name = "gtfsbin"
 path = "src/lib.rs"
 
 [[bin]]

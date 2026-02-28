@@ -28,7 +28,7 @@ By delegating the parsing and graph generation to a single master process, consu
 ### Compiling the Graph (Master Node)
 
 ```rust
-use gtfs_bin::Compiler;
+use gtfsbin::Compiler;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse the raw GTFS zip, run graph generation, and write to a binary file
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```rust
 use std::fs::File;
 use memmap2::MmapOptions;
-use gtfs_bin::Repository;
+use gtfsbin::Repository;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Open the pre-compiled binary file
