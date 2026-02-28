@@ -1,3 +1,5 @@
+# gtfs-bin
+
 *gtfs-bin* is a library for compiling standard GTFS data into highly optimized, memory-mappable binary graphs.
 
 It provides the data structures, serialization tools, and zero-copy reading interfaces needed to build distributed transit applications,whether for high-throughput routing engines, research simulations, or spatial analytics.
