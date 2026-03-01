@@ -1,12 +1,10 @@
 // Check list
-// [x] Area
 // [x] Stop
 // [x] Route
 // [x] Trip
 // [x] StopTime
 // [x] Shape
 
-mod area;
 mod coordinate;
 mod distance;
 mod idx;
@@ -20,7 +18,6 @@ mod stoptime;
 mod time;
 mod trip;
 
-pub use area::*;
 pub use coordinate::*;
 pub use distance::*;
 pub use idx::*;

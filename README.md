@@ -33,7 +33,6 @@ The project is in early development. The following components are in progress:
   - Trips
   - StopTimes
   - Shapes
-  - Areas
   - Coordinates, distances, and time types
 
 - **Builder API**: Coming soon - for compiling GTFS feeds into binary format
