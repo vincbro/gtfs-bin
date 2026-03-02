@@ -1,7 +1,6 @@
 use std::{path::PathBuf, time::Instant};
 
 use clap::Parser;
-use gtfs_structures::RawStopTime;
 use gtfsbin::builder::Builder;
 
 #[derive(Parser, Debug)]

@@ -1,12 +1,9 @@
-use std::{
-    path::{Path, PathBuf},
-    thread::JoinHandle,
-};
+use std::path::{Path, PathBuf};
 
 use gtfs_structures::RawGtfs;
 use rayon::slice::ParallelSliceMut;
 
-use crate::models::{Coordinate, Opt, Slice, Stop, StopIdSlice, StopIdx};
+use crate::models::{Coordinate, Opt, Sentinel, Slice, Stop, StopIdSlice, StopIdx};
 
 /// Builds the .gtfs file
 #[derive(Debug, Default, Clone)]
@@ -34,13 +31,15 @@ impl Builder {
                     count: stop.id.len() as u32,
                 };
                 stop_ids.push_str(&stop.id);
-                // let coordinate = if let Some(lat) = stop.latitude && let Some(lon) = stop.longitude {
-                //     Coordinate::new(lat, lon)
-                // } else {
-                //         Coordinate::NONE
-                // }
+                let coordinate = if let Some(lat) = stop.latitude
+                    && let Some(lon) = stop.longitude
+                {
+                    Opt::new(Coordinate::new(lat, lon))
+                } else {
+                    Opt::new(Coordinate::NONE)
+                };
                 Stop {
-                    coordinate: Default::default(),
+                    coordinate,
                     id,
                     code: Default::default(),
                     name: Default::default(),
