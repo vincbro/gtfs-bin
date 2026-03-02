@@ -18,10 +18,10 @@ macro_rules! define_index {
             }
         }
 
-        impl From<$name> for usize {
+        impl $name {
             #[inline(always)]
-            fn from(idx: $name) -> Self {
-                idx.0 as usize
+            pub fn to_usize(&self) -> usize {
+                self.0 as usize
             }
         }
     };
