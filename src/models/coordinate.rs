@@ -1,3 +1,4 @@
+use crate::models::sentinel::Sentinel;
 use bytemuck::{Pod, Zeroable};
 
 /// A memory-efficient geographic coordinate.
@@ -7,7 +8,7 @@ use bytemuck::{Pod, Zeroable};
 /// This maintains 6 decimal places of precision, which equates to roughly
 /// 11 centimeters of accuracy at the equator—perfect for GTFS routing.
 #[repr(C)]
-#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable, PartialEq, Eq)]
 pub struct Coordinate {
     /// The latitude, scaled by 1,000,000 and rounded to the nearest integer.
     packed_latitude: i32,
@@ -51,4 +52,11 @@ impl Coordinate {
     pub fn tuple_f64(&self) -> (f64, f64) {
         (self.lat_f64(), self.lon_f64())
     }
+}
+
+impl Sentinel for Coordinate {
+    const NONE: Self = Self {
+        packed_latitude: i32::MAX,
+        packed_longitude: i32::MAX,
+    };
 }

@@ -4,11 +4,11 @@ use bytemuck::{Pod, Zeroable};
 /// A zero-overhead, memory-mappable wrapper for optional values.
 #[repr(transparent)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Opt<T>(T);
+pub struct Opt<T: Sentinel>(T);
 
 // By telling bytemuck this is transparent, it maps perfectly from disk
-unsafe impl<T: Zeroable> Zeroable for Opt<T> {}
-unsafe impl<T: Pod> Pod for Opt<T> {}
+unsafe impl<T: Zeroable + Sentinel> Zeroable for Opt<T> {}
+unsafe impl<T: Pod + Sentinel> Pod for Opt<T> {}
 
 impl<T: Sentinel> Opt<T> {
     /// Forces the user to handle the Option
