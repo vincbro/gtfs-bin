@@ -6,6 +6,12 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Opt<T: Sentinel>(T);
 
+impl<T: Sentinel> Opt<T> {
+    pub fn new(value: T) -> Self {
+        Self(value)
+    }
+}
+
 // By telling bytemuck this is transparent, it maps perfectly from disk
 unsafe impl<T: Zeroable + Sentinel> Zeroable for Opt<T> {}
 unsafe impl<T: Pod + Sentinel> Pod for Opt<T> {}
