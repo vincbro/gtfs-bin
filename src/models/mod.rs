@@ -23,6 +23,7 @@ pub use distance::*;
 pub use idx::*;
 pub use opt::*;
 pub use route::*;
+pub use sentinel::*;
 pub use shape::*;
 pub use slice::*;
 pub use stop::*;
