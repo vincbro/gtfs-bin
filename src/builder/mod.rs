@@ -1,9 +1,12 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    thread::JoinHandle,
+};
 
 use gtfs_structures::RawGtfs;
 use rayon::slice::ParallelSliceMut;
 
-use crate::models::{Stop, StopIdx};
+use crate::models::{Coordinate, Opt, Slice, Stop, StopIdSlice, StopIdx};
 
 /// Builds the .gtfs file
 #[derive(Debug, Default, Clone)]
@@ -20,10 +23,40 @@ impl Builder {
 
     pub fn build(&self) -> Result<Vec<u8>, gtfs_structures::Error> {
         let gtfs = RawGtfs::from_path(&self.path)?;
-        let stops = gtfs.stops?;
-        let stop_ids: Vec<&str> = stops.iter().map(|stop| stop.id.as_ref()).collect();
-        let mut lookup_vec: Vec<_> = (0..stops.len()).map(|i| StopIdx(i as u32)).collect();
-        // lookup_vec.par_sort_unstable_by(|a, b| stop_ids[a.into()].cmp(stop_ids[b.into()]));
+        let raw_stops = gtfs.stops?;
+        let mut stop_ids = String::with_capacity(36 * raw_stops.len());
+        let stops: Vec<_> = raw_stops
+            .iter()
+            .enumerate()
+            .map(|(i, stop)| {
+                let id = StopIdSlice {
+                    start: stop_ids.len() as u32,
+                    count: stop.id.len() as u32,
+                };
+                stop_ids.push_str(&stop.id);
+                // let coordinate = if let Some(lat) = stop.latitude && let Some(lon) = stop.longitude {
+                //     Coordinate::new(lat, lon)
+                // } else {
+                //         Coordinate::NONE
+                // }
+                Stop {
+                    coordinate: Default::default(),
+                    id,
+                    code: Default::default(),
+                    name: Default::default(),
+                    desc: Default::default(),
+                    idx: StopIdx(i as u32),
+                    parent_idx: Default::default(),
+                }
+            })
+            .collect();
+        //TODO: ADD SORT STOPS LOGIC GOES HERE
+        let mut stop_id_lookup: Vec<_> = (0..stops.len()).map(|i| StopIdx(i as u32)).collect();
+        stop_id_lookup.par_sort_unstable_by(|a, b| {
+            let id_a = &stop_ids[stops[a.to_usize()].id.range()];
+            let id_b = &stop_ids[stops[b.to_usize()].id.range()];
+            id_a.cmp(id_b)
+        });
         Ok(vec![])
     }
 }
