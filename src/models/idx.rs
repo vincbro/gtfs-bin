@@ -5,7 +5,18 @@ pub trait Idx: Sentinel {}
 macro_rules! define_index {
     ($name:ident) => {
         #[repr(transparent)]
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bytemuck::Pod, bytemuck::Zeroable)]
+        #[derive(
+            Debug,
+            Clone,
+            Copy,
+            PartialEq,
+            Eq,
+            Hash,
+            bytemuck::Pod,
+            bytemuck::Zeroable,
+            PartialOrd,
+            Ord,
+        )]
         pub struct $name(pub u32);
 
         impl Sentinel for $name {

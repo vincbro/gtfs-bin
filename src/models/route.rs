@@ -20,7 +20,7 @@ pub struct Route {
     pub short_name: Opt<StringSlice>,
 
     /// Description of a route that provides useful, quality information.
-    pub desc: Opt<StringSlice>,
+    pub description: Opt<StringSlice>,
 
     // ------------------------------------------------------------------------
     // 2. SMALLER FIELDS LAST (4 bytes)

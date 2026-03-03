@@ -52,6 +52,11 @@ define_slice!(StopIdSlice);
 define_slice!(RouteIdSlice);
 define_slice!(TripIdSlice);
 
+define_slice!(TripSlice);
+define_slice!(RouteSlice);
+define_slice!(StopTimeSlice);
+define_slice!(StopSlice);
+
 #[derive(Default)]
 pub struct SliceBuilder<T: Slice> {
     buffer: String,
