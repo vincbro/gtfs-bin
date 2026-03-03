@@ -24,4 +24,5 @@ bytemuck = {version = "1.25.0", features = ["derive"] }
 chrono = "0.4.44"
 clap = { version = "4.5.60", features = ["derive"] }
 gtfs-structures = { version = "0.47.0", default-features = false }
+memmap2 = "0.9.10"
 rayon = "1.11.0"
