@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 use gtfs_structures::RawGtfs;
 use rayon::slice::ParallelSliceMut;
 
-use crate::models::{Coordinate, Opt, Sentinel, Slice, Stop, StopIdSlice, StopIdx, StringSlice};
+use crate::models::{
+    Coordinate, Opt, Sentinel, Slice, SliceBuilder, Stop, StopIdSlice, StopIdx, StringSlice,
+};
 
 /// Builds the .gtfs file
 #[derive(Debug, Default, Clone)]
@@ -30,15 +32,14 @@ impl Builder {
         raw_stops: &[gtfs_structures::Stop],
     ) -> Result<Vec<Stop>, gtfs_structures::Error> {
         // Recomended max length for a gtfs id is 36 characters
-        let mut stop_ids = String::with_capacity(36 * raw_stops.len());
+        let mut id_builder = SliceBuilder::with_capacity(36 * raw_stops.len());
+        let mut str_builder = SliceBuilder::new();
+
+        // Convert raw_stops to stops
         let mut stops: Vec<_> = raw_stops
             .iter()
-            .map(|stop| {
-                let id = StopIdSlice {
-                    start: stop_ids.len() as u32,
-                    count: stop.id.len() as u32,
-                };
-                stop_ids.push_str(&stop.id);
+            .enumerate()
+            .map(|(i, stop)| {
                 let coordinate = if let Some(lat) = stop.latitude
                     && let Some(lon) = stop.longitude
                 {
@@ -48,27 +49,47 @@ impl Builder {
                 };
                 Stop {
                     coordinate,
-                    id,
-                    code: Opt::new(StringSlice::NONE),
-                    name: Opt::new(StringSlice::NONE),
-                    desc: Opt::new(StringSlice::NONE),
-                    idx: StopIdx::NONE,
+                    id: id_builder.add(&stop.id),
+                    code: stop.code.as_ref().map(|code| str_builder.add(code)).into(),
+                    name: stop.name.as_ref().map(|name| str_builder.add(name)).into(),
+                    description: stop
+                        .description
+                        .as_ref()
+                        .map(|desc| str_builder.add(desc))
+                        .into(),
+                    idx: StopIdx(i as u32),
                     parent_idx: Opt::new(StopIdx::NONE),
                 }
             })
             .collect();
-        //TODO: ADD SORT STOPS LOGIC GOES HERE
-        // Set stop idx
-        stops
-            .iter_mut()
-            .enumerate()
-            .for_each(|(i, stop)| stop.idx = StopIdx(i as u32));
+
+        let stop_ids = id_builder.take();
+
+        // Build binary search friendly id lookup
         let mut stop_id_lookup: Vec<_> = (0..stops.len()).map(|i| StopIdx(i as u32)).collect();
         stop_id_lookup.par_sort_unstable_by(|a, b| {
             let id_a = &stop_ids[stops[a.to_usize()].id.range()];
             let id_b = &stop_ids[stops[b.to_usize()].id.range()];
             id_a.cmp(id_b)
         });
+
+        // Add parent station logic
+        raw_stops
+            .iter()
+            .enumerate()
+            .filter_map(|(i, raw_stop)| raw_stop.parent_station.clone().map(|pt_id| (i, pt_id)))
+            .for_each(|(i, pt_id)| {
+                let result = stop_id_lookup.binary_search_by(|&idx| {
+                    let stop = &stops[idx.to_usize()];
+                    let current_id = &stop_ids[stop.id.range()];
+                    current_id.cmp(&pt_id)
+                });
+
+                if let Ok(idx) = result {
+                    stops[i].parent_idx = Opt::new(StopIdx(idx as u32));
+                }
+            });
+
         Ok(stops)
     }
 }
