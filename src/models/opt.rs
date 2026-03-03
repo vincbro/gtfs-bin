@@ -12,6 +12,15 @@ impl<T: Sentinel> Opt<T> {
     }
 }
 
+impl<T: Sentinel> From<Option<T>> for Opt<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(value) => Opt::new(value),
+            None => Opt::new(T::NONE),
+        }
+    }
+}
+
 // By telling bytemuck this is transparent, it maps perfectly from disk
 unsafe impl<T: Zeroable + Sentinel> Zeroable for Opt<T> {}
 unsafe impl<T: Pod + Sentinel> Pod for Opt<T> {}

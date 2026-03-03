@@ -23,7 +23,7 @@ pub struct Stop {
     pub name: Opt<StringSlice>,
 
     /// A description of the location that provides useful, quality-of-life information.
-    pub desc: Opt<StringSlice>,
+    pub description: Opt<StringSlice>,
 
     // ------------------------------------------------------------------------
     // 2. SMALLER FIELDS LAST (4 bytes)
