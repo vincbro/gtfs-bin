@@ -37,19 +37,22 @@ pub struct Consumer<'a> {
 }
 
 impl<'a> Consumer<'a> {
-    pub fn new(mmap: &'a Mmap) -> Result<Self, &'static str> {
+    pub fn new(mmap: &'a Mmap) -> Result<Self, crate::Error> {
         let header_size = std::mem::size_of::<Header>();
         if mmap.len() < header_size {
-            return Err("File is too small to contain a valid header");
+            return Err(crate::Error::FileTooSmall);
         }
 
         let header: &Header = bytemuck::from_bytes(&mmap[..header_size]);
 
         if header.magic != *b"GTFS" {
-            return Err("Invalid magic number: Not a compiled GTFS file");
+            return Err(crate::Error::InvalidMagic);
         }
         if header.version != GTFS_BIN_VERSION {
-            return Err("Unsupported GTFS binary version");
+            return Err(crate::Error::UnsupportedVersion {
+                expected: GTFS_BIN_VERSION,
+                actual: header.version,
+            });
         }
 
         let get_bytes = |section: Section, element_size: usize| -> &'a [u8] {

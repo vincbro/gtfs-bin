@@ -1,7 +1,7 @@
 use std::{fs::File, io::Write, path::PathBuf, time::Instant};
 
 use clap::Parser;
-use gtfsbin::builder::Builder;
+use gtfs_bin::builder::Builder;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

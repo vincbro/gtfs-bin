@@ -337,6 +337,7 @@ dependencies = [
  "gtfs-structures",
  "memmap2",
  "rayon",
+ "thiserror",
 ]
 
 [[package]]
