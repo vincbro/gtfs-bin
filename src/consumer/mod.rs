@@ -2,12 +2,13 @@ use crate::{
     GTFS_BIN_VERSION,
     models::{Route, RouteIdx, Stop, StopIdx, StopTime, StopTimeSlice, Trip, TripIdx, TripSlice},
 };
-use bytemuck::cast_slice;
+use bytemuck::{cast_slice, from_bytes};
 use memmap2::Mmap;
 
 mod header;
 mod routes;
 mod stops;
+mod stoptimes;
 mod trips;
 pub use header::*;
 
@@ -43,13 +44,14 @@ pub struct Consumer<'a> {
 
 impl<'a> Consumer<'a> {
     pub fn new(mmap: &'a Mmap) -> Result<Self, crate::Error> {
-        let header_size = std::mem::size_of::<Header>();
+        let header_size = size_of::<Header>();
         if mmap.len() < header_size {
             return Err(crate::Error::FileTooSmall);
         }
 
-        let header: &Header = bytemuck::from_bytes(&mmap[..header_size]);
+        let header: &Header = from_bytes(&mmap[..header_size]);
 
+        // Validate header
         if header.magic != *b"GTFS" {
             return Err(crate::Error::InvalidMagic);
         }

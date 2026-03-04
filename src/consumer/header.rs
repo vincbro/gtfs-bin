@@ -36,7 +36,6 @@ pub struct Header {
     pub trip_to_stop_times: Section,
 
     pub transfers: Section,
-
     pub calendars: Section,
 }
 

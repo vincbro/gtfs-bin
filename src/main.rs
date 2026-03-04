@@ -16,7 +16,9 @@ struct Args {
 fn main() {
     let args = Args::parse();
     let now = Instant::now();
-    let bytes = Compiler::new(args.input).build().expect("Failed to build");
+    let bytes = Compiler::new(args.input)
+        .compile()
+        .expect("Failed to build");
     println!("Loading and compiling gtfs took {:?}", now.elapsed());
     let mut file = File::options()
         .create(true)

@@ -27,3 +27,6 @@ gtfs-structures = { version = "0.47.0", default-features = false }
 memmap2 = "0.9.10"
 rayon = "1.11.0"
 thiserror = "2.0.18"
+
+[dev-dependencies]
+tempfile = "3.26.0"

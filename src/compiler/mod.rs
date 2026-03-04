@@ -65,7 +65,7 @@ impl Compiler {
         }
     }
 
-    pub fn build(mut self) -> Result<Vec<u8>, gtfs_structures::Error> {
+    pub fn compile(mut self) -> Result<Vec<u8>, gtfs_structures::Error> {
         let gtfs = RawGtfs::from_path(&self.path)?;
         let mut slice_builder = SliceBuilder::new();
 
@@ -88,30 +88,41 @@ impl Compiler {
 
         let mut binary_data = Vec::with_capacity(total_bytes as usize);
 
+        let mut append = |slice: &[u8]| {
+            let remainder = binary_data.len() % 8;
+            if remainder != 0 {
+                binary_data.resize(binary_data.len() + (8 - remainder), 0);
+            }
+            binary_data.extend_from_slice(slice);
+        };
+
         // Write Header
-        binary_data.extend_from_slice(bytemuck::bytes_of(&header));
+        append(bytemuck::bytes_of(&header));
 
         // Write Stops
-        binary_data.extend_from_slice(bytemuck::cast_slice(&self.stops));
-        binary_data.extend_from_slice(self.stop_ids.as_bytes());
+        append(bytemuck::cast_slice(&self.stops));
+        append(self.stop_ids.as_bytes());
+        append(bytemuck::cast_slice(&self.stop_id_lookup));
 
         // Write Routes
-        binary_data.extend_from_slice(bytemuck::cast_slice(&self.routes));
-        binary_data.extend_from_slice(self.route_ids.as_bytes());
+        append(bytemuck::cast_slice(&self.routes));
+        append(self.route_ids.as_bytes());
+        append(bytemuck::cast_slice(&self.route_id_lookup));
 
         // Write Trips
-        binary_data.extend_from_slice(bytemuck::cast_slice(&self.trips));
-        binary_data.extend_from_slice(self.trip_ids.as_bytes());
+        append(bytemuck::cast_slice(&self.trips));
+        append(self.trip_ids.as_bytes());
+        append(bytemuck::cast_slice(&self.trip_id_lookup));
 
         // Write Stop Times
-        binary_data.extend_from_slice(bytemuck::cast_slice(&self.stop_times));
+        append(bytemuck::cast_slice(&self.stop_times));
 
         // Write Lookups
-        binary_data.extend_from_slice(bytemuck::cast_slice(&self.route_to_trips));
-        binary_data.extend_from_slice(bytemuck::cast_slice(&self.route_to_trips_lookup));
-        binary_data.extend_from_slice(bytemuck::cast_slice(&self.stop_to_trips));
-        binary_data.extend_from_slice(bytemuck::cast_slice(&self.stop_to_trips_lookup));
-        binary_data.extend_from_slice(bytemuck::cast_slice(&self.trip_to_stop_times));
+        append(bytemuck::cast_slice(&self.route_to_trips));
+        append(bytemuck::cast_slice(&self.route_to_trips_lookup));
+        append(bytemuck::cast_slice(&self.stop_to_trips));
+        append(bytemuck::cast_slice(&self.stop_to_trips_lookup));
+        append(bytemuck::cast_slice(&self.trip_to_stop_times));
 
         Ok(binary_data)
     }
@@ -127,11 +138,16 @@ impl Compiler {
 
         // A quick helper closure to fill a section and bump the offset
         let mut add_section = |count: usize, element_size: usize| -> Section {
+            let remainder = current_offset % 8;
+            if remainder != 0 {
+                current_offset += 8 - remainder;
+            }
+
             let section = Section {
                 offset: current_offset,
                 count: count as u64,
             };
-            // Ensure we step forward by the total byte size of the array
+
             current_offset += (count * element_size) as u64;
             section
         };
