@@ -2,9 +2,14 @@ use crate::{
     GTFS_BIN_VERSION,
     models::{Route, RouteIdx, Stop, StopIdx, StopTime, StopTimeSlice, Trip, TripIdx, TripSlice},
 };
-mod header;
-pub use header::*;
+use bytemuck::cast_slice;
 use memmap2::Mmap;
+
+mod header;
+mod routes;
+mod stops;
+mod trips;
+pub use header::*;
 
 #[derive(Debug)]
 pub struct Consumer<'a> {
@@ -15,7 +20,7 @@ pub struct Consumer<'a> {
 
     // Routes
     pub routes: &'a [Route],
-    pub route_id_lookup: &'a [RouteIdx],
+    pub routes_id_lookup: &'a [RouteIdx],
     pub route_ids: &'a [u8],
 
     // Trips
@@ -62,53 +67,35 @@ impl<'a> Consumer<'a> {
         };
 
         Ok(Self {
-            stops: bytemuck::cast_slice(get_bytes(header.stops, std::mem::size_of::<Stop>())),
-            stop_ids: get_bytes(header.stop_ids, std::mem::size_of::<u8>()),
-            stops_id_lookup: bytemuck::cast_slice(get_bytes(
-                header.stop_id_lookup,
-                std::mem::size_of::<StopIdx>(),
-            )),
+            stops: cast_slice(get_bytes(header.stops, size_of::<Stop>())),
+            stop_ids: get_bytes(header.stop_ids, size_of::<u8>()),
+            stops_id_lookup: cast_slice(get_bytes(header.stop_id_lookup, size_of::<StopIdx>())),
 
-            routes: bytemuck::cast_slice(get_bytes(header.routes, std::mem::size_of::<Route>())),
-            route_ids: get_bytes(header.route_ids, 1),
-            route_id_lookup: bytemuck::cast_slice(get_bytes(
-                header.route_id_lookup,
-                std::mem::size_of::<StopIdx>(),
-            )),
+            routes: cast_slice(get_bytes(header.routes, size_of::<Route>())),
+            route_ids: get_bytes(header.route_ids, size_of::<u8>()),
+            routes_id_lookup: cast_slice(get_bytes(header.route_id_lookup, size_of::<StopIdx>())),
 
-            trips: bytemuck::cast_slice(get_bytes(header.trips, std::mem::size_of::<Trip>())),
-            trip_ids: get_bytes(header.trip_ids, 1),
-            trips_id_lookup: bytemuck::cast_slice(get_bytes(
-                header.trip_id_lookup,
-                std::mem::size_of::<StopIdx>(),
-            )),
+            trips: cast_slice(get_bytes(header.trips, size_of::<Trip>())),
+            trip_ids: get_bytes(header.trip_ids, size_of::<u8>()),
+            trips_id_lookup: cast_slice(get_bytes(header.trip_id_lookup, size_of::<StopIdx>())),
 
-            stop_times: bytemuck::cast_slice(get_bytes(
-                header.stop_times,
-                std::mem::size_of::<StopTime>(),
-            )),
+            stop_times: cast_slice(get_bytes(header.stop_times, size_of::<StopTime>())),
 
-            route_to_trips: bytemuck::cast_slice(get_bytes(
-                header.route_to_trips,
-                std::mem::size_of::<TripIdx>(),
-            )),
-            route_to_trips_lookup: bytemuck::cast_slice(get_bytes(
+            route_to_trips: cast_slice(get_bytes(header.route_to_trips, size_of::<TripIdx>())),
+            route_to_trips_lookup: cast_slice(get_bytes(
                 header.route_to_trips_lookup,
-                std::mem::size_of::<TripSlice>(),
+                size_of::<TripSlice>(),
             )),
 
-            stop_to_trips: bytemuck::cast_slice(get_bytes(
-                header.stop_to_trips,
-                std::mem::size_of::<TripIdx>(),
-            )),
-            stop_to_trips_lookup: bytemuck::cast_slice(get_bytes(
+            stop_to_trips: cast_slice(get_bytes(header.stop_to_trips, size_of::<TripIdx>())),
+            stop_to_trips_lookup: cast_slice(get_bytes(
                 header.stop_to_trips_lookup,
-                std::mem::size_of::<TripSlice>(),
+                size_of::<TripSlice>(),
             )),
 
-            trip_to_stop_times: bytemuck::cast_slice(get_bytes(
+            trip_to_stop_times: cast_slice(get_bytes(
                 header.stop_to_trips_lookup,
-                std::mem::size_of::<StopTimeSlice>(),
+                size_of::<StopTimeSlice>(),
             )),
         })
     }
