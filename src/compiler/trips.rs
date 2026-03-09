@@ -18,8 +18,8 @@ impl Compiler {
             .enumerate()
             .filter_map(|(i, trip)| {
                 let result = self.route_id_lookup.binary_search_by(|&idx| {
-                    let stop = &self.routes[idx.to_usize()];
-                    let current_id = &self.route_ids[stop.id.range()];
+                    let route = &self.routes[idx.to_usize()];
+                    let current_id = &self.route_ids[route.id.range()];
                     current_id.cmp(&trip.route_id)
                 });
                 result.ok().map(|idx| (i, trip, RouteIdx(idx as u32)))

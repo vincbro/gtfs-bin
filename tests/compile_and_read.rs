@@ -21,6 +21,9 @@ fn test_compile_and_consume_micro_feed() {
     let consumer = Consumer::new(&mmap).expect("Failed to load graph");
 
     assert_eq!(consumer.trips.len(), 1);
+    assert_eq!(consumer.stops.len(), 5);
+    assert_eq!(consumer.stop_times.len(), 2);
+    assert_eq!(consumer.routes.len(), 1);
 
     std::fs::remove_file(temp_file_path).unwrap();
 }

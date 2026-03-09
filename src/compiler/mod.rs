@@ -1,9 +1,12 @@
-use crate::models::SliceBuilder;
 use crate::{
     GTFS_BIN_VERSION,
-    consumer::{Header, Section},
-    models::{Route, RouteIdx, Stop, StopIdx, StopTime, StopTimeSlice, Trip, TripIdx, TripSlice},
+    compiler::writer::BinaryWriter,
+    models::{
+        Header, Route, RouteIdx, SliceBuilder, Stop, StopIdx, StopTime, StopTimeSlice, Trip,
+        TripIdx, TripSlice,
+    },
 };
+use bytemuck::bytes_of;
 use gtfs_structures::RawGtfs;
 use std::path::{Path, PathBuf};
 
@@ -11,6 +14,7 @@ mod routes;
 mod stops;
 mod stoptimes;
 mod trips;
+mod writer;
 
 /// Compiles the .gtfs file
 #[derive(Debug, Default)]
@@ -81,118 +85,31 @@ impl Compiler {
         self.build_stop_to_trips();
         self.build_route_to_trips();
 
-        let header = self.build_header();
+        let mut writer = BinaryWriter::new().resize(size_of::<Header>());
 
-        let total_bytes = header.trip_to_stop_times.offset
-            + (header.trip_to_stop_times.count * std::mem::size_of::<StopTimeSlice>() as u64);
-
-        let mut binary_data = Vec::with_capacity(total_bytes as usize);
-
-        let mut append = |slice: &[u8]| {
-            let remainder = binary_data.len() % 8;
-            if remainder != 0 {
-                binary_data.resize(binary_data.len() + (8 - remainder), 0);
-            }
-            binary_data.extend_from_slice(slice);
-        };
-
-        // Write Header
-        append(bytemuck::bytes_of(&header));
-
-        // Write Stops
-        append(bytemuck::cast_slice(&self.stops));
-        append(self.stop_ids.as_bytes());
-        append(bytemuck::cast_slice(&self.stop_id_lookup));
-
-        // Write Routes
-        append(bytemuck::cast_slice(&self.routes));
-        append(self.route_ids.as_bytes());
-        append(bytemuck::cast_slice(&self.route_id_lookup));
-
-        // Write Trips
-        append(bytemuck::cast_slice(&self.trips));
-        append(self.trip_ids.as_bytes());
-        append(bytemuck::cast_slice(&self.trip_id_lookup));
-
-        // Write Stop Times
-        append(bytemuck::cast_slice(&self.stop_times));
-
-        // Write Lookups
-        append(bytemuck::cast_slice(&self.route_to_trips));
-        append(bytemuck::cast_slice(&self.route_to_trips_lookup));
-        append(bytemuck::cast_slice(&self.stop_to_trips));
-        append(bytemuck::cast_slice(&self.stop_to_trips_lookup));
-        append(bytemuck::cast_slice(&self.trip_to_stop_times));
-
-        Ok(binary_data)
-    }
-
-    fn build_header(&self) -> Header {
-        let mut header = Header {
+        let header = Header {
             magic: *b"GTFS",
             version: GTFS_BIN_VERSION,
-            ..Default::default()
+            stops: writer.write_section(&self.stops),
+            stop_ids: writer.write_section(self.stop_ids.as_bytes()),
+            stop_id_lookup: writer.write_section(&self.stop_id_lookup),
+            routes: writer.write_section(&self.routes),
+            route_ids: writer.write_section(self.route_ids.as_bytes()),
+            route_id_lookup: writer.write_section(&self.route_id_lookup),
+            trips: writer.write_section(&self.trips),
+            trip_ids: writer.write_section(self.trip_ids.as_bytes()),
+            trip_id_lookup: writer.write_section(&self.trip_id_lookup),
+            stop_times: writer.write_section(&self.stop_times),
+            route_to_trips: writer.write_section(&self.route_to_trips),
+            route_to_trips_lookup: writer.write_section(&self.route_to_trips_lookup),
+            stop_to_trips: writer.write_section(&self.stop_to_trips),
+            stop_to_trips_lookup: writer.write_section(&self.stop_to_trips_lookup),
+            trip_to_stop_times: writer.write_section(&self.trip_to_stop_times),
+            transfers: writer.write_section(&[0_u8; 8]),
+            calendars: writer.write_section(&[0_u8; 8]),
         };
+        writer.overwrite(0, bytes_of(&header));
 
-        let mut current_offset = std::mem::size_of::<Header>() as u64;
-
-        // A quick helper closure to fill a section and bump the offset
-        let mut add_section = |count: usize, element_size: usize| -> Section {
-            let remainder = current_offset % 8;
-            if remainder != 0 {
-                current_offset += 8 - remainder;
-            }
-
-            let section = Section {
-                offset: current_offset,
-                count: count as u64,
-            };
-
-            current_offset += (count * element_size) as u64;
-            section
-        };
-
-        // Stops
-        header.stops = add_section(self.stops.len(), std::mem::size_of::<Stop>());
-        header.stop_ids = add_section(self.stop_ids.len(), std::mem::size_of::<u8>());
-        header.stop_id_lookup =
-            add_section(self.stop_id_lookup.len(), std::mem::size_of::<StopIdx>());
-
-        // Routes
-        header.routes = add_section(self.routes.len(), std::mem::size_of::<Route>());
-        header.route_ids = add_section(self.route_ids.len(), std::mem::size_of::<u8>());
-        header.route_id_lookup =
-            add_section(self.route_id_lookup.len(), std::mem::size_of::<RouteIdx>());
-
-        // Trips
-        header.trips = add_section(self.trips.len(), std::mem::size_of::<Trip>());
-        header.trip_ids = add_section(self.trip_ids.len(), std::mem::size_of::<u8>());
-        header.trip_id_lookup =
-            add_section(self.trip_id_lookup.len(), std::mem::size_of::<TripIdx>());
-
-        // Stop Times
-        header.stop_times = add_section(self.stop_times.len(), std::mem::size_of::<StopTime>());
-
-        // Lookups and Relationships
-        header.route_to_trips =
-            add_section(self.route_to_trips.len(), std::mem::size_of::<TripSlice>());
-        header.route_to_trips_lookup = add_section(
-            self.route_to_trips_lookup.len(),
-            std::mem::size_of::<TripIdx>(),
-        );
-
-        header.stop_to_trips =
-            add_section(self.stop_to_trips.len(), std::mem::size_of::<TripSlice>());
-        header.stop_to_trips_lookup = add_section(
-            self.stop_to_trips_lookup.len(),
-            std::mem::size_of::<TripIdx>(),
-        );
-
-        header.trip_to_stop_times = add_section(
-            self.trip_to_stop_times.len(),
-            std::mem::size_of::<StopTimeSlice>(),
-        );
-
-        header
+        Ok(writer.take())
     }
 }

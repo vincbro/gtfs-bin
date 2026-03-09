@@ -3,3 +3,4 @@
 *.zip
 *.gtfs
 !/tests/fixtures/gtfs.zip
+todo.md

@@ -8,6 +8,7 @@
 mod coordinate;
 mod date;
 mod distance;
+mod header;
 mod idx;
 mod opt;
 mod route;
@@ -24,6 +25,7 @@ mod trip;
 pub use coordinate::*;
 pub use date::*;
 pub use distance::*;
+pub use header::*;
 pub use idx::*;
 pub use opt::*;
 pub use route::*;

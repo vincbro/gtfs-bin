@@ -1,16 +1,17 @@
 use crate::{
     GTFS_BIN_VERSION,
-    models::{Route, RouteIdx, Stop, StopIdx, StopTime, StopTimeSlice, Trip, TripIdx, TripSlice},
+    models::{
+        Header, Route, RouteIdx, Section, Stop, StopIdx, StopTime, StopTimeSlice, Trip, TripIdx,
+        TripSlice,
+    },
 };
 use bytemuck::{cast_slice, from_bytes};
 use memmap2::Mmap;
 
-mod header;
 mod routes;
 mod stops;
 mod stoptimes;
 mod trips;
-pub use header::*;
 
 #[derive(Debug)]
 pub struct Consumer<'a> {
@@ -96,7 +97,7 @@ impl<'a> Consumer<'a> {
             )),
 
             trip_to_stop_times: cast_slice(get_bytes(
-                header.stop_to_trips_lookup,
+                header.trip_to_stop_times,
                 size_of::<StopTimeSlice>(),
             )),
         })
