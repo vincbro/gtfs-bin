@@ -1,10 +1,13 @@
 use crate::{
     GTFS_BIN_VERSION,
-    compiler::writer::BinaryWriter,
-    models::{
-        Header, Route, RouteIdx, SliceBuilder, Stop, StopIdx, StopTime, StopTimeSlice, Trip,
-        TripIdx, TripSlice,
+    compiler::{
+        routes::{build_route_ids, build_route_to_trips, build_routes},
+        stops::{build_stop_ids, build_stop_to_trips, build_stops},
+        stoptimes::build_stop_times,
+        trips::{build_trip_ids, build_trips},
+        writer::BinaryWriter,
     },
+    models::{Header, SliceBuilder},
 };
 use bytemuck::bytes_of;
 use gtfs_structures::RawGtfs;
@@ -20,91 +23,56 @@ mod writer;
 #[derive(Debug, Default)]
 pub struct Compiler {
     path: PathBuf,
-
-    stops: Vec<Stop>,
-    stop_id_lookup: Vec<StopIdx>,
-    stop_ids: String,
-
-    routes: Vec<Route>,
-    route_id_lookup: Vec<RouteIdx>,
-    route_ids: String,
-
-    trips: Vec<Trip>,
-    trip_id_lookup: Vec<TripIdx>,
-    trip_ids: String,
-
-    stop_times: Vec<StopTime>,
-
-    // One to many route -> trips
-    route_to_trips: Vec<TripSlice>,
-    route_to_trips_lookup: Vec<TripIdx>,
-
-    // One to many stop -> trips
-    stop_to_trips: Vec<TripSlice>,
-    stop_to_trips_lookup: Vec<TripIdx>,
-
-    // One to one slice trip -> stop times
-    trip_to_stop_times: Vec<StopTimeSlice>,
 }
 
 impl Compiler {
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         Self {
             path: path.as_ref().to_path_buf(),
-            stops: vec![],
-            stop_id_lookup: vec![],
-            stop_ids: String::new(),
-            routes: vec![],
-            route_id_lookup: vec![],
-            route_ids: String::new(),
-            trips: vec![],
-            trip_id_lookup: vec![],
-            trip_ids: String::new(),
-            stop_times: vec![],
-            route_to_trips: vec![],
-            route_to_trips_lookup: vec![],
-            stop_to_trips: vec![],
-            stop_to_trips_lookup: vec![],
-            trip_to_stop_times: vec![],
         }
     }
 
-    pub fn compile(mut self) -> Result<Vec<u8>, gtfs_structures::Error> {
+    pub fn compile(&self) -> Result<Vec<u8>, gtfs_structures::Error> {
         let gtfs = RawGtfs::from_path(&self.path)?;
         let mut slice_builder = SliceBuilder::new();
 
         let raw_stops = gtfs.stops?;
-        self.build_stops(&raw_stops, &mut slice_builder)?;
+        let (mut stops, stop_map) = build_stops(&raw_stops, &mut slice_builder)?;
         let raw_routes = gtfs.routes?;
-        self.build_routes(&raw_routes, &mut slice_builder)?;
+        let (mut routes, route_map) = build_routes(&raw_routes, &mut slice_builder)?;
         let raw_trips = gtfs.trips?;
-        self.build_trips(&raw_trips, &mut slice_builder)?;
+        let (mut trips, trip_map) = build_trips(&raw_trips, &route_map, &mut slice_builder)?;
         let raw_stop_times = gtfs.stop_times?;
-        self.build_stop_times(&raw_stop_times, &mut slice_builder)?;
+        let (stop_times, trip_to_stop_times) =
+            build_stop_times(&raw_stop_times, &trip_map, &stop_map, &mut slice_builder)?;
 
-        self.build_stop_to_trips();
-        self.build_route_to_trips();
+        let (stop_to_trips, stop_to_trips_lookup) = build_stop_to_trips(&stops, &stop_times);
+        let (route_to_trips, route_to_trips_lookup) = build_route_to_trips(&trips, &routes);
+
+        let (stop_id_lookup, stop_ids) = build_stop_ids(&mut stops, &stop_map);
+        let (route_id_lookup, route_ids) = build_route_ids(&mut routes, &route_map);
+        let (trip_id_lookup, trip_ids) = build_trip_ids(&mut trips, &trip_map);
 
         let mut writer = BinaryWriter::new().resize(size_of::<Header>());
 
         let header = Header {
             magic: *b"GTFS",
             version: GTFS_BIN_VERSION,
-            stops: writer.write_section(&self.stops),
-            stop_ids: writer.write_section(self.stop_ids.as_bytes()),
-            stop_id_lookup: writer.write_section(&self.stop_id_lookup),
-            routes: writer.write_section(&self.routes),
-            route_ids: writer.write_section(self.route_ids.as_bytes()),
-            route_id_lookup: writer.write_section(&self.route_id_lookup),
-            trips: writer.write_section(&self.trips),
-            trip_ids: writer.write_section(self.trip_ids.as_bytes()),
-            trip_id_lookup: writer.write_section(&self.trip_id_lookup),
-            stop_times: writer.write_section(&self.stop_times),
-            route_to_trips: writer.write_section(&self.route_to_trips),
-            route_to_trips_lookup: writer.write_section(&self.route_to_trips_lookup),
-            stop_to_trips: writer.write_section(&self.stop_to_trips),
-            stop_to_trips_lookup: writer.write_section(&self.stop_to_trips_lookup),
-            trip_to_stop_times: writer.write_section(&self.trip_to_stop_times),
+            stops: writer.write_section(&stops),
+            stop_ids: writer.write_section(stop_ids.as_bytes()),
+            stop_id_lookup: writer.write_section(&stop_id_lookup),
+            routes: writer.write_section(&routes),
+            route_ids: writer.write_section(route_ids.as_bytes()),
+            route_id_lookup: writer.write_section(&route_id_lookup),
+            trips: writer.write_section(&trips),
+            trip_ids: writer.write_section(trip_ids.as_bytes()),
+            trip_id_lookup: writer.write_section(&trip_id_lookup),
+            stop_times: writer.write_section(&stop_times),
+            route_to_trips: writer.write_section(&route_to_trips),
+            route_to_trips_lookup: writer.write_section(&route_to_trips_lookup),
+            stop_to_trips: writer.write_section(&stop_to_trips),
+            stop_to_trips_lookup: writer.write_section(&stop_to_trips_lookup),
+            trip_to_stop_times: writer.write_section(&trip_to_stop_times),
             transfers: writer.write_section(&[0_u8; 8]),
             calendars: writer.write_section(&[0_u8; 8]),
         };

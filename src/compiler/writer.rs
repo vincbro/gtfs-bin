@@ -11,12 +11,6 @@ impl BinaryWriter {
         Self::default()
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            buffer: Vec::with_capacity(capacity),
-        }
-    }
-
     pub fn resize(mut self, size: usize) -> Self {
         self.buffer.resize(self.buffer.len() + size, 0);
         self.align();
