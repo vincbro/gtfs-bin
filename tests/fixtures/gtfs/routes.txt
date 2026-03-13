@@ -1,2 +1,5 @@
 route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
 route1,848,"100","100","",3,,000000,FFFFFF
+route2,848,"200","200","",3,,FF0000,FFFFFF
+route3,848,"M1","Metro Line 1","",1,,00FF00,000000
+route4,848,"F1","Ferry Line 1","",4,,0000FF,FFFFFF
