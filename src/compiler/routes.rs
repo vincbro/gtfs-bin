@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
-use rayon::slice::ParallelSliceMut;
-
 use crate::models::{
     Route, RouteIdSlice, RouteIdx, Sentinel, Slice, SliceBuilder, StringSlice, Trip, TripIdx,
     TripSlice,
 };
+use rayon::slice::ParallelSliceMut;
+use std::collections::HashMap;
 
 pub(crate) fn build_routes(
     raw_routes: &[gtfs_structures::Route],
@@ -69,16 +67,17 @@ pub(crate) fn build_route_ids(
 pub(crate) fn build_route_to_trips(
     trips: &[Trip],
     routes: &[Route],
-) -> (Vec<TripSlice>, Vec<TripIdx>) {
+) -> (Vec<TripIdx>, Vec<TripSlice>) {
     let mut route_trip_pairs: Vec<(RouteIdx, TripIdx)> = trips
         .iter()
         .map(|trip| (trip.route_idx, trip.idx))
         .collect();
 
-    route_trip_pairs.par_sort_unstable_by_key(|&(route_idx, _)| route_idx);
+    route_trip_pairs.par_sort_unstable();
 
-    let mut route_to_trips = vec![TripSlice::NONE; routes.len()];
-    let mut route_to_trips_lookup = Vec::with_capacity(route_trip_pairs.len());
+    // Swapped the variable names here:
+    let mut route_to_trips = Vec::with_capacity(route_trip_pairs.len());
+    let mut route_to_trips_lookup = vec![TripSlice::NONE; routes.len()];
 
     let mut current_route = RouteIdx::NONE;
     let mut start = 0;
@@ -87,18 +86,18 @@ pub(crate) fn build_route_to_trips(
     for (i, &(route_idx, trip_idx)) in route_trip_pairs.iter().enumerate() {
         if route_idx != current_route {
             if current_route != RouteIdx::NONE {
-                route_to_trips[current_route.to_usize()] = TripSlice { start, count };
+                route_to_trips_lookup[current_route.to_usize()] = TripSlice { start, count };
             }
             start = i as u32;
             count = 0;
             current_route = route_idx;
         }
-        route_to_trips_lookup.push(trip_idx);
+        route_to_trips.push(trip_idx);
         count += 1;
     }
 
     if current_route != RouteIdx::NONE {
-        route_to_trips[current_route.to_usize()] = TripSlice { start, count };
+        route_to_trips_lookup[current_route.to_usize()] = TripSlice { start, count };
     }
 
     (route_to_trips, route_to_trips_lookup)

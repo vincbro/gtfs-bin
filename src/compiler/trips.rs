@@ -15,14 +15,14 @@ pub(crate) fn build_trips(
 
     let trips: Vec<_> = raw_trips
         .iter()
-        .enumerate()
-        .filter_map(|(i, trip)| {
+        .filter_map(|trip| {
             route_map
                 .get(&trip.route_id)
                 .copied()
-                .map(|idx| (i, trip, idx))
+                .map(|idx| (trip, idx))
         })
-        .map(|(i, trip, route_idx)| {
+        .enumerate()
+        .map(|(i, (trip, route_idx))| {
             let idx = TripIdx(i as u32);
             id_map.insert(trip.id.clone(), idx);
             Trip {

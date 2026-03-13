@@ -16,7 +16,7 @@ impl<'a> Consumer<'a> {
                 self.stop_id(stop.id).cmp(id)
             })
             .ok()
-            .map(|idx| &self.stops[idx])
+            .map(|idx| self.stop(self.stops_id_lookup[idx]))
     }
 
     #[inline]

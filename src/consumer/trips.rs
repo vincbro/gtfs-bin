@@ -16,7 +16,7 @@ impl<'a> Consumer<'a> {
                 self.trip_id(trip.id).cmp(id)
             })
             .ok()
-            .map(|idx| &self.trips[idx])
+            .map(|idx| self.trip(self.trips_id_lookup[idx]))
     }
 
     #[inline(always)]

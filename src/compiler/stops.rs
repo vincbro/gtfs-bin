@@ -89,18 +89,18 @@ pub(crate) fn build_stop_ids(
 pub(crate) fn build_stop_to_trips(
     stops: &[Stop],
     stop_times: &[StopTime],
-) -> (Vec<TripSlice>, Vec<TripIdx>) {
+) -> (Vec<TripIdx>, Vec<TripSlice>) {
     let mut stop_trip_pairs: Vec<(StopIdx, TripIdx)> = stop_times
         .iter()
         .map(|st| (st.stop_idx, st.trip_idx))
         .collect();
 
     stop_trip_pairs.par_sort_unstable();
-
     stop_trip_pairs.dedup();
 
-    let mut stop_to_trips = vec![TripSlice::NONE; stops.len()];
-    let mut stop_to_trips_lookup = Vec::with_capacity(stop_trip_pairs.len());
+    // Swapped the internal variable initializations
+    let mut stop_to_trips = Vec::with_capacity(stop_trip_pairs.len());
+    let mut stop_to_trips_lookup = vec![TripSlice::NONE; stops.len()];
 
     let mut current_stop = StopIdx::NONE;
     let mut start = 0;
@@ -109,18 +109,18 @@ pub(crate) fn build_stop_to_trips(
     for (i, &(stop_idx, trip_idx)) in stop_trip_pairs.iter().enumerate() {
         if stop_idx != current_stop {
             if current_stop != StopIdx::NONE {
-                stop_to_trips[current_stop.to_usize()] = TripSlice { start, count };
+                stop_to_trips_lookup[current_stop.to_usize()] = TripSlice { start, count };
             }
             start = i as u32;
             count = 0;
             current_stop = stop_idx;
         }
-        stop_to_trips_lookup.push(trip_idx);
+        stop_to_trips.push(trip_idx);
         count += 1;
     }
 
     if current_stop != StopIdx::NONE {
-        stop_to_trips[current_stop.to_usize()] = TripSlice { start, count };
+        stop_to_trips_lookup[current_stop.to_usize()] = TripSlice { start, count };
     }
 
     (stop_to_trips, stop_to_trips_lookup)

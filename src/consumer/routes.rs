@@ -16,7 +16,7 @@ impl<'a> Consumer<'a> {
                 self.route_id(route.id).cmp(id)
             })
             .ok()
-            .map(|idx| &self.routes[idx])
+            .map(|idx| self.route(self.routes_id_lookup[idx]))
     }
 
     #[inline]
