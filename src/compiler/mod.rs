@@ -4,6 +4,7 @@ use crate::{
         routes::{build_route_ids, build_route_to_trips, build_routes},
         stops::{build_stop_ids, build_stop_to_trips, build_stops},
         stoptimes::build_stop_times,
+        transfers::build_transfers,
         trips::{build_trip_ids, build_trips},
         writer::BinaryWriter,
     },
@@ -51,6 +52,14 @@ impl Compiler {
         let (stop_times, trip_to_stop_times) =
             build_stop_times(&raw_stop_times, &trip_map, &stop_map, &mut slice_builder)?;
 
+        let (transfers, stop_to_transfers_out, transfers_in_indencies, stop_to_transfers_in) =
+            if let Some(raw_transfers) = gtfs.transfers {
+                let raw_transfers = raw_transfers?;
+                build_transfers(&raw_transfers, &stop_map)
+            } else {
+                (vec![], vec![], vec![], vec![])
+            };
+
         let (stop_to_trips, stop_to_trips_lookup) = build_stop_to_trips(&stops, &stop_times);
         let (route_to_trips, route_to_trips_lookup) = build_route_to_trips(&trips, &routes);
 
@@ -65,7 +74,7 @@ impl Compiler {
             version: GTFS_BIN_VERSION,
             stops: writer.write_section(&stops),
             stop_ids: writer.write_section(stop_ids.as_bytes()),
-            stop_id_lookup: writer.write_section(&stop_id_lookup),
+            stops_id_lookup: writer.write_section(&stop_id_lookup),
             routes: writer.write_section(&routes),
             route_ids: writer.write_section(route_ids.as_bytes()),
             route_id_lookup: writer.write_section(&route_id_lookup),
@@ -78,7 +87,10 @@ impl Compiler {
             stop_to_trips: writer.write_section(&stop_to_trips),
             stop_to_trips_lookup: writer.write_section(&stop_to_trips_lookup),
             trip_to_stop_times: writer.write_section(&trip_to_stop_times),
-            transfers: writer.write_section(&[0_u8; 8]),
+            transfers: writer.write_section(&transfers),
+            stop_to_transfers_out: writer.write_section(&stop_to_transfers_out),
+            transfers_in_indencies: writer.write_section(&transfers_in_indencies),
+            stop_to_transfers_in: writer.write_section(&stop_to_transfers_in),
             calendars: writer.write_section(&[0_u8; 8]),
         };
         writer.overwrite(0, bytes_of(&header));

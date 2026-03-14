@@ -1,16 +1,19 @@
 use crate::{
     GTFS_BIN_VERSION,
+    consumer::reader::Reader,
     models::{
-        Header, Route, RouteIdx, Section, Stop, StopIdx, StopTime, StopTimeSlice, Trip, TripIdx,
-        TripSlice,
+        Header, Route, RouteIdx, Stop, StopIdx, StopTime, StopTimeSlice, Transfer, TransferIdx,
+        TransferSlice, Trip, TripIdx, TripSlice,
     },
 };
-use bytemuck::{cast_slice, from_bytes};
+use bytemuck::from_bytes;
 use memmap2::Mmap;
 
+mod reader;
 mod routes;
 mod stops;
 mod stoptimes;
+mod transfers;
 mod trips;
 
 #[derive(Debug)]
@@ -30,9 +33,6 @@ pub struct Consumer<'a> {
     pub trips_id_lookup: &'a [TripIdx],
     pub trip_ids: &'a [u8],
 
-    // Stop times
-    pub stop_times: &'a [StopTime],
-
     // Mappings
     pub route_to_trips: &'a [TripIdx],
     pub route_to_trips_lookup: &'a [TripSlice],
@@ -40,7 +40,15 @@ pub struct Consumer<'a> {
     pub stop_to_trips: &'a [TripIdx],
     pub stop_to_trips_lookup: &'a [TripSlice],
 
+    // Stop times
+    pub stop_times: &'a [StopTime],
     pub trip_to_stop_times: &'a [StopTimeSlice],
+
+    // Transfer
+    pub transfers: &'a [Transfer],
+    pub stop_to_transfer_out: &'a [TransferSlice],
+    pub transfers_in_indencies: &'a [TransferIdx],
+    pub stop_to_transfer_in: &'a [TransferSlice],
 }
 
 impl<'a> Consumer<'a> {
@@ -63,43 +71,35 @@ impl<'a> Consumer<'a> {
             });
         }
 
-        let get_bytes = |section: Section, element_size: usize| -> &'a [u8] {
-            let start = section.offset as usize;
-            let end = start + (section.count as usize * element_size);
-            &mmap[start..end]
-        };
+        let reader = Reader::new(mmap);
 
         Ok(Self {
-            stops: cast_slice(get_bytes(header.stops, size_of::<Stop>())),
-            stop_ids: get_bytes(header.stop_ids, size_of::<u8>()),
-            stops_id_lookup: cast_slice(get_bytes(header.stop_id_lookup, size_of::<StopIdx>())),
+            stops: reader.cast_slice(header.stops),
+            stop_ids: reader.get_bytes::<u8>(header.stop_ids),
+            stops_id_lookup: reader.cast_slice(header.stops_id_lookup),
 
-            routes: cast_slice(get_bytes(header.routes, size_of::<Route>())),
-            route_ids: get_bytes(header.route_ids, size_of::<u8>()),
-            routes_id_lookup: cast_slice(get_bytes(header.route_id_lookup, size_of::<StopIdx>())),
+            routes: reader.cast_slice(header.routes),
+            route_ids: reader.get_bytes::<u8>(header.route_ids),
+            routes_id_lookup: reader.cast_slice(header.route_id_lookup),
 
-            trips: cast_slice(get_bytes(header.trips, size_of::<Trip>())),
-            trip_ids: get_bytes(header.trip_ids, size_of::<u8>()),
-            trips_id_lookup: cast_slice(get_bytes(header.trip_id_lookup, size_of::<StopIdx>())),
+            trips: reader.cast_slice(header.trips),
+            trip_ids: reader.get_bytes::<u8>(header.trip_ids),
+            trips_id_lookup: reader.cast_slice(header.trip_id_lookup),
 
-            stop_times: cast_slice(get_bytes(header.stop_times, size_of::<StopTime>())),
+            stop_times: reader.cast_slice(header.stop_times),
 
-            route_to_trips: cast_slice(get_bytes(header.route_to_trips, size_of::<TripIdx>())),
-            route_to_trips_lookup: cast_slice(get_bytes(
-                header.route_to_trips_lookup,
-                size_of::<TripSlice>(),
-            )),
+            route_to_trips: reader.cast_slice(header.route_to_trips),
+            route_to_trips_lookup: reader.cast_slice(header.route_to_trips_lookup),
 
-            stop_to_trips: cast_slice(get_bytes(header.stop_to_trips, size_of::<TripIdx>())),
-            stop_to_trips_lookup: cast_slice(get_bytes(
-                header.stop_to_trips_lookup,
-                size_of::<TripSlice>(),
-            )),
+            stop_to_trips: reader.cast_slice(header.stop_to_trips),
+            stop_to_trips_lookup: reader.cast_slice(header.stop_to_trips_lookup),
 
-            trip_to_stop_times: cast_slice(get_bytes(
-                header.trip_to_stop_times,
-                size_of::<StopTimeSlice>(),
-            )),
+            trip_to_stop_times: reader.cast_slice(header.trip_to_stop_times),
+
+            transfers: reader.cast_slice(header.transfers),
+            stop_to_transfer_out: reader.cast_slice(header.stop_to_transfers_out),
+            transfers_in_indencies: reader.cast_slice(header.transfers_in_indencies),
+            stop_to_transfer_in: reader.cast_slice(header.stop_to_transfers_in),
         })
     }
 }
