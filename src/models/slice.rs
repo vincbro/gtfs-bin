@@ -51,6 +51,7 @@ define_slice!(StringSlice);
 define_slice!(StopIdSlice);
 define_slice!(RouteIdSlice);
 define_slice!(TripIdSlice);
+define_slice!(ServiceIdSlice);
 
 define_slice!(TripSlice);
 define_slice!(RouteSlice);
