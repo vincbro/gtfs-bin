@@ -57,6 +57,7 @@ define_slice!(TripSlice);
 define_slice!(RouteSlice);
 define_slice!(StopTimeSlice);
 define_slice!(StopSlice);
+define_slice!(TransferSlice);
 
 #[derive(Default)]
 pub struct SliceBuilder<T: Slice> {

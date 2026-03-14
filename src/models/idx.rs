@@ -43,3 +43,4 @@ define_index!(TripIdx);
 define_index!(RouteIdx);
 define_index!(StopTimeIdx);
 define_index!(ServiceIdx);
+define_index!(TransferIdx);
