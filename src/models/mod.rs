@@ -17,6 +17,7 @@ mod slice;
 mod stop;
 mod stoptime;
 mod time;
+mod transfer;
 mod trip;
 
 pub use coordinate::*;
@@ -31,4 +32,5 @@ pub use slice::*;
 pub use stop::*;
 pub use stoptime::*;
 pub use time::*;
+pub use transfer::*;
 pub use trip::*;
