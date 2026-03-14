@@ -17,6 +17,7 @@ mod routes;
 mod services;
 mod stops;
 mod stoptimes;
+mod transfers;
 mod trips;
 mod writer;
 
