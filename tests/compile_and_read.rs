@@ -208,3 +208,85 @@ fn test_stop_to_trips_mapping() {
     assert_eq!(stop6_trips.len(), 2);
     assert_eq!(stop8_trips.len(), 2);
 }
+
+#[test]
+fn test_transfers_count() {
+    let (_file, mmap) = compile_test();
+    let consumer = Consumer::new(&mmap).expect("Failed to load graph");
+
+    assert_eq!(consumer.transfers.len(), 6);
+}
+
+#[test]
+fn test_outbound_transfers() {
+    let (_file, mmap) = compile_test();
+    let consumer = Consumer::new(&mmap).expect("Failed to load graph");
+
+    let stop5 = consumer.stop_by_id("stop5").unwrap();
+    let stop10 = consumer.stop_by_id("stop10").unwrap();
+    let stop8 = consumer.stop_by_id("stop8").unwrap();
+    let stop2 = consumer.stop_by_id("stop2").unwrap();
+
+    let outbound_from_stop5: Vec<_> = consumer.outbound_transfers(stop5.idx).to_vec();
+    assert_eq!(outbound_from_stop5.len(), 1);
+    assert_eq!(
+        consumer.stop_id(consumer.stop(outbound_from_stop5[0].to_stop_idx).id),
+        "stop1"
+    );
+    assert_eq!(outbound_from_stop5[0].transfer_type, 0);
+
+    let outbound_from_stop10: Vec<_> = consumer.outbound_transfers(stop10.idx).to_vec();
+    assert_eq!(outbound_from_stop10.len(), 1);
+    assert_eq!(
+        consumer.stop_id(consumer.stop(outbound_from_stop10[0].to_stop_idx).id),
+        "stop6"
+    );
+    assert_eq!(outbound_from_stop10[0].transfer_type, 1);
+
+    let outbound_from_stop8: Vec<_> = consumer.outbound_transfers(stop8.idx).to_vec();
+    assert_eq!(outbound_from_stop8.len(), 1);
+    assert_eq!(
+        consumer.stop_id(consumer.stop(outbound_from_stop8[0].to_stop_idx).id),
+        "stop12"
+    );
+    assert_eq!(outbound_from_stop8[0].transfer_type, 2);
+
+    let outbound_from_stop2: Vec<_> = consumer.outbound_transfers(stop2.idx).to_vec();
+    assert_eq!(outbound_from_stop2.len(), 1);
+    assert_eq!(
+        consumer.stop_id(consumer.stop(outbound_from_stop2[0].to_stop_idx).id),
+        "stop9"
+    );
+    assert_eq!(outbound_from_stop2[0].transfer_type, 0);
+}
+
+#[test]
+fn test_inbound_transfers() {
+    let (_file, mmap) = compile_test();
+    let consumer = Consumer::new(&mmap).expect("Failed to load graph");
+
+    let stop1 = consumer.stop_by_id("stop1").unwrap();
+    let stop6 = consumer.stop_by_id("stop6").unwrap();
+    let stop12 = consumer.stop_by_id("stop12").unwrap();
+
+    let inbound_to_stop1: Vec<_> = consumer.iter_inbound_transfers(stop1.idx).collect();
+    assert_eq!(inbound_to_stop1.len(), 1);
+    assert_eq!(
+        consumer.stop_id(consumer.stop(inbound_to_stop1[0].from_stop_idx).id),
+        "stop5"
+    );
+
+    let inbound_to_stop6: Vec<_> = consumer.iter_inbound_transfers(stop6.idx).collect();
+    assert_eq!(inbound_to_stop6.len(), 1);
+    assert_eq!(
+        consumer.stop_id(consumer.stop(inbound_to_stop6[0].from_stop_idx).id),
+        "stop10"
+    );
+
+    let inbound_to_stop12: Vec<_> = consumer.iter_inbound_transfers(stop12.idx).collect();
+    assert_eq!(inbound_to_stop12.len(), 1);
+    assert_eq!(
+        consumer.stop_id(consumer.stop(inbound_to_stop12[0].from_stop_idx).id),
+        "stop8"
+    );
+}

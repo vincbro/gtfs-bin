@@ -67,13 +67,13 @@ pub(crate) fn build_transfers(
     let mut count = 0;
     for (i, transfer_idx) in transfers_in_indencies.iter().enumerate() {
         let transfer = &transfers[transfer_idx.to_usize()];
-        if transfer.from_stop_idx != current_stop {
+        if transfer.to_stop_idx != current_stop {
             if current_stop != StopIdx::NONE {
                 stop_to_transfers_in[current_stop.to_usize()] = TransferSlice { start, count };
             }
             start = i as u32;
             count = 0;
-            current_stop = transfer.from_stop_idx;
+            current_stop = transfer.to_stop_idx;
         }
         count += 1;
     }
