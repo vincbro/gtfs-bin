@@ -14,6 +14,7 @@ use gtfs_structures::RawGtfs;
 use std::path::{Path, PathBuf};
 
 mod routes;
+mod services;
 mod stops;
 mod stoptimes;
 mod trips;
@@ -38,10 +39,13 @@ impl Compiler {
 
         let raw_stops = gtfs.stops?;
         let (mut stops, stop_map) = build_stops(&raw_stops, &mut slice_builder)?;
+
         let raw_routes = gtfs.routes?;
         let (mut routes, route_map) = build_routes(&raw_routes, &mut slice_builder)?;
+
         let raw_trips = gtfs.trips?;
         let (mut trips, trip_map) = build_trips(&raw_trips, &route_map, &mut slice_builder)?;
+
         let raw_stop_times = gtfs.stop_times?;
         let (stop_times, trip_to_stop_times) =
             build_stop_times(&raw_stop_times, &trip_map, &stop_map, &mut slice_builder)?;
