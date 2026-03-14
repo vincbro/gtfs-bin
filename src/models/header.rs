@@ -15,7 +15,7 @@ pub struct Header {
 
     pub stops: Section,
     pub stop_ids: Section,
-    pub stop_id_lookup: Section,
+    pub stops_id_lookup: Section,
 
     pub routes: Section,
     pub route_ids: Section,
@@ -25,17 +25,20 @@ pub struct Header {
     pub trip_ids: Section,
     pub trip_id_lookup: Section,
 
-    pub stop_times: Section,
+    pub stop_to_trips: Section,
+    pub stop_to_trips_lookup: Section,
 
     pub route_to_trips: Section,
     pub route_to_trips_lookup: Section,
 
-    pub stop_to_trips: Section,
-    pub stop_to_trips_lookup: Section,
-
+    pub stop_times: Section,
     pub trip_to_stop_times: Section,
 
     pub transfers: Section,
+    pub stop_to_transfers_out: Section,
+    pub transfers_in_indencies: Section,
+    pub stop_to_transfers_in: Section,
+
     pub calendars: Section,
 }
 
