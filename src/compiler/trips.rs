@@ -9,6 +9,7 @@ use crate::models::{
 pub(crate) fn build_trips(
     raw_trips: &[gtfs_structures::RawTrip],
     route_map: &HashMap<String, RouteIdx>,
+    service_map: &HashMap<String, ServiceIdx>,
     slice_builder: &mut SliceBuilder<StringSlice>,
 ) -> Result<(Vec<Trip>, HashMap<String, TripIdx>), gtfs_structures::Error> {
     let mut id_map: HashMap<String, TripIdx> = HashMap::new();
@@ -25,6 +26,12 @@ pub(crate) fn build_trips(
         .map(|(i, (trip, route_idx))| {
             let idx = TripIdx(i as u32);
             id_map.insert(trip.id.clone(), idx);
+
+            let service_idx = service_map
+                .get(&trip.service_id)
+                .copied()
+                .unwrap_or(ServiceIdx::NONE);
+
             Trip {
                 id: TripIdSlice::NONE,
                 idx,
@@ -34,7 +41,7 @@ pub(crate) fn build_trips(
                     .map(|hs| slice_builder.add(hs))
                     .into(),
                 route_idx,
-                service_idx: ServiceIdx::NONE,
+                service_idx,
                 short_name: trip
                     .trip_short_name
                     .as_ref()

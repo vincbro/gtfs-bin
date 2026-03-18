@@ -2,6 +2,7 @@ use crate::{
     GTFS_BIN_VERSION,
     compiler::{
         routes::{build_route_ids, build_route_to_trips, build_routes},
+        services::build_services,
         stops::{build_stop_ids, build_stop_to_trips, build_stops},
         stoptimes::build_stop_times,
         transfers::build_transfers,
@@ -12,7 +13,10 @@ use crate::{
 };
 use bytemuck::bytes_of;
 use gtfs_structures::RawGtfs;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 mod routes;
 mod services;
@@ -45,8 +49,16 @@ impl Compiler {
         let raw_routes = gtfs.routes?;
         let (mut routes, route_map) = build_routes(&raw_routes, &mut slice_builder)?;
 
+        let (_service, service_map) = if let Some(raw_services) = gtfs.calendar {
+            let raw_services = raw_services?;
+            build_services(&raw_services)
+        } else {
+            (vec![], HashMap::new())
+        };
+
         let raw_trips = gtfs.trips?;
-        let (mut trips, trip_map) = build_trips(&raw_trips, &route_map, &mut slice_builder)?;
+        let (mut trips, trip_map) =
+            build_trips(&raw_trips, &route_map, &service_map, &mut slice_builder)?;
 
         let raw_stop_times = gtfs.stop_times?;
         let (stop_times, trip_to_stop_times) =
