@@ -53,6 +53,7 @@ The project is in early development. The following components are in progress:
 - [bytemuck](https://docs.rs/bytemuck/latest/bytemuck/)
 - [memmap2](https://docs.rs/memmap2/latest/memmap2/)
 - [mmap](https://en.wikipedia.org/wiki/Mmap)
+- [madvise](https://man7.org/linux/man-pages/man2/madvise.2.html)
 - [blaise](https://github.com/vincbro/blaise) - A high-performance transit routing engine (soon to be) built on top of `gtfs-bin`.
 
 ## License

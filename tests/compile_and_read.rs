@@ -9,7 +9,7 @@ use tempfile::NamedTempFile;
 // until the test finishes.
 fn compile_test() -> (NamedTempFile, Mmap) {
     let mut input_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    input_path.push("tests/fixtures/gtfs.zip");
+    input_path.push("tests/fixtures/gtfs");
 
     let compiled_bytes = Compiler::new(input_path)
         .compile()
