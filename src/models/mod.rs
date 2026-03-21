@@ -6,6 +6,7 @@
 // [x] Shape
 
 mod coordinate;
+mod date;
 mod distance;
 mod idx;
 mod opt;
@@ -21,6 +22,7 @@ mod transfer;
 mod trip;
 
 pub use coordinate::*;
+pub use date::*;
 pub use distance::*;
 pub use idx::*;
 pub use opt::*;
