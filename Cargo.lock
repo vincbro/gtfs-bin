@@ -386,6 +386,7 @@ name = "gtfs-bin"
 version = "0.0.1"
 dependencies = [
  "bytemuck",
+ "chrono",
  "clap",
  "gtfs-structures",
  "memmap2",

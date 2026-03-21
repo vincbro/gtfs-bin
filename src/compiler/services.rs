@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::models::{Sentinel, Service, ServiceIdSlice, ServiceIdx};
+use crate::models::{Sentinel, Service, ServiceIdSlice, ServiceIdx, WeekdaySet};
 
 pub fn build_services(
     raw_services: &[gtfs_structures::Calendar],
@@ -16,9 +16,16 @@ pub fn build_services(
             Service {
                 id: ServiceIdSlice::NONE,
                 idx,
-                start_day: 0,
-                end_day: 0,
-                weekdays: 0_u8,
+                start_date: service.start_date.into(),
+                end_date: service.end_date.into(),
+                weekdays: WeekdaySet::new()
+                    .with_monday(service.monday)
+                    .with_tuesday(service.tuesday)
+                    .with_wednesday(service.wednesday)
+                    .with_thursday(service.thursday)
+                    .with_friday(service.friday)
+                    .with_saturday(service.saturday)
+                    .with_sunday(service.sunday),
                 _pad: [0_u8; 3],
             }
         })
