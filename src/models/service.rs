@@ -1,4 +1,4 @@
-use crate::models::{Date, ServiceIdSlice, ServiceIdx};
+use crate::models::{Date, ServiceIdSlice, ServiceIdx, WeekdaySet};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS service.
@@ -20,11 +20,11 @@ pub struct Service {
     pub idx: ServiceIdx,
 
     /// Start service day for the service interval.
-    pub start_day: Date,
+    pub start_date: Date,
 
     /// End service day for the service interval. This service day is included in the interval.
-    pub end_day: Date,
+    pub end_date: Date,
 
-    pub weekdays: u8,  // Bitmask: Bit 0 = Mon, Bit 1 = Tue, ..., Bit 6 = Sun
+    pub weekdays: WeekdaySet,
     pub _pad: [u8; 3], // Pad to ensure 4-byte alignment for bytemuck
 }

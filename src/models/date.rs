@@ -84,3 +84,79 @@ mod tests {
         assert_eq!(date.to_string(), "2024-02-29");
     }
 }
+
+#[repr(transparent)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct WeekdaySet(pub u8);
+
+impl WeekdaySet {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn monday(&self) -> bool {
+        is_bit_flipped(self.0, 0)
+    }
+
+    pub fn tuesday(&self) -> bool {
+        is_bit_flipped(self.0, 1)
+    }
+
+    pub fn wednesday(&self) -> bool {
+        is_bit_flipped(self.0, 2)
+    }
+
+    pub fn thursday(&self) -> bool {
+        is_bit_flipped(self.0, 3)
+    }
+
+    pub fn friday(&self) -> bool {
+        is_bit_flipped(self.0, 4)
+    }
+
+    pub fn saturday(&self) -> bool {
+        is_bit_flipped(self.0, 5)
+    }
+
+    pub fn sunday(&self) -> bool {
+        is_bit_flipped(self.0, 6)
+    }
+
+    pub fn with_monday(self, value: bool) -> Self {
+        Self(set_bit(self.0, 0, value))
+    }
+
+    pub fn with_tuesday(self, value: bool) -> Self {
+        Self(set_bit(self.0, 1, value))
+    }
+
+    pub fn with_wednesday(self, value: bool) -> Self {
+        Self(set_bit(self.0, 2, value))
+    }
+
+    pub fn with_thursday(self, value: bool) -> Self {
+        Self(set_bit(self.0, 3, value))
+    }
+
+    pub fn with_friday(self, value: bool) -> Self {
+        Self(set_bit(self.0, 4, value))
+    }
+
+    pub fn with_saturday(self, value: bool) -> Self {
+        Self(set_bit(self.0, 5, value))
+    }
+
+    pub fn with_sunday(self, value: bool) -> Self {
+        Self(set_bit(self.0, 6, value))
+    }
+}
+fn is_bit_flipped(byte: u8, n: u8) -> bool {
+    assert!(n < 8, "Bit index out of bounds for u8");
+    (byte & (1 << n)) != 0
+}
+
+fn set_bit(byte: u8, n: u8, value: bool) -> u8 {
+    assert!(n < 8, "Bit index out of bounds for u8");
+    let mask = 1 << n;
+    if value { byte | mask } else { byte & !mask }
+}
