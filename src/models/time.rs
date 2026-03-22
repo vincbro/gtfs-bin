@@ -1,7 +1,9 @@
 use crate::models::sentinel::Sentinel;
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::Pod, bytemuck::Zeroable,
+)]
 /// Seconds since midnight, GTFS times can go past 24h if a trip runs past midnight
 /// Better describe as seconds since the start of the day the trip started running
 pub struct Time(pub u32);

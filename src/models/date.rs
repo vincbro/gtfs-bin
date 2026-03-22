@@ -4,7 +4,9 @@ use std::fmt::Display;
 use crate::models::Sentinel;
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::Pod, bytemuck::Zeroable,
+)]
 /// Days since epoch
 pub struct Date(pub u32);
 
