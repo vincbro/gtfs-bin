@@ -11,6 +11,7 @@ keywords = ["gtfs", "transit", "mmap", "zero-copy", "raptor"]
 categories = ["data-structures", "parsing", "caching"]
 
 [dependencies]
+bitvec = "1.0.1"
 bytemuck = {version = "1.25.0", features = ["derive"] }
 chrono = "0.4.44"
 clap = { version = "4.5.60", features = ["derive"] }

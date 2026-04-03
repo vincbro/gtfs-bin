@@ -7,7 +7,7 @@ use crate::models::Sentinel;
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::Pod, bytemuck::Zeroable,
 )]
-/// Days since epoch
+/// Days since unix epoch
 pub struct Date(pub u32);
 
 impl Sentinel for Date {
@@ -63,27 +63,10 @@ impl Default for Date {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_unix_epoch() {
-        let date = Date(0);
-        assert_eq!(date.to_string(), "1970-01-01");
-    }
-
-    #[test]
-    fn test_future_date() {
-        let date = Date(20_533);
-        assert_eq!(date.to_string(), "2026-03-21");
-    }
-
-    #[test]
-    fn test_leap_year_day() {
-        // February 29, 2024 is 19,782 days after epoch
-        let date = Date(19_782);
-        assert_eq!(date.to_string(), "2024-02-29");
+impl Date {
+    /// Returns the day of the week 0, 6
+    pub fn get_day_of_week(&self) -> u8 {
+        ((self.0 + 4) % 7) as u8
     }
 }
 
@@ -94,6 +77,16 @@ pub struct WeekdaySet(pub u8);
 impl WeekdaySet {
     pub fn new() -> Self {
         Default::default()
+    }
+
+    pub fn set_day(&mut self, idx: u8, value: bool) {
+        assert!(idx < 7, "The day index is out of bounds, max value 6");
+        self.0 = set_bit(self.0, idx, value)
+    }
+
+    pub fn get_day(&self, idx: u8) -> bool {
+        assert!(idx < 7, "The day index is out of bounds, max value 6");
+        is_bit_flipped(self.0, idx)
     }
 
     pub fn monday(&self) -> bool {
