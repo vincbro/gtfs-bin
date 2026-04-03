@@ -66,7 +66,7 @@ impl Default for Date {
 impl Date {
     /// Returns the day of the week 0, 6
     pub fn get_day_of_week(&self) -> u8 {
-        ((self.0 + 4) % 7) as u8
+        ((self.0 + 3) % 7) as u8
     }
 }
 

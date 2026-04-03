@@ -70,13 +70,13 @@ pub fn build_services(
 
     let mut active_mask = bitvec![u8, Msb0; 0_u8, 0];
     for service in services.iter_mut() {
-        let days = (service.end_date.0 - service.start_date.0) as usize;
+        let days = (service.end_date.0 - service.start_date.0) as usize + 1;
         let start = active_mask.len();
         let padding = 8 - ((start + days) % 8);
 
-        active_mask.resize(start + days + padding, true);
-        for i in service.start_date.0..service.end_date.0 {
-            let idx = (i - service.start_date.0) as usize;
+        active_mask.resize(start + days + padding, false);
+        for i in service.start_date.0..=service.end_date.0 {
+            let idx = start + (i - service.start_date.0) as usize;
             let date = Date(i);
             let day_of_week = date.get_day_of_week();
             _ = active_mask.replace(idx, service.weekdays.get_day(day_of_week));
@@ -96,7 +96,7 @@ pub fn build_services(
                 gtfs_structures::Exception::Added => true,
                 gtfs_structures::Exception::Deleted => false,
             };
-            let idx = (date.0 - service.start_date.0) as usize;
+            let idx = (service.active_mask.start + date.0 - service.start_date.0) as usize;
             _ = active_mask.replace(idx, active);
         }
     }

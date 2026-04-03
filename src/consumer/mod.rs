@@ -11,6 +11,7 @@ use memmap2::Mmap;
 
 mod reader;
 mod routes;
+mod service;
 mod stops;
 mod stoptimes;
 mod transfers;

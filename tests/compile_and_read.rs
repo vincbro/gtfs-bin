@@ -1,6 +1,6 @@
 use std::{io::Write, path::PathBuf};
 
-use gtfs_bin::{compiler::Compiler, consumer::Consumer};
+use gtfs_bin::{compiler::Compiler, consumer::Consumer, models::Date};
 use memmap2::Mmap;
 use tempfile::NamedTempFile;
 
@@ -288,5 +288,52 @@ fn test_inbound_transfers() {
     assert_eq!(
         consumer.stop_id(consumer.stop(inbound_to_stop12[0].from_stop_idx).id),
         "stop8"
+    );
+}
+
+#[test]
+fn test_services_and_calendar() {
+    let (_file, mmap) = compile_test();
+    let consumer = Consumer::new(&mmap).expect("Failed to load graph");
+
+    assert_eq!(consumer.services.len(), 2, "Expected exactly 2 services");
+
+    let service1 = consumer
+        .service_by_id("service1")
+        .expect("service1 not found");
+    let service2 = consumer
+        .service_by_id("service2")
+        .expect("service2 not found");
+
+    assert_eq!(service1.start_date.to_string(), "2017-01-01");
+    assert_eq!(service1.end_date.to_string(), "2017-01-15");
+
+    assert!(service1.weekdays.saturday());
+    assert!(service1.weekdays.sunday());
+    assert!(!service1.weekdays.monday());
+
+    assert_eq!(service2.start_date.to_string(), "2017-01-01");
+    assert_eq!(service2.end_date.to_string(), "2017-01-01");
+    assert!(!service2.weekdays.sunday());
+
+    assert_eq!(
+        consumer.is_service_active(service1.idx, Date(service1.start_date.0)),
+        false,
+        "service1 should be removed on 2017-01-01"
+    );
+    assert_eq!(
+        consumer.is_service_active(service1.idx, Date(service1.start_date.0 + 1)),
+        false,
+        "service1 should be inactive on 2017-01-02"
+    );
+    assert_eq!(
+        consumer.is_service_active(service1.idx, Date(service1.start_date.0 + 6)),
+        true,
+        "service1 should be active on 2017-01-07 (Sat)"
+    );
+    assert_eq!(
+        consumer.is_service_active(service2.idx, Date(service2.start_date.0)),
+        true,
+        "service2 should be added on 2017-01-01"
     );
 }
