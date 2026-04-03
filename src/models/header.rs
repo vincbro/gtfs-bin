@@ -25,6 +25,11 @@ pub struct Header {
     pub trip_ids: Section,
     pub trip_id_lookup: Section,
 
+    pub services: Section,
+    pub service_ids: Section,
+    pub service_id_lookup: Section,
+    pub active_mask: Section,
+
     pub stop_to_trips: Section,
     pub stop_to_trips_lookup: Section,
 
@@ -38,8 +43,6 @@ pub struct Header {
     pub stop_to_transfers_out: Section,
     pub transfers_in_indencies: Section,
     pub stop_to_transfers_in: Section,
-
-    pub calendars: Section,
 }
 
 impl Default for Header {

@@ -1,13 +1,15 @@
 use crate::models::{
-    Date, Sentinel, Service, ServiceBinarySlice, ServiceIdSlice, ServiceIdx, WeekdaySet,
+    Date, Sentinel, Service, ServiceBinarySlice, ServiceIdSlice, ServiceIdx, Slice, SliceBuilder,
+    WeekdaySet,
 };
-use bitvec::{bitvec, order::Msb0};
+use bitvec::{bitvec, order::Msb0, vec::BitVec};
+use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
 
 pub fn build_services(
     raw_calendar: &[gtfs_structures::Calendar],
     raw_calendar_dates: &[gtfs_structures::CalendarDate],
-) -> (Vec<Service>, HashMap<String, ServiceIdx>, Vec<u8>) {
+) -> (Vec<Service>, HashMap<String, ServiceIdx>, BitVec<u8, Msb0>) {
     let mut id_map: HashMap<String, ServiceIdx> = HashMap::new();
 
     // We build the calendar first, then agregate it with calendar dates
@@ -99,7 +101,27 @@ pub fn build_services(
         }
     }
 
-    println!("{} bit mask", active_mask.len());
+    (services, id_map, active_mask)
+}
 
-    (services, id_map, vec![])
+pub(crate) fn build_service_ids(
+    services: &mut [Service],
+    service_map: &HashMap<String, ServiceIdx>,
+) -> (Vec<ServiceIdx>, String) {
+    let mut id_builder = SliceBuilder::with_capacity(36 * services.len());
+    for (id, idx) in service_map.iter() {
+        services[idx.to_usize()].id = id_builder.add(id.as_str());
+    }
+
+    let service_ids = id_builder.take();
+
+    // Build binary search friendly id lookup
+    let mut service_id_lookup: Vec<_> = (0..services.len()).map(|i| ServiceIdx(i as u32)).collect();
+    service_id_lookup.par_sort_unstable_by(|a, b| {
+        let id_a = &service_ids[services[a.to_usize()].id.range()];
+        let id_b = &service_ids[services[b.to_usize()].id.range()];
+        id_a.cmp(id_b)
+    });
+
+    (service_id_lookup, service_ids)
 }

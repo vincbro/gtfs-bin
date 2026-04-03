@@ -2,7 +2,7 @@ use crate::{
     GTFS_BIN_VERSION,
     compiler::{
         routes::{build_route_ids, build_route_to_trips, build_routes},
-        services::build_services,
+        services::{build_service_ids, build_services},
         stops::{build_stop_ids, build_stop_to_trips, build_stops},
         stoptimes::build_stop_times,
         transfers::build_transfers,
@@ -48,7 +48,8 @@ impl Compiler {
 
         let raw_calendar = gtfs.calendar.unwrap_or(Ok(vec![]))?;
         let raw_calendar_dates = gtfs.calendar_dates.unwrap_or(Ok(vec![]))?;
-        let (_, service_map, _) = build_services(&raw_calendar, &raw_calendar_dates);
+        let (mut services, service_map, active_mask) =
+            build_services(&raw_calendar, &raw_calendar_dates);
 
         let raw_trips = gtfs.trips?;
         let (mut trips, trip_map) =
@@ -72,6 +73,7 @@ impl Compiler {
         let (stop_id_lookup, stop_ids) = build_stop_ids(&mut stops, &stop_map);
         let (route_id_lookup, route_ids) = build_route_ids(&mut routes, &route_map);
         let (trip_id_lookup, trip_ids) = build_trip_ids(&mut trips, &trip_map);
+        let (service_id_lookup, service_ids) = build_service_ids(&mut services, &service_map);
 
         let mut writer = BinaryWriter::new().resize(size_of::<Header>());
 
@@ -81,23 +83,34 @@ impl Compiler {
             stops: writer.write_section(&stops),
             stop_ids: writer.write_section(stop_ids.as_bytes()),
             stops_id_lookup: writer.write_section(&stop_id_lookup),
+
             routes: writer.write_section(&routes),
             route_ids: writer.write_section(route_ids.as_bytes()),
             route_id_lookup: writer.write_section(&route_id_lookup),
+
             trips: writer.write_section(&trips),
             trip_ids: writer.write_section(trip_ids.as_bytes()),
             trip_id_lookup: writer.write_section(&trip_id_lookup),
+
+            services: writer.write_section(&services),
+            service_ids: writer.write_section(&service_ids.as_bytes()),
+            service_id_lookup: writer.write_section(&service_id_lookup),
+            active_mask: writer.write_section(&active_mask.into_vec()),
+
             stop_times: writer.write_section(&stop_times),
+
             route_to_trips: writer.write_section(&route_to_trips),
             route_to_trips_lookup: writer.write_section(&route_to_trips_lookup),
+
             stop_to_trips: writer.write_section(&stop_to_trips),
             stop_to_trips_lookup: writer.write_section(&stop_to_trips_lookup),
+
             trip_to_stop_times: writer.write_section(&trip_to_stop_times),
+
             transfers: writer.write_section(&transfers),
             stop_to_transfers_out: writer.write_section(&stop_to_transfers_out),
             transfers_in_indencies: writer.write_section(&transfers_in_indencies),
             stop_to_transfers_in: writer.write_section(&stop_to_transfers_in),
-            calendars: writer.write_section(&[0_u8; 8]),
         };
         writer.overwrite(0, bytes_of(&header));
 

@@ -2,8 +2,8 @@ use crate::{
     GTFS_BIN_VERSION,
     consumer::reader::Reader,
     models::{
-        Header, Route, RouteIdx, Stop, StopIdx, StopTime, StopTimeSlice, Transfer, TransferIdx,
-        TransferSlice, Trip, TripIdx, TripSlice,
+        Header, Route, RouteIdx, Service, ServiceIdx, Stop, StopIdx, StopTime, StopTimeSlice,
+        Transfer, TransferIdx, TransferSlice, Trip, TripIdx, TripSlice,
     },
 };
 use bytemuck::from_bytes;
@@ -32,6 +32,12 @@ pub struct Consumer<'a> {
     pub trips: &'a [Trip],
     pub trips_id_lookup: &'a [TripIdx],
     pub trip_ids: &'a [u8],
+
+    // Services
+    pub services: &'a [Service],
+    pub services_id_lookup: &'a [ServiceIdx],
+    pub service_ids: &'a [u8],
+    pub active_mask: &'a [u8],
 
     // Mappings
     pub route_to_trips: &'a [TripIdx],
@@ -85,6 +91,11 @@ impl<'a> Consumer<'a> {
             trips: reader.cast_slice(header.trips),
             trip_ids: reader.get_bytes::<u8>(header.trip_ids),
             trips_id_lookup: reader.cast_slice(header.trip_id_lookup),
+
+            services: reader.cast_slice(header.services),
+            service_ids: reader.get_bytes::<u8>(header.service_ids),
+            services_id_lookup: reader.cast_slice(header.service_id_lookup),
+            active_mask: reader.get_bytes::<u8>(header.active_mask),
 
             stop_times: reader.cast_slice(header.stop_times),
 
