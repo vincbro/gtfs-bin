@@ -26,7 +26,7 @@ impl<'a> Consumer<'a> {
     }
 
     pub fn trips_in_trip_pattern(&self, idx: TripPatternIdx) -> impl Iterator<Item = &'a Trip> {
-        let slice = self.trip_pattern(idx).stops;
+        let slice = self.trip_pattern(idx).trips;
         self.trip_patterns_trips[slice.range()]
             .iter()
             .copied()

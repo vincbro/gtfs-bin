@@ -70,7 +70,7 @@ fn test_trips_lookup_and_routing() {
     let (_file, mmap) = compile_test();
     let consumer = Consumer::new(&mmap).expect("Failed to load graph");
 
-    assert_eq!(consumer.trips.len(), 6);
+    assert_eq!(consumer.trips.len(), 7);
 
     let trip1 = consumer
         .trip_by_id("trip1")
@@ -132,7 +132,7 @@ fn test_trips_count() {
     let (_file, mmap) = compile_test();
     let consumer = Consumer::new(&mmap).expect("Failed to load graph");
 
-    assert_eq!(consumer.trips.len(), 6);
+    assert_eq!(consumer.trips.len(), 7);
 }
 
 #[test]
@@ -164,8 +164,8 @@ fn test_all_trips_iteration() {
         .map(|t| consumer.trip_id(t.id).to_string())
         .collect();
 
-    assert_eq!(trip_ids.len(), 6);
-    for i in 1..=6 {
+    assert_eq!(trip_ids.len(), 7);
+    for i in 1..=7 {
         assert!(trip_ids.contains(&format!("trip{}", i)));
     }
 }
@@ -186,7 +186,7 @@ fn test_route_to_trips_mapping() {
     let route4_trips: Vec<_> = consumer.iter_route_trips(route4.idx).collect();
 
     assert_eq!(route1_trips.len(), 2);
-    assert_eq!(route2_trips.len(), 2);
+    assert_eq!(route2_trips.len(), 3);
     assert_eq!(route3_trips.len(), 1);
     assert_eq!(route4_trips.len(), 1);
 }
@@ -205,8 +205,8 @@ fn test_stop_to_trips_mapping() {
     let stop8_trips: Vec<_> = consumer.iter_stop_trips(stop8.idx).collect();
 
     assert_eq!(stop2_trips.len(), 2);
-    assert_eq!(stop6_trips.len(), 2);
-    assert_eq!(stop8_trips.len(), 2);
+    assert_eq!(stop6_trips.len(), 3);
+    assert_eq!(stop8_trips.len(), 3);
 }
 
 #[test]
@@ -346,4 +346,53 @@ fn test_services_and_calendar() {
         true,
         "service2 should be inactive on 2017-01-07"
     );
+}
+
+#[test]
+fn test_trip_patterns() {
+    let (_file, mmap) = compile_test();
+    let consumer = Consumer::new(&mmap).expect("Failed to load graph");
+
+    assert_eq!(consumer.trip_patterns.len(), 6);
+
+    let trip3 = consumer.trip_by_id("trip3").expect("trip3 not found");
+    let trip7 = consumer.trip_by_id("trip7").expect("trip7 not found");
+
+    let pattern_idx_3 = consumer.trip_to_trip_pattern[trip3.idx.to_usize()];
+    let pattern_idx_7 = consumer.trip_to_trip_pattern[trip7.idx.to_usize()];
+
+    assert_eq!(
+        pattern_idx_3, pattern_idx_7,
+        "trip3 and trip7 should share a pattern"
+    );
+
+    let trips_in_pattern: Vec<_> = consumer
+        .trips_in_trip_pattern(pattern_idx_3)
+        .map(|t| consumer.trip_id(t.id))
+        .collect();
+
+    assert_eq!(trips_in_pattern.len(), 2);
+    assert!(trips_in_pattern.contains(&"trip3"));
+    assert!(trips_in_pattern.contains(&"trip7"));
+
+    let stops_in_pattern: Vec<_> = consumer
+        .stop_sequence_in_trip_pattern(pattern_idx_3)
+        .map(|s| consumer.stop_id(s.id))
+        .collect();
+
+    assert_eq!(stops_in_pattern.len(), 3);
+    assert!(stops_in_pattern.contains(&"stop6"));
+    assert!(stops_in_pattern.contains(&"stop7"));
+    assert!(stops_in_pattern.contains(&"stop8"));
+
+    let trip1 = consumer.trip_by_id("trip1").expect("trip1 not found");
+    let pattern_idx_1 = consumer.trip_to_trip_pattern[trip1.idx.to_usize()];
+
+    let trips_in_pattern_1: Vec<_> = consumer
+        .trips_in_trip_pattern(pattern_idx_1)
+        .map(|t| consumer.trip_id(t.id))
+        .collect();
+
+    assert_eq!(trips_in_pattern_1.len(), 1);
+    assert_eq!(trips_in_pattern_1[0], "trip1");
 }
