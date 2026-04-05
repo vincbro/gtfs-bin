@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use rayon::slice::ParallelSliceMut;
 
 use crate::models::{
-    RouteIdx, Sentinel, ServiceIdx, Slice, SliceBuilder, StringSlice, Trip, TripIdSlice, TripIdx,
+    RouteIdx, Sentinel, ServiceIdx, Slice, SliceBuilder, StopTimeSlice, StringSlice, Trip,
+    TripIdSlice, TripIdx,
 };
 
 pub(crate) fn build_trips(
@@ -42,6 +43,7 @@ pub(crate) fn build_trips(
                     .into(),
                 route_idx,
                 service_idx,
+                stop_times: StopTimeSlice::NONE,
                 short_name: trip
                     .trip_short_name
                     .as_ref()

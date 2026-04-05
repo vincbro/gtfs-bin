@@ -2,8 +2,8 @@ use crate::{
     GTFS_BIN_VERSION,
     consumer::reader::Reader,
     models::{
-        Header, Route, RouteIdx, Service, ServiceIdx, Stop, StopIdx, StopTime, StopTimeSlice,
-        Transfer, TransferIdx, TransferSlice, Trip, TripIdx, TripSlice,
+        Header, Route, RouteIdx, Service, ServiceIdx, Stop, StopIdx, StopTime, Transfer,
+        TransferIdx, TransferSlice, Trip, TripIdx, TripPattern, TripPatternIdx, TripSlice,
     },
 };
 use bytemuck::from_bytes;
@@ -15,6 +15,7 @@ mod service;
 mod stops;
 mod stoptimes;
 mod transfers;
+mod trip_patterns;
 mod trips;
 
 #[derive(Debug)]
@@ -49,7 +50,12 @@ pub struct Consumer<'a> {
 
     // Stop times
     pub stop_times: &'a [StopTime],
-    pub trip_to_stop_times: &'a [StopTimeSlice],
+
+    // Trip patterns
+    pub trip_patterns: &'a [TripPattern],
+    pub trip_patterns_stop_seq: &'a [StopIdx],
+    pub trip_patterns_trips: &'a [TripIdx],
+    pub trip_to_trip_pattern: &'a [TripPatternIdx],
 
     // Transfer
     pub transfers: &'a [Transfer],
@@ -106,12 +112,15 @@ impl<'a> Consumer<'a> {
             stop_to_trips: reader.cast_slice(header.stop_to_trips),
             stop_to_trips_lookup: reader.cast_slice(header.stop_to_trips_lookup),
 
-            trip_to_stop_times: reader.cast_slice(header.trip_to_stop_times),
-
             transfers: reader.cast_slice(header.transfers),
             stop_to_transfer_out: reader.cast_slice(header.stop_to_transfers_out),
             transfers_in_indencies: reader.cast_slice(header.transfers_in_indencies),
             stop_to_transfer_in: reader.cast_slice(header.stop_to_transfers_in),
+
+            trip_patterns: reader.cast_slice(header.trip_patterns),
+            trip_patterns_stop_seq: reader.cast_slice(header.trip_patterns_stop_seq),
+            trip_patterns_trips: reader.cast_slice(header.trip_patterns_trip_seq),
+            trip_to_trip_pattern: reader.cast_slice(header.trip_to_trip_pattern),
         })
     }
 }

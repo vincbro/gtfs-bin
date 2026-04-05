@@ -6,7 +6,7 @@ use crate::{
 impl<'a> Consumer<'a> {
     #[inline]
     pub fn trip_stop_times(&self, idx: TripIdx) -> &'a [StopTime] {
-        let slice = self.trip_to_stop_times[idx.to_usize()];
+        let slice = self.trip(idx).stop_times;
         &self.stop_times[slice.range()]
     }
 }

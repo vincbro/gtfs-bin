@@ -2,16 +2,17 @@ use std::collections::HashMap;
 
 use crate::models::{
     Distance, Opt, Sentinel, SliceBuilder, StopIdx, StopTime, StopTimeIdx, StopTimeSlice,
-    StringSlice, Time, TripIdx,
+    StringSlice, Time, Trip, TripIdx,
 };
 use rayon::slice::ParallelSliceMut;
 
 pub(crate) fn build_stop_times(
     raw_stop_times: &[gtfs_structures::RawStopTime],
+    trips: &mut [Trip],
     trip_map: &HashMap<String, TripIdx>,
     stop_map: &HashMap<String, StopIdx>,
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> Result<(Vec<StopTime>, Vec<StopTimeSlice>), gtfs_structures::Error> {
+) -> Result<Vec<StopTime>, gtfs_structures::Error> {
     let mut stop_times: Vec<_> = raw_stop_times
         .iter()
         .filter_map(|stop_time| {
@@ -47,14 +48,13 @@ pub(crate) fn build_stop_times(
             .then(a.sequence.cmp(&b.sequence))
     });
 
-    let mut trip_to_stop_times = vec![StopTimeSlice::NONE; trip_map.len()];
     let mut trip_idx = TripIdx::NONE;
     let mut start: u32 = u32::MAX;
     let mut count: u32 = 0;
     for (i, stop_times) in stop_times.iter_mut().enumerate() {
         if stop_times.trip_idx != trip_idx {
             if trip_idx != TripIdx::NONE {
-                trip_to_stop_times[trip_idx.to_usize()] = StopTimeSlice { start, count }
+                trips[trip_idx.to_usize()].stop_times = StopTimeSlice { start, count }
             }
             start = i as u32;
             count = 0;
@@ -65,8 +65,8 @@ pub(crate) fn build_stop_times(
         count += 1;
     }
     if trip_idx != TripIdx::NONE {
-        trip_to_stop_times[trip_idx.to_usize()] = StopTimeSlice { start, count };
+        trips[trip_idx.to_usize()].stop_times = StopTimeSlice { start, count }
     }
 
-    Ok((stop_times, trip_to_stop_times))
+    Ok(stop_times)
 }

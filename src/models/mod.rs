@@ -21,6 +21,7 @@ mod stoptime;
 mod time;
 mod transfer;
 mod trip;
+mod trip_pattern;
 
 pub use coordinate::*;
 pub use date::*;
@@ -38,3 +39,4 @@ pub use stoptime::*;
 pub use time::*;
 pub use transfer::*;
 pub use trip::*;
+pub use trip_pattern::*;

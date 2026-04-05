@@ -6,6 +6,7 @@ use crate::{
         stops::{build_stop_ids, build_stop_to_trips, build_stops},
         stoptimes::build_stop_times,
         transfers::build_transfers,
+        trip_patterns::build_trip_patterns,
         trips::{build_trip_ids, build_trips},
         writer::BinaryWriter,
     },
@@ -20,6 +21,7 @@ mod services;
 mod stops;
 mod stoptimes;
 mod transfers;
+mod trip_patterns;
 mod trips;
 mod writer;
 
@@ -56,8 +58,13 @@ impl Compiler {
             build_trips(&raw_trips, &route_map, &service_map, &mut slice_builder)?;
 
         let raw_stop_times = gtfs.stop_times?;
-        let (stop_times, trip_to_stop_times) =
-            build_stop_times(&raw_stop_times, &trip_map, &stop_map, &mut slice_builder)?;
+        let stop_times = build_stop_times(
+            &raw_stop_times,
+            &mut trips,
+            &trip_map,
+            &stop_map,
+            &mut slice_builder,
+        )?;
 
         let (transfers, stop_to_transfers_out, transfers_in_indencies, stop_to_transfers_in) =
             if let Some(raw_transfers) = gtfs.transfers {
@@ -69,7 +76,8 @@ impl Compiler {
 
         let (stop_to_trips, stop_to_trips_lookup) = build_stop_to_trips(&stops, &stop_times);
         let (route_to_trips, route_to_trips_lookup) = build_route_to_trips(&trips, &routes);
-
+        let (trip_patterns, stop_sequences, trips_in_sequences, trip_to_trip_pattern) =
+            build_trip_patterns(&trips, &stop_times);
         let (stop_id_lookup, stop_ids) = build_stop_ids(&mut stops, &stop_map);
         let (route_id_lookup, route_ids) = build_route_ids(&mut routes, &route_map);
         let (trip_id_lookup, trip_ids) = build_trip_ids(&mut trips, &trip_map);
@@ -93,19 +101,22 @@ impl Compiler {
             trip_id_lookup: writer.write_section(&trip_id_lookup),
 
             services: writer.write_section(&services),
-            service_ids: writer.write_section(&service_ids.as_bytes()),
+            service_ids: writer.write_section(service_ids.as_bytes()),
             service_id_lookup: writer.write_section(&service_id_lookup),
             active_mask: writer.write_section(&active_mask.into_vec()),
 
             stop_times: writer.write_section(&stop_times),
+
+            trip_patterns: writer.write_section(&trip_patterns),
+            trip_patterns_stop_seq: writer.write_section(&stop_sequences),
+            trip_patterns_trip_seq: writer.write_section(&trips_in_sequences),
+            trip_to_trip_pattern: writer.write_section(&trip_to_trip_pattern),
 
             route_to_trips: writer.write_section(&route_to_trips),
             route_to_trips_lookup: writer.write_section(&route_to_trips_lookup),
 
             stop_to_trips: writer.write_section(&stop_to_trips),
             stop_to_trips_lookup: writer.write_section(&stop_to_trips_lookup),
-
-            trip_to_stop_times: writer.write_section(&trip_to_stop_times),
 
             transfers: writer.write_section(&transfers),
             stop_to_transfers_out: writer.write_section(&stop_to_transfers_out),

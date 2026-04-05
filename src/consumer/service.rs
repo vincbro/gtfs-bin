@@ -31,7 +31,7 @@ impl<'a> Consumer<'a> {
             return false;
         }
 
-        let day_offset = (date.0 - service.start_date.0) as u32;
+        let day_offset = date.0 - service.start_date.0;
         let bit_idx = service.active_mask.start + day_offset;
 
         let byte_idx = (bit_idx / 8) as usize;

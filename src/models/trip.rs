@@ -1,4 +1,4 @@
-use crate::models::{Opt, RouteIdx, ServiceIdx, StringSlice, TripIdSlice, TripIdx};
+use crate::models::{Opt, RouteIdx, ServiceIdx, StopTimeSlice, StringSlice, TripIdSlice, TripIdx};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS trip.
@@ -18,6 +18,9 @@ pub struct Trip {
 
     /// The public facing name of the trip.
     pub short_name: Opt<StringSlice>,
+
+    /// Stop time slice
+    pub stop_times: StopTimeSlice,
 
     // ------------------------------------------------------------------------
     // 2. SMALLER FIELDS LAST (4 bytes)
