@@ -10,9 +10,9 @@ use bytemuck::{Pod, Zeroable};
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable, PartialEq, Eq)]
 pub struct Coordinate {
-    /// The latitude, scaled by 1,000,000 and rounded to the nearest integer.
+    /// The latitude, scaled by 10,000,000 and rounded to the nearest integer.
     packed_latitude: i32,
-    /// The longitude, scaled by 1,000,000 and rounded to the nearest integer.
+    /// The longitude, scaled by 10,000,000 and rounded to the nearest integer.
     packed_longitude: i32,
 }
 
@@ -23,8 +23,8 @@ impl Coordinate {
     /// precision before being stored as 32-bit integers.
     pub fn new(latitude: f64, longitude: f64) -> Self {
         Self {
-            packed_latitude: (latitude * 1_000_000.0).round() as i32,
-            packed_longitude: (longitude * 1_000_000.0).round() as i32,
+            packed_latitude: (latitude * 10_000_000.0).round() as i32,
+            packed_longitude: (longitude * 10_000_000.0).round() as i32,
         }
     }
 
@@ -33,7 +33,7 @@ impl Coordinate {
     /// This restores the original value up to 6 decimal places.
     #[inline(always)]
     pub fn lat_f64(&self) -> f64 {
-        self.packed_latitude as f64 / 1_000_000.0
+        self.packed_latitude as f64 / 10_000_000.0
     }
 
     /// Decompresses the internal integer back into a standard `f64` longitude.
@@ -41,7 +41,7 @@ impl Coordinate {
     /// This restores the original value up to 6 decimal places.
     #[inline(always)]
     pub fn lon_f64(&self) -> f64 {
-        self.packed_longitude as f64 / 1_000_000.0
+        self.packed_longitude as f64 / 10_000_000.0
     }
 
     /// Returns both the decompressed latitude and longitude as a tuple.

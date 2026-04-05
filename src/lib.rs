@@ -8,6 +8,8 @@ pub mod models;
 pub enum Error {
     #[error("File is too small to contain a valid header")]
     FileTooSmall,
+    #[error("Section out of bounds")]
+    SectionOutOfBound,
     #[error("Invalid magic number: Not a compiled GTFS file")]
     InvalidMagic,
     #[error("Unsupported GTFS binary version: expected {expected}, got {actual}")]

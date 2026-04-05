@@ -1,15 +1,15 @@
 use crate::models::sentinel::Sentinel;
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Distance(pub u32);
+#[derive(Debug, Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Distance(pub f32);
 
 impl Sentinel for Distance {
-    const NONE: Self = Self(u32::MAX);
+    const NONE: Self = Self(f32::MAX);
 }
 
 impl Default for Distance {
     fn default() -> Self {
-        Self(u32::MIN)
+        Self(f32::MIN)
     }
 }

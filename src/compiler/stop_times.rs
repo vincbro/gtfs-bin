@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-
 use crate::models::{
-    Distance, Opt, Sentinel, SliceBuilder, StopIdx, StopTime, StopTimeIdx, StopTimeSlice,
-    StringSlice, Time, Trip, TripIdx,
+    Distance, Sentinel, SliceBuilder, StopIdx, StopTime, StopTimeIdx, StopTimeSlice, StringSlice,
+    Time, Trip, TripIdx,
 };
 use rayon::slice::ParallelSliceMut;
+use std::collections::HashMap;
 
 pub(crate) fn build_stop_times(
     raw_stop_times: &[gtfs_structures::RawStopTime],
@@ -36,9 +35,9 @@ pub(crate) fn build_stop_times(
             stop_idx,
             trip_idx,
             sequence: stop_time.stop_sequence,
-            arrival_time: Opt::new(Time::NONE),
-            departure_time: Opt::new(Time::NONE),
-            distance_traveled: Opt::new(Distance::NONE),
+            arrival_time: stop_time.arrival_time.map(Time).into(),
+            departure_time: stop_time.departure_time.map(Time).into(),
+            distance_traveled: stop_time.shape_dist_traveled.map(Distance).into(),
         })
         .collect();
 

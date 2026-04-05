@@ -3,8 +3,8 @@ use crate::{
     compiler::{
         routes::{build_route_ids, build_route_to_trips, build_routes},
         services::{build_service_ids, build_services},
+        stop_times::build_stop_times,
         stops::{build_stop_ids, build_stop_to_trips, build_stops},
-        stoptimes::build_stop_times,
         transfers::build_transfers,
         trip_patterns::build_trip_patterns,
         trips::{build_trip_ids, build_trips},
@@ -18,8 +18,8 @@ use std::path::{Path, PathBuf};
 
 mod routes;
 mod services;
+mod stop_times;
 mod stops;
-mod stoptimes;
 mod transfers;
 mod trip_patterns;
 mod trips;

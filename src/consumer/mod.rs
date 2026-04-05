@@ -12,8 +12,8 @@ use memmap2::Mmap;
 mod reader;
 mod routes;
 mod service;
+mod stop_times;
 mod stops;
-mod stoptimes;
 mod transfers;
 mod trip_patterns;
 mod trips;
@@ -87,40 +87,40 @@ impl<'a> Consumer<'a> {
         let reader = Reader::new(mmap);
 
         Ok(Self {
-            stops: reader.cast_slice(header.stops),
-            stop_ids: reader.get_bytes::<u8>(header.stop_ids),
-            stops_id_lookup: reader.cast_slice(header.stops_id_lookup),
+            stops: reader.cast_slice(header.stops)?,
+            stop_ids: reader.get_bytes::<u8>(header.stop_ids)?,
+            stops_id_lookup: reader.cast_slice(header.stops_id_lookup)?,
 
-            routes: reader.cast_slice(header.routes),
-            route_ids: reader.get_bytes::<u8>(header.route_ids),
-            routes_id_lookup: reader.cast_slice(header.route_id_lookup),
+            routes: reader.cast_slice(header.routes)?,
+            route_ids: reader.get_bytes::<u8>(header.route_ids)?,
+            routes_id_lookup: reader.cast_slice(header.route_id_lookup)?,
 
-            trips: reader.cast_slice(header.trips),
-            trip_ids: reader.get_bytes::<u8>(header.trip_ids),
-            trips_id_lookup: reader.cast_slice(header.trip_id_lookup),
+            trips: reader.cast_slice(header.trips)?,
+            trip_ids: reader.get_bytes::<u8>(header.trip_ids)?,
+            trips_id_lookup: reader.cast_slice(header.trip_id_lookup)?,
 
-            services: reader.cast_slice(header.services),
-            service_ids: reader.get_bytes::<u8>(header.service_ids),
-            services_id_lookup: reader.cast_slice(header.service_id_lookup),
-            active_mask: reader.get_bytes::<u8>(header.active_mask),
+            services: reader.cast_slice(header.services)?,
+            service_ids: reader.get_bytes::<u8>(header.service_ids)?,
+            services_id_lookup: reader.cast_slice(header.service_id_lookup)?,
+            active_mask: reader.get_bytes::<u8>(header.active_mask)?,
 
-            stop_times: reader.cast_slice(header.stop_times),
+            stop_times: reader.cast_slice(header.stop_times)?,
 
-            route_to_trips: reader.cast_slice(header.route_to_trips),
-            route_to_trips_lookup: reader.cast_slice(header.route_to_trips_lookup),
+            route_to_trips: reader.cast_slice(header.route_to_trips)?,
+            route_to_trips_lookup: reader.cast_slice(header.route_to_trips_lookup)?,
 
-            stop_to_trips: reader.cast_slice(header.stop_to_trips),
-            stop_to_trips_lookup: reader.cast_slice(header.stop_to_trips_lookup),
+            stop_to_trips: reader.cast_slice(header.stop_to_trips)?,
+            stop_to_trips_lookup: reader.cast_slice(header.stop_to_trips_lookup)?,
 
-            transfers: reader.cast_slice(header.transfers),
-            stop_to_transfer_out: reader.cast_slice(header.stop_to_transfers_out),
-            transfers_in_indencies: reader.cast_slice(header.transfers_in_indencies),
-            stop_to_transfer_in: reader.cast_slice(header.stop_to_transfers_in),
+            transfers: reader.cast_slice(header.transfers)?,
+            stop_to_transfer_out: reader.cast_slice(header.stop_to_transfers_out)?,
+            transfers_in_indencies: reader.cast_slice(header.transfers_in_indencies)?,
+            stop_to_transfer_in: reader.cast_slice(header.stop_to_transfers_in)?,
 
-            trip_patterns: reader.cast_slice(header.trip_patterns),
-            trip_patterns_stop_seq: reader.cast_slice(header.trip_patterns_stop_seq),
-            trip_patterns_trips: reader.cast_slice(header.trip_patterns_trip_seq),
-            trip_to_trip_pattern: reader.cast_slice(header.trip_to_trip_pattern),
+            trip_patterns: reader.cast_slice(header.trip_patterns)?,
+            trip_patterns_stop_seq: reader.cast_slice(header.trip_patterns_stop_seq)?,
+            trip_patterns_trips: reader.cast_slice(header.trip_patterns_trip_seq)?,
+            trip_to_trip_pattern: reader.cast_slice(header.trip_to_trip_pattern)?,
         })
     }
 }

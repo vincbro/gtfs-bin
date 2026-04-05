@@ -12,13 +12,17 @@ impl<'a> Reader<'a> {
         Self { mmap }
     }
 
-    pub fn get_bytes<T>(&self, section: Section) -> &'a [u8] {
+    pub fn get_bytes<T>(&self, section: Section) -> Result<&'a [u8], crate::Error> {
         let start = section.offset as usize;
         let end = start + (section.count as usize * size_of::<T>());
-        &self.mmap[start..end]
+        if end > self.mmap.len() {
+            Err(crate::Error::SectionOutOfBound)
+        } else {
+            Ok(&self.mmap[start..end])
+        }
     }
 
-    pub fn cast_slice<B: Pod>(&self, section: Section) -> &'a [B] {
-        cast_slice(self.get_bytes::<B>(section))
+    pub fn cast_slice<B: Pod>(&self, section: Section) -> Result<&'a [B], crate::Error> {
+        Ok(cast_slice(self.get_bytes::<B>(section)?))
     }
 }

@@ -1,10 +1,3 @@
-// Check list
-// [x] Stop
-// [x] Route
-// [x] Trip
-// [x] StopTime
-// [x] Shape
-
 mod coordinate;
 mod date;
 mod distance;
@@ -17,7 +10,7 @@ mod service;
 mod shape;
 mod slice;
 mod stop;
-mod stoptime;
+mod stop_time;
 mod time;
 mod transfer;
 mod trip;
@@ -35,7 +28,7 @@ pub use service::*;
 pub use shape::*;
 pub use slice::*;
 pub use stop::*;
-pub use stoptime::*;
+pub use stop_time::*;
 pub use time::*;
 pub use transfer::*;
 pub use trip::*;

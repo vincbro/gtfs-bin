@@ -17,9 +17,7 @@ pub(crate) fn build_stops(
         .iter()
         .enumerate()
         .map(|(i, stop)| {
-            let coordinate = if let Some(lat) = stop.latitude
-                && let Some(lon) = stop.longitude
-            {
+            let coordinate = if let (Some(lat), Some(lon)) = (stop.latitude, stop.longitude) {
                 Opt::new(Coordinate::new(lat, lon))
             } else {
                 Opt::new(Coordinate::NONE)
