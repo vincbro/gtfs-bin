@@ -26,7 +26,7 @@ macro_rules! define_slice {
 
         impl Sentinel for $name {
             const NONE: Self = Self {
-                start: u32::MAX,
+                start: u32::MIN,
                 count: u32::MIN,
             };
         }

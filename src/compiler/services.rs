@@ -12,6 +12,8 @@ pub fn build_services(
 ) -> (Vec<Service>, HashMap<String, ServiceIdx>, BitVec<u8, Msb0>) {
     let mut id_map: HashMap<String, ServiceIdx> = HashMap::new();
 
+    let mut base_bounds: Vec<(Date, Date)> = Vec::with_capacity(raw_calendar.len());
+
     // We build the calendar first, then agregate it with calendar dates
     let mut services: Vec<_> = raw_calendar
         .iter()
@@ -19,11 +21,14 @@ pub fn build_services(
         .map(|(i, service)| {
             let idx = ServiceIdx(i as u32);
             id_map.insert(service.id.to_string(), idx);
+            let start_date = service.start_date.into();
+            let end_date = service.end_date.into();
+            base_bounds.push((start_date, end_date));
             Service {
                 id: ServiceIdSlice::NONE,
                 idx,
-                start_date: service.start_date.into(),
-                end_date: service.end_date.into(),
+                start_date,
+                end_date,
                 active_mask: ServiceBinarySlice::NONE,
                 weekdays: WeekdaySet::new()
                     .with_monday(service.monday)
@@ -54,6 +59,7 @@ pub fn build_services(
         } else {
             let idx = ServiceIdx(services.len() as u32);
             id_map.insert(calendar_date.service_id.to_string(), idx);
+            base_bounds.push((Date(u32::MAX), Date(u32::MIN)));
             services.push(Service {
                 id: ServiceIdSlice::NONE,
                 idx,
@@ -69,17 +75,25 @@ pub fn build_services(
     // Building the binary map of each service, each bit in the binary map is a day from start_date to end_date, 0 is not running and 1 is running
 
     let mut active_mask = bitvec![u8, Msb0; 0_u8, 0];
-    for service in services.iter_mut() {
+    for (i, service) in services.iter_mut().enumerate() {
         let days = (service.end_date.0 - service.start_date.0) as usize + 1;
         let start = active_mask.len();
         let padding = 8 - ((start + days) % 8);
 
         active_mask.resize(start + days + padding, false);
+
+        let (base_start, base_end) = base_bounds[i];
+
         for i in service.start_date.0..=service.end_date.0 {
             let idx = start + (i - service.start_date.0) as usize;
             let date = Date(i);
-            let day_of_week = date.get_day_of_week();
-            _ = active_mask.replace(idx, service.weekdays.get_day(day_of_week));
+            let runs_today = if date >= base_start && date <= base_end {
+                service.weekdays.get_day(date.get_day_of_week())
+            } else {
+                false
+            };
+
+            _ = active_mask.replace(idx, runs_today);
         }
 
         service.active_mask = ServiceBinarySlice {

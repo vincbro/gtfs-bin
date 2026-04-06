@@ -11,7 +11,7 @@ use memmap2::Mmap;
 
 mod reader;
 mod routes;
-mod service;
+mod services;
 mod shapes;
 mod stop_times;
 mod stops;
