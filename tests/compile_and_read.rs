@@ -136,6 +136,84 @@ fn test_trips_count() {
 }
 
 #[test]
+fn test_strings() {
+    let (_file, mmap) = compile_test();
+    let consumer = Consumer::new(&mmap).expect("Failed to load graph");
+
+    let trip = consumer
+        .trip_by_id("trip4")
+        .expect("Failed to get trip4 by id");
+    let headsign = trip
+        .headsign
+        .get()
+        .expect("Failed to get trip4 headsign slice");
+
+    assert_eq!("85088455", consumer.string(headsign));
+
+    let trip = consumer
+        .trip_by_id("trip1")
+        .expect("Failed to get trip1 by id");
+    let headsign = trip
+        .headsign
+        .get()
+        .expect("Failed to get trip1 headsign slice");
+
+    assert_eq!("85088452", consumer.string(headsign));
+
+    let trip = consumer
+        .trip_by_id("trip3")
+        .expect("Failed to get trip3 by id");
+    let headsign = trip
+        .headsign
+        .get()
+        .expect("Failed to get trip3 headsign slice");
+
+    assert_eq!("85088454", consumer.string(headsign));
+
+    let route = consumer
+        .route_by_id("route4")
+        .expect("Failed to get route4 by id");
+    let short_name = route
+        .short_name
+        .get()
+        .expect("Failed to get route4 short name slice");
+
+    assert_eq!("F1", consumer.string(short_name));
+}
+
+#[test]
+fn test_shapes() {
+    let (_file, mmap) = compile_test();
+    let consumer = Consumer::new(&mmap).expect("Failed to load graph");
+
+    let trip = consumer
+        .trip_by_id("trip5")
+        .expect("Failed to get trip5 by id");
+    let shape = trip.shape.get().expect("Failed to get trip5 shape slice");
+
+    let shapes = consumer.shapes(shape);
+    assert_eq!(shapes.len(), 3);
+
+    let dist = shapes[0]
+        .distance_traveled
+        .get()
+        .expect("Failed to get dist traveled");
+    assert_eq!(dist.0, 0.0);
+
+    let dist = shapes[1]
+        .distance_traveled
+        .get()
+        .expect("Failed to get dist traveled");
+    assert_eq!(dist.0, 6.8310);
+
+    let dist = shapes[2]
+        .distance_traveled
+        .get()
+        .expect("Failed to get dist traveled");
+    assert_eq!(dist.0, 15.8765);
+}
+
+#[test]
 fn test_all_routes_iteration() {
     let (_file, mmap) = compile_test();
     let consumer = Consumer::new(&mmap).expect("Failed to load graph");

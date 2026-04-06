@@ -3,6 +3,7 @@ use crate::{
     compiler::{
         routes::{build_route_ids, build_route_to_trips, build_routes},
         services::{build_service_ids, build_services},
+        shapes::build_shapes,
         stop_times::build_stop_times,
         stops::{build_stop_ids, build_stop_to_trips, build_stops},
         transfers::build_transfers,
@@ -14,10 +15,14 @@ use crate::{
 };
 use bytemuck::bytes_of;
 use gtfs_structures::RawGtfs;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 mod routes;
 mod services;
+mod shapes;
 mod stop_times;
 mod stops;
 mod transfers;
@@ -53,9 +58,21 @@ impl Compiler {
         let (mut services, service_map, active_mask) =
             build_services(&raw_calendar, &raw_calendar_dates);
 
+        let (shapes, shape_map) = if let Some(raw_shapes) = gtfs.shapes {
+            let raw_shapes = raw_shapes?;
+            build_shapes(&raw_shapes)
+        } else {
+            (vec![], HashMap::new())
+        };
+
         let raw_trips = gtfs.trips?;
-        let (mut trips, trip_map) =
-            build_trips(&raw_trips, &route_map, &service_map, &mut slice_builder)?;
+        let (mut trips, trip_map) = build_trips(
+            &raw_trips,
+            &route_map,
+            &service_map,
+            &shape_map,
+            &mut slice_builder,
+        )?;
 
         let raw_stop_times = gtfs.stop_times?;
         let stop_times = build_stop_times(
@@ -107,6 +124,8 @@ impl Compiler {
 
             stop_times: writer.write_section(&stop_times),
 
+            shapes: writer.write_section(&shapes),
+
             trip_patterns: writer.write_section(&trip_patterns),
             trip_patterns_stop_seq: writer.write_section(&stop_sequences),
             trip_patterns_trip_seq: writer.write_section(&trips_in_sequences),
@@ -122,6 +141,8 @@ impl Compiler {
             stop_to_transfers_out: writer.write_section(&stop_to_transfers_out),
             transfers_in_indencies: writer.write_section(&transfers_in_indencies),
             stop_to_transfers_in: writer.write_section(&stop_to_transfers_in),
+
+            strings: writer.write_section(slice_builder.take().as_bytes()),
         };
         writer.overwrite(0, bytes_of(&header));
 

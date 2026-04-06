@@ -38,6 +38,8 @@ pub struct Header {
 
     pub stop_times: Section,
 
+    pub shapes: Section,
+
     pub trip_patterns: Section,
     pub trip_patterns_stop_seq: Section,
     pub trip_patterns_trip_seq: Section,
@@ -47,6 +49,8 @@ pub struct Header {
     pub stop_to_transfers_out: Section,
     pub transfers_in_indencies: Section,
     pub stop_to_transfers_in: Section,
+
+    pub strings: Section,
 }
 
 impl Default for Header {

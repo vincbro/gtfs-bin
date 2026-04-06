@@ -3,6 +3,6 @@ route2,service1,trip4,"85088455",,1,,0,0,,
 route1,service1,trip1,"85088452",,0,,0,0,,
 route4,service1,trip6,"85088457",,0,,0,0,,
 route2,service1,trip3,"85088454",,0,,0,0,,
-route3,service1,trip5,"85088456",,0,,0,0,,
+route3,service1,trip5,"85088456",,0,,0,0,,A_shp
 route1,service1,trip2,"85088453",,1,,0,0,,
 route2,service1,trip7,"85088458",,0,,0,0,,

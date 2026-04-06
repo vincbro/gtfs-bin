@@ -1,4 +1,6 @@
-use crate::models::{Opt, RouteIdx, ServiceIdx, StopTimeSlice, StringSlice, TripIdSlice, TripIdx};
+use crate::models::{
+    Opt, RouteIdx, ServiceIdx, ShapeSlice, StopTimeSlice, StringSlice, TripIdSlice, TripIdx,
+};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS trip.
@@ -21,6 +23,9 @@ pub struct Trip {
 
     /// Stop time slice
     pub stop_times: StopTimeSlice,
+
+    /// Identifies a geospatial shape describing the vehicle travel path for a trip.
+    pub shape: Opt<ShapeSlice>,
 
     // ------------------------------------------------------------------------
     // 2. SMALLER FIELDS LAST (4 bytes)

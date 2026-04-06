@@ -2,7 +2,7 @@ use crate::{
     GTFS_BIN_VERSION,
     consumer::reader::Reader,
     models::{
-        Header, Route, RouteIdx, Service, ServiceIdx, Stop, StopIdx, StopTime, Transfer,
+        Header, Route, RouteIdx, Service, ServiceIdx, Shape, Stop, StopIdx, StopTime, Transfer,
         TransferIdx, TransferSlice, Trip, TripIdx, TripPattern, TripPatternIdx, TripSlice,
     },
 };
@@ -12,8 +12,10 @@ use memmap2::Mmap;
 mod reader;
 mod routes;
 mod service;
+mod shapes;
 mod stop_times;
 mod stops;
+mod strings;
 mod transfers;
 mod trip_patterns;
 mod trips;
@@ -51,6 +53,9 @@ pub struct Consumer<'a> {
     // Stop times
     pub stop_times: &'a [StopTime],
 
+    // Shapes
+    pub shapes: &'a [Shape],
+
     // Trip patterns
     pub trip_patterns: &'a [TripPattern],
     pub trip_patterns_stop_seq: &'a [StopIdx],
@@ -62,6 +67,8 @@ pub struct Consumer<'a> {
     pub stop_to_transfer_out: &'a [TransferSlice],
     pub transfers_in_indencies: &'a [TransferIdx],
     pub stop_to_transfer_in: &'a [TransferSlice],
+
+    pub strings: &'a [u8],
 }
 
 impl<'a> Consumer<'a> {
@@ -106,6 +113,8 @@ impl<'a> Consumer<'a> {
 
             stop_times: reader.cast_slice(header.stop_times)?,
 
+            shapes: reader.cast_slice(header.shapes)?,
+
             route_to_trips: reader.cast_slice(header.route_to_trips)?,
             route_to_trips_lookup: reader.cast_slice(header.route_to_trips_lookup)?,
 
@@ -121,6 +130,8 @@ impl<'a> Consumer<'a> {
             trip_patterns_stop_seq: reader.cast_slice(header.trip_patterns_stop_seq)?,
             trip_patterns_trips: reader.cast_slice(header.trip_patterns_trip_seq)?,
             trip_to_trip_pattern: reader.cast_slice(header.trip_to_trip_pattern)?,
+
+            strings: reader.get_bytes::<u8>(header.strings)?,
         })
     }
 }

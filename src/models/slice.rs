@@ -59,6 +59,7 @@ define_slice!(StopTimeSlice);
 define_slice!(StopSlice);
 define_slice!(TransferSlice);
 define_slice!(ServiceBinarySlice);
+define_slice!(ShapeSlice);
 
 #[derive(Default)]
 pub struct SliceBuilder<T: Slice> {

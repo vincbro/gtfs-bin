@@ -3,14 +3,15 @@ use std::collections::HashMap;
 use rayon::slice::ParallelSliceMut;
 
 use crate::models::{
-    RouteIdx, Sentinel, ServiceIdx, Slice, SliceBuilder, StopTimeSlice, StringSlice, Trip,
-    TripIdSlice, TripIdx,
+    RouteIdx, Sentinel, ServiceIdx, ShapeSlice, Slice, SliceBuilder, StopTimeSlice, StringSlice,
+    Trip, TripIdSlice, TripIdx,
 };
 
 pub(crate) fn build_trips(
     raw_trips: &[gtfs_structures::RawTrip],
     route_map: &HashMap<String, RouteIdx>,
     service_map: &HashMap<String, ServiceIdx>,
+    shape_map: &HashMap<String, ShapeSlice>,
     slice_builder: &mut SliceBuilder<StringSlice>,
 ) -> Result<(Vec<Trip>, HashMap<String, TripIdx>), gtfs_structures::Error> {
     let mut id_map: HashMap<String, TripIdx> = HashMap::new();
@@ -36,6 +37,11 @@ pub(crate) fn build_trips(
             Trip {
                 id: TripIdSlice::NONE,
                 idx,
+                shape: trip
+                    .shape_id
+                    .as_ref()
+                    .and_then(|shape_id| shape_map.get(shape_id).copied())
+                    .into(),
                 headsign: trip
                     .trip_headsign
                     .as_ref()
