@@ -20,3 +20,5 @@ name = "gtfs-bin"
 path = "src/main.rs"
 
 [dependencies]
+bytemuck = {version = "1.25.0", features = ["derive"] }
+chrono = "0.4.44"
