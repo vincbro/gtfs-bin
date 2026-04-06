@@ -394,34 +394,28 @@ fn test_services_and_calendar() {
     assert_eq!(service2.end_date.to_string(), "2017-01-07");
     assert!(!service2.weekdays.sunday());
 
-    assert_eq!(
-        consumer.is_service_active(service1.idx, Date(service1.start_date.0)),
-        false,
+    assert!(
+        !consumer.is_service_active(service1.idx, Date(service1.start_date.0)),
         "service1 should be removed on 2017-01-01"
     );
-    assert_eq!(
-        consumer.is_service_active(service1.idx, Date(service1.start_date.0 + 1)),
-        false,
+    assert!(
+        !consumer.is_service_active(service1.idx, Date(service1.start_date.0 + 1)),
         "service1 should be inactive on 2017-01-02"
     );
-    assert_eq!(
+    assert!(
         consumer.is_service_active(service1.idx, Date(service1.start_date.0 + 6)),
-        true,
         "service1 should be active on 2017-01-07 (Sat)"
     );
-    assert_eq!(
+    assert!(
         consumer.is_service_active(service2.idx, Date(service2.start_date.0)),
-        true,
         "service2 should be added on 2017-01-01"
     );
-    assert_eq!(
-        consumer.is_service_active(service2.idx, Date(service2.start_date.0 + 1)),
-        false,
+    assert!(
+        !consumer.is_service_active(service2.idx, Date(service2.start_date.0 + 1)),
         "service2 should be inactive on 2017-01-02"
     );
-    assert_eq!(
+    assert!(
         consumer.is_service_active(service2.idx, Date(service2.start_date.0 + 6)),
-        true,
         "service2 should be inactive on 2017-01-07"
     );
 }
