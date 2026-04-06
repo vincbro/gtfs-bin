@@ -8,9 +8,9 @@ It provides the data structures, serialization tools, and zero-copy reading inte
 
 In many transit applications, servers parse raw GTFS text files directly into memory at startup. For large networks, this creates massive CPU overhead, slow initialization times, and cost-prohibitive memory requirements when scaling horizontally.
 
-*gtfs-bin* facilitates a different architecture: **Builder once, distribute everywhere.**
+*gtfs-bin* facilitates a different architecture: **Compile once, distribute everywhere.**
 
-1. **The Master Node (Builder)**: A single server or build pipeline uses the `gtfs-bin` builder API to ingest raw GTFS data. It computes spatial hashes, groups routes, generates walkable transfers, and packs the results into a flat, contiguous `.gtfs` binary file.
+1. **The Master Node (Compiler)**: A single server or build pipeline uses the `gtfs-bin` builder API to ingest raw GTFS data. It computes spatial hashes, groups routes, generates walkable transfers, and packs the results into a flat, contiguous `.gtfs` binary file.
 2. **The Fleet (Consumers)**: The compiled artifact is distributed to any number of worker nodes.
 3. **Instant Memory Mapping**: The consumer nodes use `mmap` to map the file directly into virtual memory. Because the structures are `#[repr(C)]` and rely on zero-copy deserialization, startup is completely decoupled from dataset size.
 
@@ -35,15 +35,15 @@ The project is in early development. The following components are in progress:
   - Shapes
   - Coordinates, distances, and time types
 
-- **Builder API**: Coming soon - for compiling GTFS feeds into binary format
+- **Compiler API**: Coming soon - for compiling GTFS feeds into binary format
 - **Consumer API**: Coming soon - for zero-copy memory-mapped reading
 
 ## Roadmap
 
 - [x] Zero-copy deserialization using `bytemuck`
 - [x] Flat, relational array data structures
-- [ ] Builder API for compiling GTFS feeds
-- [ ] Consumer API for memory-mapped reading
+- [x] Compiler API for compiling GTFS feeds
+- [x] Consumer API for memory-mapped reading
 - [ ] Expose prefetching (`madvise`) helper functions for pathfinding loops
 - [ ] Multi-threaded graph compilation API
 
@@ -53,6 +53,7 @@ The project is in early development. The following components are in progress:
 - [bytemuck](https://docs.rs/bytemuck/latest/bytemuck/)
 - [memmap2](https://docs.rs/memmap2/latest/memmap2/)
 - [mmap](https://en.wikipedia.org/wiki/Mmap)
+- [madvise](https://man7.org/linux/man-pages/man2/madvise.2.html)
 - [blaise](https://github.com/vincbro/blaise) - A high-performance transit routing engine (soon to be) built on top of `gtfs-bin`.
 
 ## License

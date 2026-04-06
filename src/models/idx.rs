@@ -40,6 +40,7 @@ macro_rules! define_index {
 
 define_index!(StopIdx);
 define_index!(TripIdx);
+define_index!(TripPatternIdx);
 define_index!(RouteIdx);
 define_index!(StopTimeIdx);
 define_index!(ServiceIdx);

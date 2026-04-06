@@ -4,21 +4,27 @@ version = "0.0.1"
 edition = "2024"
 description = "Pre compute GTFS transit networks into memory mapped binary files. Features zero copy deserialization, RAPTOR ready structures, and instant server startup."
 authors = ["Vincent Brodin <vincent.brodin21@gmail.com>"]
-license = "MIT"
+license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/vincbro/gtfs-bin"
-keywords = [
-  "gtfs",
-]
-
-[lib]
-name = "gtfsbin"
-path = "src/lib.rs"
-
-[[bin]]
-name = "gtfs-bin"
-path = "src/main.rs"
+keywords = ["gtfs", "transit", "mmap", "zero-copy", "raptor"]
+categories = ["data-structures", "parsing", "caching"]
 
 [dependencies]
+bitvec = "1.0.1"
 bytemuck = {version = "1.25.0", features = ["derive"] }
 chrono = "0.4.44"
+clap = { version = "4.5.60", features = ["derive"] }
+gtfs-structures = { version = "0.47.0", default-features = false }
+memmap2 = "0.9.10"
+nix = "0.31.2"
+rayon = "1.11.0"
+thiserror = "2.0.18"
+
+[dev-dependencies]
+tempfile = "3.26.0"
+
+[profile.release]
+lto = true          
+codegen-units = 1  
+strip = true

@@ -26,7 +26,7 @@ macro_rules! define_slice {
 
         impl Sentinel for $name {
             const NONE: Self = Self {
-                start: u32::MAX,
+                start: u32::MIN,
                 count: u32::MIN,
             };
         }
@@ -59,6 +59,7 @@ define_slice!(StopTimeSlice);
 define_slice!(StopSlice);
 define_slice!(TransferSlice);
 define_slice!(ServiceBinarySlice);
+define_slice!(ShapeSlice);
 
 #[derive(Default)]
 pub struct SliceBuilder<T: Slice> {

@@ -1,4 +1,4 @@
-use crate::models::{Date, ServiceIdSlice, ServiceIdx, WeekdaySet};
+use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIdx, WeekdaySet};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS service.
@@ -12,6 +12,9 @@ pub struct Service {
     // ------------------------------------------------------------------------
     /// The string ID from the original GTFS file (e.g., "SERVICE_123").
     pub id: ServiceIdSlice,
+
+    ///  A binary mask representing the days from start_date to end_date. 1 is running 0 is not running
+    pub active_mask: ServiceBinarySlice,
 
     // ------------------------------------------------------------------------
     // 2. SMALLER FIELDS LAST (4 bytes)
