@@ -81,7 +81,7 @@ impl Compiler {
             &trip_map,
             &stop_map,
             &mut slice_builder,
-        )?;
+        );
 
         let (transfers, stop_to_transfers_out, transfers_in_indencies, stop_to_transfers_in) =
             if let Some(raw_transfers) = gtfs.transfers {

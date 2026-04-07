@@ -11,7 +11,7 @@ pub(crate) fn build_stop_times(
     trip_map: &HashMap<String, TripIdx>,
     stop_map: &HashMap<String, StopIdx>,
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> Result<Vec<StopTime>, gtfs_structures::Error> {
+) -> Vec<StopTime> {
     let mut stop_times: Vec<_> = raw_stop_times
         .iter()
         .filter_map(|stop_time| {
@@ -67,5 +67,5 @@ pub(crate) fn build_stop_times(
         trips[trip_idx.to_usize()].stop_times = StopTimeSlice { start, count }
     }
 
-    Ok(stop_times)
+    stop_times
 }
