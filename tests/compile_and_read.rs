@@ -430,8 +430,8 @@ fn test_trip_patterns() {
     let trip3 = consumer.trip_by_id("trip3").expect("trip3 not found");
     let trip7 = consumer.trip_by_id("trip7").expect("trip7 not found");
 
-    let pattern_idx_3 = consumer.trip_to_trip_pattern[trip3.idx.to_usize()];
-    let pattern_idx_7 = consumer.trip_to_trip_pattern[trip7.idx.to_usize()];
+    let pattern_idx_3 = consumer.trip_to_trip_pattern[trip3.idx.as_usize()];
+    let pattern_idx_7 = consumer.trip_to_trip_pattern[trip7.idx.as_usize()];
 
     assert_eq!(
         pattern_idx_3, pattern_idx_7,
@@ -448,7 +448,7 @@ fn test_trip_patterns() {
     assert!(trips_in_pattern.contains(&"trip7"));
 
     let stops_in_pattern: Vec<_> = consumer
-        .stop_sequence_in_trip_pattern(pattern_idx_3)
+        .iter_stop_sequence_in_trip_pattern(pattern_idx_3)
         .map(|s| consumer.stop_id(s.id))
         .collect();
 
@@ -458,7 +458,7 @@ fn test_trip_patterns() {
     assert!(stops_in_pattern.contains(&"stop8"));
 
     let trip1 = consumer.trip_by_id("trip1").expect("trip1 not found");
-    let pattern_idx_1 = consumer.trip_to_trip_pattern[trip1.idx.to_usize()];
+    let pattern_idx_1 = consumer.trip_to_trip_pattern[trip1.idx.as_usize()];
 
     let trips_in_pattern_1: Vec<_> = consumer
         .trips_in_trip_pattern(pattern_idx_1)
@@ -467,4 +467,8 @@ fn test_trip_patterns() {
 
     assert_eq!(trips_in_pattern_1.len(), 1);
     assert_eq!(trips_in_pattern_1[0], "trip1");
+
+    let stop6 = consumer.stop_by_id("stop6").expect("stop6 not found");
+    let patterns: Vec<_> = consumer.iter_trip_patterns_by_stop(stop6.idx).collect();
+    assert_eq!(2, patterns.len())
 }

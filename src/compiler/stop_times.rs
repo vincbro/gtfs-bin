@@ -53,7 +53,7 @@ pub(crate) fn build_stop_times(
     for (i, stop_times) in stop_times.iter_mut().enumerate() {
         if stop_times.trip_idx != trip_idx {
             if trip_idx != TripIdx::NONE {
-                trips[trip_idx.to_usize()].stop_times = StopTimeSlice { start, count }
+                trips[trip_idx.as_usize()].stop_times = StopTimeSlice { start, count }
             }
             start = i as u32;
             count = 0;
@@ -64,7 +64,7 @@ pub(crate) fn build_stop_times(
         count += 1;
     }
     if trip_idx != TripIdx::NONE {
-        trips[trip_idx.to_usize()].stop_times = StopTimeSlice { start, count }
+        trips[trip_idx.as_usize()].stop_times = StopTimeSlice { start, count }
     }
 
     stop_times

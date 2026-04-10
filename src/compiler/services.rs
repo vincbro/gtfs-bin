@@ -48,7 +48,7 @@ pub fn build_services(
     for calendar_date in raw_calendar_dates.iter() {
         let date = Date::from(calendar_date.date);
         if let Some(idx) = id_map.get(&calendar_date.service_id) {
-            let service = &mut services[idx.to_usize()];
+            let service = &mut services[idx.as_usize()];
 
             // Safety check to make sure our range is logical
             if date < service.start_date {
@@ -104,7 +104,7 @@ pub fn build_services(
 
     for calendar_date in raw_calendar_dates.iter() {
         if let Some(idx) = id_map.get(calendar_date.service_id.as_str()) {
-            let service = &mut services[idx.to_usize()];
+            let service = &mut services[idx.as_usize()];
             let date: Date = calendar_date.date.into();
             let active = match calendar_date.exception_type {
                 gtfs_structures::Exception::Added => true,
@@ -124,7 +124,7 @@ pub(crate) fn build_service_ids(
 ) -> (Vec<ServiceIdx>, String) {
     let mut id_builder = SliceBuilder::with_capacity(36 * services.len());
     for (id, idx) in service_map.iter() {
-        services[idx.to_usize()].id = id_builder.add(id.as_str());
+        services[idx.as_usize()].id = id_builder.add(id.as_str());
     }
 
     let service_ids = id_builder.take();
@@ -132,8 +132,8 @@ pub(crate) fn build_service_ids(
     // Build binary search friendly id lookup
     let mut service_id_lookup: Vec<_> = (0..services.len()).map(|i| ServiceIdx(i as u32)).collect();
     service_id_lookup.par_sort_unstable_by(|a, b| {
-        let id_a = &service_ids[services[a.to_usize()].id.range()];
-        let id_b = &service_ids[services[b.to_usize()].id.range()];
+        let id_a = &service_ids[services[a.as_usize()].id.range()];
+        let id_b = &service_ids[services[b.as_usize()].id.range()];
         id_a.cmp(id_b)
     });
 

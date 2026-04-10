@@ -48,7 +48,7 @@ pub(crate) fn build_route_ids(
 ) -> (Vec<RouteIdx>, String) {
     let mut id_builder = SliceBuilder::with_capacity(36 * routes.len());
     for (id, idx) in route_map.iter() {
-        routes[idx.to_usize()].id = id_builder.add(id.as_str());
+        routes[idx.as_usize()].id = id_builder.add(id.as_str());
     }
 
     let route_ids = id_builder.take();
@@ -56,8 +56,8 @@ pub(crate) fn build_route_ids(
     // Build binary search friendly id lookup
     let mut route_id_lookup: Vec<_> = (0..routes.len()).map(|i| RouteIdx(i as u32)).collect();
     route_id_lookup.par_sort_unstable_by(|a, b| {
-        let id_a = &route_ids[routes[a.to_usize()].id.range()];
-        let id_b = &route_ids[routes[b.to_usize()].id.range()];
+        let id_a = &route_ids[routes[a.as_usize()].id.range()];
+        let id_b = &route_ids[routes[b.as_usize()].id.range()];
         id_a.cmp(id_b)
     });
 
@@ -86,7 +86,7 @@ pub(crate) fn build_route_to_trips(
     for (i, &(route_idx, trip_idx)) in route_trip_pairs.iter().enumerate() {
         if route_idx != current_route {
             if current_route != RouteIdx::NONE {
-                route_to_trips_lookup[current_route.to_usize()] = TripSlice { start, count };
+                route_to_trips_lookup[current_route.as_usize()] = TripSlice { start, count };
             }
             start = i as u32;
             count = 0;
@@ -97,7 +97,7 @@ pub(crate) fn build_route_to_trips(
     }
 
     if current_route != RouteIdx::NONE {
-        route_to_trips_lookup[current_route.to_usize()] = TripSlice { start, count };
+        route_to_trips_lookup[current_route.as_usize()] = TripSlice { start, count };
     }
 
     (route_to_trips, route_to_trips_lookup)

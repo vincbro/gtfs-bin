@@ -6,7 +6,7 @@ use crate::{
 impl<'a> Consumer<'a> {
     #[inline]
     pub fn service(&self, idx: ServiceIdx) -> &'a Service {
-        &self.services[idx.to_usize()]
+        &self.services[idx.as_usize()]
     }
 
     pub fn service_by_id(&self, id: &str) -> Option<&'a Service> {

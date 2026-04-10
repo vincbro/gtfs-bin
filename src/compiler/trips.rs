@@ -68,7 +68,7 @@ pub(crate) fn build_trip_ids(
 ) -> (Vec<TripIdx>, String) {
     let mut id_builder = SliceBuilder::with_capacity(36 * trips.len());
     for (id, idx) in trip_map.iter() {
-        trips[idx.to_usize()].id = id_builder.add(id.as_str());
+        trips[idx.as_usize()].id = id_builder.add(id.as_str());
     }
 
     let trip_ids = id_builder.take();
@@ -76,8 +76,8 @@ pub(crate) fn build_trip_ids(
     // Build binary search friendly id lookup
     let mut trip_id_lookup: Vec<_> = (0..trips.len()).map(|i| TripIdx(i as u32)).collect();
     trip_id_lookup.par_sort_unstable_by(|a, b| {
-        let id_a = &trip_ids[trips[a.to_usize()].id.range()];
-        let id_b = &trip_ids[trips[b.to_usize()].id.range()];
+        let id_a = &trip_ids[trips[a.as_usize()].id.range()];
+        let id_b = &trip_ids[trips[b.as_usize()].id.range()];
         id_a.cmp(id_b)
     });
 

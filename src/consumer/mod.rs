@@ -3,7 +3,8 @@ use crate::{
     consumer::reader::Reader,
     models::{
         Header, Route, RouteIdx, Service, ServiceIdx, Shape, Stop, StopIdx, StopTime, Transfer,
-        TransferIdx, TransferSlice, Trip, TripIdx, TripPattern, TripPatternIdx, TripSlice,
+        TransferIdx, TransferSlice, Trip, TripIdx, TripPattern, TripPatternIdx, TripPatternSlice,
+        TripSlice,
     },
 };
 use bytemuck::from_bytes;
@@ -61,6 +62,8 @@ pub struct Consumer<'a> {
     pub trip_patterns_stop_seq: &'a [StopIdx],
     pub trip_patterns_trips: &'a [TripIdx],
     pub trip_to_trip_pattern: &'a [TripPatternIdx],
+    pub stop_to_trip_pattern: &'a [TripPatternIdx],
+    pub stop_to_trip_pattern_lookup: &'a [TripPatternSlice],
 
     // Transfer
     pub transfers: &'a [Transfer],
@@ -130,6 +133,8 @@ impl<'a> Consumer<'a> {
             trip_patterns_stop_seq: reader.cast_slice(header.trip_patterns_stop_seq)?,
             trip_patterns_trips: reader.cast_slice(header.trip_patterns_trip_seq)?,
             trip_to_trip_pattern: reader.cast_slice(header.trip_to_trip_pattern)?,
+            stop_to_trip_pattern: reader.cast_slice(header.stop_to_trips)?,
+            stop_to_trip_pattern_lookup: reader.cast_slice(header.stop_to_trip_pattern_lookup)?,
 
             strings: reader.get_bytes::<u8>(header.strings)?,
         })

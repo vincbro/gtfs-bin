@@ -6,7 +6,7 @@ use crate::{
 impl<'a> Consumer<'a> {
     #[inline(always)]
     pub fn trip(&self, idx: TripIdx) -> &'a Trip {
-        &self.trips[idx.to_usize()]
+        &self.trips[idx.as_usize()]
     }
 
     pub fn trip_by_id(&self, id: &str) -> Option<&'a Trip> {
@@ -25,7 +25,7 @@ impl<'a> Consumer<'a> {
     }
 
     pub fn iter_route_trips(&self, idx: RouteIdx) -> impl Iterator<Item = &'a Trip> {
-        let slice = self.route_to_trips_lookup[idx.to_usize()];
+        let slice = self.route_to_trips_lookup[idx.as_usize()];
         self.route_to_trips[slice.range()]
             .iter()
             .copied()
@@ -33,7 +33,7 @@ impl<'a> Consumer<'a> {
     }
 
     pub fn iter_stop_trips(&self, idx: StopIdx) -> impl Iterator<Item = &'a Trip> {
-        let slice = self.stop_to_trips_lookup[idx.to_usize()];
+        let slice = self.stop_to_trips_lookup[idx.as_usize()];
         self.stop_to_trips[slice.range()]
             .iter()
             .copied()

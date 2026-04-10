@@ -44,6 +44,8 @@ pub struct Header {
     pub trip_patterns_stop_seq: Section,
     pub trip_patterns_trip_seq: Section,
     pub trip_to_trip_pattern: Section,
+    pub stop_to_trip_pattern: Section,
+    pub stop_to_trip_pattern_lookup: Section,
 
     pub transfers: Section,
     pub stop_to_transfers_out: Section,

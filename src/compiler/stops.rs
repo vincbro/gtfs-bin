@@ -68,7 +68,7 @@ pub(crate) fn build_stop_ids(
 ) -> (Vec<StopIdx>, String) {
     let mut id_builder = SliceBuilder::with_capacity(36 * stops.len());
     for (id, idx) in stop_map.iter() {
-        stops[idx.to_usize()].id = id_builder.add(id.as_str());
+        stops[idx.as_usize()].id = id_builder.add(id.as_str());
     }
 
     let stop_ids = id_builder.take();
@@ -76,8 +76,8 @@ pub(crate) fn build_stop_ids(
     // Build binary search friendly id lookup
     let mut stop_id_lookup: Vec<_> = (0..stops.len()).map(|i| StopIdx(i as u32)).collect();
     stop_id_lookup.par_sort_unstable_by(|a, b| {
-        let id_a = &stop_ids[stops[a.to_usize()].id.range()];
-        let id_b = &stop_ids[stops[b.to_usize()].id.range()];
+        let id_a = &stop_ids[stops[a.as_usize()].id.range()];
+        let id_b = &stop_ids[stops[b.as_usize()].id.range()];
         id_a.cmp(id_b)
     });
 
@@ -107,7 +107,7 @@ pub(crate) fn build_stop_to_trips(
     for (i, &(stop_idx, trip_idx)) in stop_trip_pairs.iter().enumerate() {
         if stop_idx != current_stop {
             if current_stop != StopIdx::NONE {
-                stop_to_trips_lookup[current_stop.to_usize()] = TripSlice { start, count };
+                stop_to_trips_lookup[current_stop.as_usize()] = TripSlice { start, count };
             }
             start = i as u32;
             count = 0;
@@ -118,7 +118,7 @@ pub(crate) fn build_stop_to_trips(
     }
 
     if current_stop != StopIdx::NONE {
-        stop_to_trips_lookup[current_stop.to_usize()] = TripSlice { start, count };
+        stop_to_trips_lookup[current_stop.as_usize()] = TripSlice { start, count };
     }
 
     (stop_to_trips, stop_to_trips_lookup)

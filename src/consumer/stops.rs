@@ -6,7 +6,7 @@ use crate::{
 impl<'a> Consumer<'a> {
     #[inline]
     pub fn stop(&self, idx: StopIdx) -> &'a Stop {
-        &self.stops[idx.to_usize()]
+        &self.stops[idx.as_usize()]
     }
 
     pub fn stop_by_id(&self, id: &str) -> Option<&'a Stop> {

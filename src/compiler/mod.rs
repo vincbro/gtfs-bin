@@ -7,7 +7,7 @@ use crate::{
         stop_times::build_stop_times,
         stops::{build_stop_ids, build_stop_to_trips, build_stops},
         transfers::build_transfers,
-        trip_patterns::build_trip_patterns,
+        trip_patterns::{BuildTripPatternsResult, build_trip_patterns},
         trips::{build_trip_ids, build_trips},
         writer::BinaryWriter,
     },
@@ -93,8 +93,14 @@ impl Compiler {
 
         let (stop_to_trips, stop_to_trips_lookup) = build_stop_to_trips(&stops, &stop_times);
         let (route_to_trips, route_to_trips_lookup) = build_route_to_trips(&trips, &routes);
-        let (trip_patterns, stop_sequences, trips_in_sequences, trip_to_trip_pattern) =
-            build_trip_patterns(&trips, &stop_times);
+        let BuildTripPatternsResult(
+            trip_patterns,
+            stop_sequences,
+            trips_in_sequences,
+            trip_to_trip_pattern,
+            stop_to_trip_pattern,
+            stop_to_trip_pattern_lookup,
+        ) = build_trip_patterns(&trips, &stops, &stop_times);
         let (stop_id_lookup, stop_ids) = build_stop_ids(&mut stops, &stop_map);
         let (route_id_lookup, route_ids) = build_route_ids(&mut routes, &route_map);
         let (trip_id_lookup, trip_ids) = build_trip_ids(&mut trips, &trip_map);
@@ -130,6 +136,8 @@ impl Compiler {
             trip_patterns_stop_seq: writer.write_section(&stop_sequences),
             trip_patterns_trip_seq: writer.write_section(&trips_in_sequences),
             trip_to_trip_pattern: writer.write_section(&trip_to_trip_pattern),
+            stop_to_trip_pattern: writer.write_section(&stop_to_trip_pattern),
+            stop_to_trip_pattern_lookup: writer.write_section(&stop_to_trip_pattern_lookup),
 
             route_to_trips: writer.write_section(&route_to_trips),
             route_to_trips_lookup: writer.write_section(&route_to_trips_lookup),

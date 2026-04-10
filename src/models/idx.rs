@@ -31,7 +31,7 @@ macro_rules! define_index {
 
         impl $name {
             #[inline(always)]
-            pub fn to_usize(&self) -> usize {
+            pub fn as_usize(&self) -> usize {
                 self.0 as usize
             }
         }

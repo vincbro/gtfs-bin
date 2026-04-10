@@ -6,7 +6,7 @@ use crate::{
 impl<'a> Consumer<'a> {
     #[inline]
     pub fn route(&self, idx: RouteIdx) -> &'a Route {
-        &self.routes[idx.to_usize()]
+        &self.routes[idx.as_usize()]
     }
 
     pub fn route_by_id(&self, id: &str) -> Option<&'a Route> {

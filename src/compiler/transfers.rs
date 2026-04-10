@@ -44,7 +44,7 @@ pub(crate) fn build_transfers(
     for (i, transfer) in transfers.iter().enumerate() {
         if transfer.from_stop_idx != current_stop {
             if current_stop != StopIdx::NONE {
-                stop_to_transfers_out[current_stop.to_usize()] = TransferSlice { start, count };
+                stop_to_transfers_out[current_stop.as_usize()] = TransferSlice { start, count };
             }
             start = i as u32;
             count = 0;
@@ -53,23 +53,23 @@ pub(crate) fn build_transfers(
         count += 1;
     }
     if current_stop != StopIdx::NONE {
-        stop_to_transfers_out[current_stop.to_usize()] = TransferSlice { start, count };
+        stop_to_transfers_out[current_stop.as_usize()] = TransferSlice { start, count };
     }
 
     // Inbound
     let mut transfers_in_indencies: Vec<_> = (0..transfers.len())
         .map(|i| TransferIdx(i as u32))
         .collect();
-    transfers_in_indencies.par_sort_unstable_by_key(|idx| transfers[idx.to_usize()].to_stop_idx);
+    transfers_in_indencies.par_sort_unstable_by_key(|idx| transfers[idx.as_usize()].to_stop_idx);
     let mut stop_to_transfers_in = vec![TransferSlice::NONE; stop_map.len()];
     let mut current_stop = StopIdx::NONE;
     let mut start = 0;
     let mut count = 0;
     for (i, transfer_idx) in transfers_in_indencies.iter().enumerate() {
-        let transfer = &transfers[transfer_idx.to_usize()];
+        let transfer = &transfers[transfer_idx.as_usize()];
         if transfer.to_stop_idx != current_stop {
             if current_stop != StopIdx::NONE {
-                stop_to_transfers_in[current_stop.to_usize()] = TransferSlice { start, count };
+                stop_to_transfers_in[current_stop.as_usize()] = TransferSlice { start, count };
             }
             start = i as u32;
             count = 0;
@@ -78,7 +78,7 @@ pub(crate) fn build_transfers(
         count += 1;
     }
     if current_stop != StopIdx::NONE {
-        stop_to_transfers_in[current_stop.to_usize()] = TransferSlice { start, count };
+        stop_to_transfers_in[current_stop.as_usize()] = TransferSlice { start, count };
     }
 
     (
