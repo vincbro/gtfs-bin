@@ -55,8 +55,15 @@ Add `gtfs-bin` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gtfs-bin = "0.0.1"
+gtfs-bin = "0.1.2"
 memmap2 = "0.9"
+```
+
+or run
+
+```bash
+cargo add gtfs-bin
+cargo add memmap2
 ```
 
 #### 1\. Compiling GTFS Data (The Master Node)
