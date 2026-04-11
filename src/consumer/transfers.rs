@@ -9,13 +9,16 @@ impl<'a> Consumer<'a> {
     }
 
     /// Transfers from A-B by A idx
-    pub fn outbound_transfers(&self, idx: StopIdx) -> &'a [Transfer] {
+    pub fn outbound_transfers_by_stop(&self, idx: StopIdx) -> &'a [Transfer] {
         let slice = self.stop_to_transfer_out[idx.as_usize()];
         &self.transfers[slice.range()]
     }
 
     /// Transfers from A-B by B idx
-    pub fn iter_inbound_transfers(&self, idx: StopIdx) -> impl Iterator<Item = &'a Transfer> {
+    pub fn iter_inbound_transfers_by_stop(
+        &self,
+        idx: StopIdx,
+    ) -> impl Iterator<Item = &'a Transfer> {
         let slice = self.stop_to_transfer_in[idx.as_usize()];
         self.transfers_in_indencies[slice.range()]
             .iter()
