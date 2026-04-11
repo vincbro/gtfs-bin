@@ -133,7 +133,7 @@ impl<'a> Consumer<'a> {
             trip_patterns_stop_seq: reader.cast_slice(header.trip_patterns_stop_seq)?,
             trip_patterns_trips: reader.cast_slice(header.trip_patterns_trip_seq)?,
             trip_to_trip_pattern: reader.cast_slice(header.trip_to_trip_pattern)?,
-            stop_to_trip_pattern: reader.cast_slice(header.stop_to_trips)?,
+            stop_to_trip_pattern: reader.cast_slice(header.stop_to_trip_pattern)?,
             stop_to_trip_pattern_lookup: reader.cast_slice(header.stop_to_trip_pattern_lookup)?,
 
             strings: reader.get_bytes::<u8>(header.strings)?,
