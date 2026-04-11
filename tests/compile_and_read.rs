@@ -81,9 +81,9 @@ fn test_trips_lookup_and_routing() {
 
     assert_eq!(trip1.route_idx, route1.idx);
 
-    let route_trips: Vec<_> = consumer.iter_route_trips(route1.idx).collect();
-    assert_eq!(route_trips.len(), 2);
-    assert_eq!(route_trips[0].idx, trip1.idx);
+    let trips_in_route: Vec<_> = consumer.iter_trips_by_route(route1.idx).collect();
+    assert_eq!(trips_in_route.len(), 2);
+    assert_eq!(trips_in_route[0].idx, trip1.idx);
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn test_stop_times_and_trip_iterations() {
 
     let trip1 = consumer.trip_by_id("trip1").unwrap();
 
-    let stop_times = consumer.trip_stop_times(trip1.idx);
+    let stop_times = consumer.stop_times_by_trip(trip1.idx);
     assert_eq!(stop_times.len(), 2, "trip1 should have 2 stop times");
 
     let stop2 = consumer.stop_by_id("stop2").unwrap();
@@ -102,11 +102,11 @@ fn test_stop_times_and_trip_iterations() {
     assert_eq!(stop_times[0].stop_idx, stop2.idx);
     assert_eq!(stop_times[1].stop_idx, stop3.idx);
 
-    let stop2_trips: Vec<_> = consumer.iter_stop_trips(stop2.idx).collect();
+    let stop2_trips: Vec<_> = consumer.iter_trips_by_stop(stop2.idx).collect();
     assert_eq!(stop2_trips.len(), 2);
     assert_eq!(stop2_trips[0].idx, trip1.idx);
 
-    let stop3_trips: Vec<_> = consumer.iter_stop_trips(stop3.idx).collect();
+    let stop3_trips: Vec<_> = consumer.iter_trips_by_stop(stop3.idx).collect();
     assert_eq!(stop3_trips.len(), 1);
     assert_eq!(stop3_trips[0].idx, trip1.idx);
 }
@@ -258,10 +258,10 @@ fn test_route_to_trips_mapping() {
     let route3 = consumer.route_by_id("route3").unwrap();
     let route4 = consumer.route_by_id("route4").unwrap();
 
-    let route1_trips: Vec<_> = consumer.iter_route_trips(route1.idx).collect();
-    let route2_trips: Vec<_> = consumer.iter_route_trips(route2.idx).collect();
-    let route3_trips: Vec<_> = consumer.iter_route_trips(route3.idx).collect();
-    let route4_trips: Vec<_> = consumer.iter_route_trips(route4.idx).collect();
+    let route1_trips: Vec<_> = consumer.iter_trips_by_route(route1.idx).collect();
+    let route2_trips: Vec<_> = consumer.iter_trips_by_route(route2.idx).collect();
+    let route3_trips: Vec<_> = consumer.iter_trips_by_route(route3.idx).collect();
+    let route4_trips: Vec<_> = consumer.iter_trips_by_route(route4.idx).collect();
 
     assert_eq!(route1_trips.len(), 2);
     assert_eq!(route2_trips.len(), 3);
@@ -278,9 +278,9 @@ fn test_stop_to_trips_mapping() {
     let stop6 = consumer.stop_by_id("stop6").unwrap();
     let stop8 = consumer.stop_by_id("stop8").unwrap();
 
-    let stop2_trips: Vec<_> = consumer.iter_stop_trips(stop2.idx).collect();
-    let stop6_trips: Vec<_> = consumer.iter_stop_trips(stop6.idx).collect();
-    let stop8_trips: Vec<_> = consumer.iter_stop_trips(stop8.idx).collect();
+    let stop2_trips: Vec<_> = consumer.iter_trips_by_stop(stop2.idx).collect();
+    let stop6_trips: Vec<_> = consumer.iter_trips_by_stop(stop6.idx).collect();
+    let stop8_trips: Vec<_> = consumer.iter_trips_by_stop(stop8.idx).collect();
 
     assert_eq!(stop2_trips.len(), 2);
     assert_eq!(stop6_trips.len(), 3);
@@ -305,7 +305,7 @@ fn test_outbound_transfers() {
     let stop8 = consumer.stop_by_id("stop8").unwrap();
     let stop2 = consumer.stop_by_id("stop2").unwrap();
 
-    let outbound_from_stop5: Vec<_> = consumer.outbound_transfers(stop5.idx).to_vec();
+    let outbound_from_stop5: Vec<_> = consumer.outbound_transfers_by_stop(stop5.idx).to_vec();
     assert_eq!(outbound_from_stop5.len(), 1);
     assert_eq!(
         consumer.stop_id(consumer.stop(outbound_from_stop5[0].to_stop_idx).id),
@@ -313,7 +313,7 @@ fn test_outbound_transfers() {
     );
     assert_eq!(outbound_from_stop5[0].transfer_type, 0);
 
-    let outbound_from_stop10: Vec<_> = consumer.outbound_transfers(stop10.idx).to_vec();
+    let outbound_from_stop10: Vec<_> = consumer.outbound_transfers_by_stop(stop10.idx).to_vec();
     assert_eq!(outbound_from_stop10.len(), 1);
     assert_eq!(
         consumer.stop_id(consumer.stop(outbound_from_stop10[0].to_stop_idx).id),
@@ -321,7 +321,7 @@ fn test_outbound_transfers() {
     );
     assert_eq!(outbound_from_stop10[0].transfer_type, 1);
 
-    let outbound_from_stop8: Vec<_> = consumer.outbound_transfers(stop8.idx).to_vec();
+    let outbound_from_stop8: Vec<_> = consumer.outbound_transfers_by_stop(stop8.idx).to_vec();
     assert_eq!(outbound_from_stop8.len(), 1);
     assert_eq!(
         consumer.stop_id(consumer.stop(outbound_from_stop8[0].to_stop_idx).id),
@@ -329,7 +329,7 @@ fn test_outbound_transfers() {
     );
     assert_eq!(outbound_from_stop8[0].transfer_type, 2);
 
-    let outbound_from_stop2: Vec<_> = consumer.outbound_transfers(stop2.idx).to_vec();
+    let outbound_from_stop2: Vec<_> = consumer.outbound_transfers_by_stop(stop2.idx).to_vec();
     assert_eq!(outbound_from_stop2.len(), 1);
     assert_eq!(
         consumer.stop_id(consumer.stop(outbound_from_stop2[0].to_stop_idx).id),
@@ -347,21 +347,23 @@ fn test_inbound_transfers() {
     let stop6 = consumer.stop_by_id("stop6").unwrap();
     let stop12 = consumer.stop_by_id("stop12").unwrap();
 
-    let inbound_to_stop1: Vec<_> = consumer.iter_inbound_transfers(stop1.idx).collect();
+    let inbound_to_stop1: Vec<_> = consumer.iter_inbound_transfers_by_stop(stop1.idx).collect();
     assert_eq!(inbound_to_stop1.len(), 1);
     assert_eq!(
         consumer.stop_id(consumer.stop(inbound_to_stop1[0].from_stop_idx).id),
         "stop5"
     );
 
-    let inbound_to_stop6: Vec<_> = consumer.iter_inbound_transfers(stop6.idx).collect();
+    let inbound_to_stop6: Vec<_> = consumer.iter_inbound_transfers_by_stop(stop6.idx).collect();
     assert_eq!(inbound_to_stop6.len(), 1);
     assert_eq!(
         consumer.stop_id(consumer.stop(inbound_to_stop6[0].from_stop_idx).id),
         "stop10"
     );
 
-    let inbound_to_stop12: Vec<_> = consumer.iter_inbound_transfers(stop12.idx).collect();
+    let inbound_to_stop12: Vec<_> = consumer
+        .iter_inbound_transfers_by_stop(stop12.idx)
+        .collect();
     assert_eq!(inbound_to_stop12.len(), 1);
     assert_eq!(
         consumer.stop_id(consumer.stop(inbound_to_stop12[0].from_stop_idx).id),
@@ -439,7 +441,7 @@ fn test_trip_patterns() {
     );
 
     let trips_in_pattern: Vec<_> = consumer
-        .trips_in_trip_pattern(pattern_idx_3)
+        .iter_trips_in_trip_pattern(pattern_idx_3)
         .map(|t| consumer.trip_id(t.id))
         .collect();
 
@@ -448,7 +450,7 @@ fn test_trip_patterns() {
     assert!(trips_in_pattern.contains(&"trip7"));
 
     let stops_in_pattern: Vec<_> = consumer
-        .iter_stop_sequence_in_trip_pattern(pattern_idx_3)
+        .iter_stop_sequence_by_trip_pattern(pattern_idx_3)
         .map(|s| consumer.stop_id(s.id))
         .collect();
 
@@ -461,7 +463,7 @@ fn test_trip_patterns() {
     let pattern_idx_1 = consumer.trip_to_trip_pattern[trip1.idx.as_usize()];
 
     let trips_in_pattern_1: Vec<_> = consumer
-        .trips_in_trip_pattern(pattern_idx_1)
+        .iter_trips_in_trip_pattern(pattern_idx_1)
         .map(|t| consumer.trip_id(t.id))
         .collect();
 

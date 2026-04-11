@@ -25,7 +25,7 @@ impl<'a> Consumer<'a> {
             .map(|trip_pattern_idx| self.trip_pattern(trip_pattern_idx))
     }
 
-    pub fn iter_stop_sequence_in_trip_pattern(
+    pub fn iter_stop_sequence_by_trip_pattern(
         &self,
         idx: TripPatternIdx,
     ) -> impl Iterator<Item = &'a Stop> {
@@ -36,7 +36,10 @@ impl<'a> Consumer<'a> {
             .map(|idx| self.stop(idx))
     }
 
-    pub fn trips_in_trip_pattern(&self, idx: TripPatternIdx) -> impl Iterator<Item = &'a Trip> {
+    pub fn iter_trips_in_trip_pattern(
+        &self,
+        idx: TripPatternIdx,
+    ) -> impl Iterator<Item = &'a Trip> {
         let slice = self.trip_pattern(idx).trips;
         self.trip_patterns_trips[slice.range()]
             .iter()
