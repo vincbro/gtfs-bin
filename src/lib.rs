@@ -1,8 +1,11 @@
-pub const GTFS_BIN_VERSION: u32 = 1;
+pub const GTFS_BIN_VERSION: u32 = 3;
 
 pub mod compiler;
 pub mod consumer;
 pub mod models;
+
+#[cfg(feature = "rt")]
+pub mod rt;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

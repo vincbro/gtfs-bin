@@ -24,6 +24,7 @@
             pkgs.clippy
             pkgs.rustfmt
             pkgs.taplo
+            pkgs.protobuf
           ];
 
           buildInputs = [
