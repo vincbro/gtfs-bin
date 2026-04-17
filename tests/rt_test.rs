@@ -34,9 +34,7 @@ pub fn compile_test() -> (NamedTempFile, Mmap) {
     (temp_file, mmap)
 }
 
-/// Helper to generate a fake GTFS-RT feed message.
-/// Now accepts a `target_sequence` so we don't have to guess what sequence the fixture used.
-pub fn create_fake_feed_message(trip1_target_seq: u32) -> FeedMessage {
+pub fn create_fake_feed_message() -> FeedMessage {
     let current_timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -75,7 +73,7 @@ pub fn create_fake_feed_message(trip1_target_seq: u32) -> FeedMessage {
                         ..Default::default()
                     },
                     stop_time_update: vec![StopTimeUpdate {
-                        stop_sequence: Some(trip1_target_seq),
+                        stop_sequence: Some(1),
                         arrival: Some(trip_update::StopTimeEvent {
                             delay: Some(120),
                             ..Default::default()
@@ -99,14 +97,7 @@ fn test_realtime_builder_ingestion() {
     let (_file, mmap) = compile_test();
     let consumer = Consumer::new(&mmap).expect("Failed to load graph");
 
-    let trip1 = consumer
-        .trip_by_id("trip1")
-        .expect("Trip 'trip1' not found");
-    let stop_times = consumer.stop_times_by_trip(trip1.idx);
-
-    let target_seq = stop_times[0].sequence;
-
-    let feed_message = create_fake_feed_message(target_seq);
+    let feed_message = create_fake_feed_message();
     let realtime = RealtimeBuilder::new(&consumer)
         .with_cascading_delays(true)
         .build(vec![feed_message].into_iter());
@@ -122,8 +113,12 @@ fn test_realtime_builder_ingestion() {
     );
 
     // --- Assert Trip 1 is Delayed ---
+    let trip1 = consumer
+        .trip_by_id("trip1")
+        .expect("Trip 'trip1' not found");
+    let stop_times = consumer.stop_times_by_trip(trip1.idx);
     let seq_idx = stop_times
-        .binary_search_by_key(&target_seq, |st| st.sequence)
+        .binary_search_by_key(&1, |st| st.sequence)
         .expect("Sequence not found in binary search");
 
     let global_idx = trip1.stop_times.start as usize + seq_idx;
