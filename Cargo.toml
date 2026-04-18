@@ -13,7 +13,6 @@ categories = ["data-structures", "parsing", "caching"]
 [dependencies]
 bitvec = "1.0.1"
 bytemuck = { version = "1.25.0", features = ["derive"] }
-chrono = "0.4.44"
 clap = { version = "4.5.60", features = ["derive"] }
 gtfs-structures = { version = "0.47.0", default-features = false }
 memmap2 = "0.9.10"
@@ -25,6 +24,7 @@ gtfs-rt = { version = "0.5.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 prost = { version = "0.14", optional = true }
 prost-derive = { version = "0.14", optional = true }
+chrono = "0.4.44"
 
 [dev-dependencies]
 tempfile = "3.26.0"
