@@ -1,9 +1,11 @@
 pub const GTFS_BIN_VERSION: u32 = 3;
 
-pub mod compiler;
-pub mod consumer;
 pub mod models;
 
+#[cfg(feature = "compiler")]
+pub mod compiler;
+#[cfg(feature = "consumer")]
+pub mod consumer;
 #[cfg(feature = "rt")]
 pub mod rt;
 
