@@ -47,7 +47,6 @@ pub fn create_fake_feed_message() -> FeedMessage {
             ..Default::default()
         },
         entity: vec![
-            // --- CANCEL TRIP 4 ---
             FeedEntity {
                 id: "fake_cancellation_event".to_string(),
                 trip_update: Some(TripUpdate {
@@ -102,7 +101,6 @@ fn test_realtime_builder_ingestion() {
         .with_cascading_delays(true)
         .build(vec![feed_message].into_iter());
 
-    // --- Assert Trip 4 is Canceled ---
     let trip4 = consumer
         .trip_by_id("trip4")
         .expect("Trip 'trip4' not found");
@@ -112,7 +110,6 @@ fn test_realtime_builder_ingestion() {
         "Trip 4 should be marked as canceled"
     );
 
-    // --- Assert Trip 1 is Delayed ---
     let trip1 = consumer
         .trip_by_id("trip1")
         .expect("Trip 'trip1' not found");
@@ -131,7 +128,6 @@ fn test_realtime_builder_ingestion() {
     assert!(departure_delay.is_some(), "Expected a departure delay");
     assert_eq!(departure_delay.get().unwrap(), Delay(120));
 
-    // --- Assert Trip 3 remains Unchanged ---
     let trip3 = consumer
         .trip_by_id("trip3")
         .expect("Trip 'trip3' not found");
