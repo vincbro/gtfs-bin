@@ -7,7 +7,7 @@ use tempfile::NamedTempFile;
 // Helper to compile the GTFS and map it into memory.
 // Returns the NamedTempFile alongside the Mmap so the file isn't deleted
 // until the test finishes.
-fn compile_test() -> (NamedTempFile, Mmap) {
+pub fn compile_test() -> (NamedTempFile, Mmap) {
     let mut input_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     input_path.push("tests/fixtures/gtfs");
 

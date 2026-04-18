@@ -1,6 +1,8 @@
 .direnv/
 /target
+
+!/tests/fixtures/gtfs.zip
+
 *.zip
 *.gtfs
-!/tests/fixtures/gtfs.zip
-todo.md
+*.pb
