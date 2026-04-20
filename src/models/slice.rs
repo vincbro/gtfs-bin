@@ -12,7 +12,18 @@ pub trait Slice: Sentinel {
 macro_rules! define_slice {
     ($name:ident) => {
         #[repr(C)]
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, bytemuck::Pod, bytemuck::Zeroable)]
+        #[derive(
+            Debug,
+            Clone,
+            Copy,
+            PartialEq,
+            Eq,
+            Hash,
+            PartialOrd,
+            Ord,
+            bytemuck::Pod,
+            bytemuck::Zeroable,
+        )]
         pub struct $name {
             pub start: u32,
             pub count: u32,

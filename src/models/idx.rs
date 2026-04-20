@@ -12,10 +12,10 @@ macro_rules! define_index {
             PartialEq,
             Eq,
             Hash,
-            bytemuck::Pod,
-            bytemuck::Zeroable,
             PartialOrd,
             Ord,
+            bytemuck::Pod,
+            bytemuck::Zeroable,
         )]
         pub struct $name(pub u32);
 
