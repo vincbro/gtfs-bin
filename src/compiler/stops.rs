@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::models::{
-    Coordinate, Opt, Sentinel, Slice, SliceBuilder, Stop, StopIdSlice, StopIdx, StopTime,
-    StringSlice, TripIdx, TripSlice,
+    Coordinate, LocationType, Opt, RouteType, SearchSlice, SearchStop, Sentinel, Slice,
+    SliceBuilder, Stop, StopIdSlice, StopIdx, StopTime, StringSlice, TripIdx, TripSlice,
 };
 use rayon::slice::ParallelSliceMut;
 
@@ -46,6 +46,8 @@ pub(crate) fn build_stops(
                     .into(),
                 idx,
                 parent_idx: Opt::new(StopIdx::NONE),
+                location_type: stop.location_type.into(),
+                _pad: [0_u8; 3],
             }
         })
         .collect();
@@ -122,4 +124,40 @@ pub(crate) fn build_stop_to_trips(
     }
 
     (stop_to_trips, stop_to_trips_lookup)
+}
+
+pub fn build_stop_search(stops: &[Stop]) -> (Vec<SearchStop>, Vec<StopIdx>) {
+    let mut grouped_stops: HashMap<StringSlice, Vec<StopIdx>> = HashMap::with_capacity(stops.len());
+
+    for stop in stops {
+        if let Some(name) = stop.name.get()
+            && (stop.location_type == LocationType::STOP_AREA
+                || (stop.location_type == LocationType::GENERIC_NODE && stop.parent_idx.is_none()))
+        {
+            grouped_stops.entry(name).or_default().push(stop.idx);
+        } else if let Some(parent) = stop.parent_idx.get() {
+            let parent = &stops[parent.as_usize()];
+            if let Some(name) = parent.name.get() {
+                grouped_stops.entry(name).or_default().push(stop.idx);
+            }
+        }
+    }
+
+    let mut search_stops: Vec<SearchStop> = Vec::with_capacity(grouped_stops.len());
+    let mut search_to_stops: Vec<StopIdx> = Vec::new();
+
+    for (i, (name, group)) in grouped_stops.into_iter().enumerate() {
+        let start = search_to_stops.len() as u32;
+        let count = group.len() as u32;
+        search_to_stops.extend_from_slice(&group);
+        search_stops.push(SearchStop {
+            idx: i.into(),
+            name,
+            stops: SearchSlice { start, count },
+            route_type: RouteType::NONE,
+            _pad: [0_u8; 2],
+        });
+    }
+
+    (search_stops, search_to_stops)
 }

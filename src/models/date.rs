@@ -72,86 +72,28 @@ impl Date {
 
 #[repr(transparent)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct WeekdaySet(pub u8);
+pub struct Weekday(pub u8);
 
-impl WeekdaySet {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn set_day(&mut self, idx: u8, value: bool) {
-        assert!(idx < 7, "The day index is out of bounds, max value 6");
-        self.0 = set_bit(self.0, idx, value)
-    }
-
-    pub fn get_day(&self, idx: u8) -> bool {
-        assert!(idx < 7, "The day index is out of bounds, max value 6");
-        is_bit_flipped(self.0, idx)
-    }
-
-    pub fn monday(&self) -> bool {
-        is_bit_flipped(self.0, 0)
-    }
-
-    pub fn tuesday(&self) -> bool {
-        is_bit_flipped(self.0, 1)
-    }
-
-    pub fn wednesday(&self) -> bool {
-        is_bit_flipped(self.0, 2)
-    }
-
-    pub fn thursday(&self) -> bool {
-        is_bit_flipped(self.0, 3)
-    }
-
-    pub fn friday(&self) -> bool {
-        is_bit_flipped(self.0, 4)
-    }
-
-    pub fn saturday(&self) -> bool {
-        is_bit_flipped(self.0, 5)
-    }
-
-    pub fn sunday(&self) -> bool {
-        is_bit_flipped(self.0, 6)
-    }
-
-    pub fn with_monday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 0, value))
-    }
-
-    pub fn with_tuesday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 1, value))
-    }
-
-    pub fn with_wednesday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 2, value))
-    }
-
-    pub fn with_thursday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 3, value))
-    }
-
-    pub fn with_friday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 4, value))
-    }
-
-    pub fn with_saturday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 5, value))
-    }
-
-    pub fn with_sunday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 6, value))
+impl From<u8> for Weekday {
+    fn from(value: u8) -> Self {
+        Self(1 << value)
     }
 }
-fn is_bit_flipped(byte: u8, n: u8) -> bool {
-    assert!(n < 8, "Bit index out of bounds for u8");
-    (byte & (1 << n)) != 0
-}
 
-fn set_bit(byte: u8, n: u8, value: bool) -> u8 {
-    assert!(n < 8, "Bit index out of bounds for u8");
-    let mask = 1 << n;
-    if value { byte | mask } else { byte & !mask }
+impl Weekday {
+    pub const MONDAY: Self = Self(1 << 0);
+    pub const TUESDAY: Self = Self(1 << 1);
+    pub const WEDNESDAY: Self = Self(1 << 2);
+    pub const THURSDAY: Self = Self(1 << 3);
+    pub const FRIDAY: Self = Self(1 << 4);
+    pub const SATURDAY: Self = Self(1 << 5);
+    pub const SUNDAY: Self = Self(1 << 6);
+
+    pub fn join(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    pub fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
 }

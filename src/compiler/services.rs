@@ -1,6 +1,6 @@
 use crate::models::{
     Date, Sentinel, Service, ServiceBinarySlice, ServiceIdSlice, ServiceIdx, Slice, SliceBuilder,
-    WeekdaySet,
+    Weekday,
 };
 use bitvec::{bitvec, order::Msb0, vec::BitVec};
 use rayon::slice::ParallelSliceMut;
@@ -24,20 +24,36 @@ pub fn build_services(
             let start_date = service.start_date.into();
             let end_date = service.end_date.into();
             base_bounds.push((start_date, end_date));
+            let mut weekdays = Weekday::default();
+            if service.monday {
+                weekdays = weekdays.join(Weekday::MONDAY);
+            }
+            if service.tuesday {
+                weekdays = weekdays.join(Weekday::TUESDAY);
+            }
+            if service.wednesday {
+                weekdays = weekdays.join(Weekday::WEDNESDAY);
+            }
+            if service.thursday {
+                weekdays = weekdays.join(Weekday::THURSDAY);
+            }
+            if service.friday {
+                weekdays = weekdays.join(Weekday::FRIDAY);
+            }
+            if service.saturday {
+                weekdays = weekdays.join(Weekday::SATURDAY);
+            }
+            if service.sunday {
+                weekdays = weekdays.join(Weekday::SUNDAY);
+            }
+
             Service {
                 id: ServiceIdSlice::NONE,
                 idx,
                 start_date,
                 end_date,
                 active_mask: ServiceBinarySlice::NONE,
-                weekdays: WeekdaySet::new()
-                    .with_monday(service.monday)
-                    .with_tuesday(service.tuesday)
-                    .with_wednesday(service.wednesday)
-                    .with_thursday(service.thursday)
-                    .with_friday(service.friday)
-                    .with_saturday(service.saturday)
-                    .with_sunday(service.sunday),
+                weekdays,
                 _pad: [0_u8; 3],
             }
         })
@@ -66,7 +82,7 @@ pub fn build_services(
                 start_date: date,
                 end_date: date,
                 active_mask: ServiceBinarySlice::NONE,
-                weekdays: WeekdaySet(u8::MIN),
+                weekdays: Weekday::default(),
                 _pad: [0_u8; 3],
             });
         }
@@ -88,7 +104,7 @@ pub fn build_services(
             let idx = start + (i - service.start_date.0) as usize;
             let date = Date(i);
             let runs_today = if date >= base_start && date <= base_end {
-                service.weekdays.get_day(date.get_day_of_week())
+                service.weekdays.contains(date.get_day_of_week().into())
             } else {
                 false
             };

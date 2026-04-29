@@ -1,4 +1,4 @@
-use crate::models::{Coordinate, Opt, StopIdSlice, StopIdx, StringSlice};
+use crate::models::{Coordinate, LocationType, Opt, StopIdSlice, StopIdx, StringSlice};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS stop, station, or entrance.
@@ -33,4 +33,9 @@ pub struct Stop {
 
     /// The internal array index of the parent station, if one exists.
     pub parent_idx: Opt<StopIdx>,
+
+    /// Defines the type of location
+    pub location_type: LocationType,
+
+    pub _pad: [u8; 3], // Pad to ensure 4-byte alignment for bytemuck
 }

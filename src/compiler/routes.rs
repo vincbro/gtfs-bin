@@ -35,7 +35,8 @@ pub(crate) fn build_routes(
                     .map(|desc| slice_builder.add(desc))
                     .into(),
                 idx,
-                rtype: 0,
+                route_type: route.route_type.into(),
+                _pad: [0_u8; 2],
             }
         })
         .collect();
