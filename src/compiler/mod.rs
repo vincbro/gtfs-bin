@@ -5,7 +5,7 @@ use crate::{
         services::{build_service_ids, build_services},
         shapes::build_shapes,
         stop_times::build_stop_times,
-        stops::{build_stop_ids, build_stop_to_trips, build_stops},
+        stops::{build_stop_ids, build_stop_search, build_stop_to_trips, build_stops},
         transfers::build_transfers,
         trip_patterns::{BuildTripPatternsResult, build_trip_patterns},
         trips::{build_trip_ids, build_trips},
@@ -92,6 +92,7 @@ impl Compiler {
             };
 
         let (stop_to_trips, stop_to_trips_lookup) = build_stop_to_trips(&stops, &stop_times);
+        let (search_stops, search_to_stops) = build_stop_search(&stops);
         let (route_to_trips, route_to_trips_lookup) = build_route_to_trips(&trips, &routes);
         let BuildTripPatternsResult(
             trip_patterns,
@@ -144,6 +145,9 @@ impl Compiler {
 
             stop_to_trips: writer.write_section(&stop_to_trips),
             stop_to_trips_lookup: writer.write_section(&stop_to_trips_lookup),
+
+            search_stops: writer.write_section(&search_stops),
+            search_to_stops: writer.write_section(&search_to_stops),
 
             transfers: writer.write_section(&transfers),
             stop_to_transfers_out: writer.write_section(&stop_to_transfers_out),

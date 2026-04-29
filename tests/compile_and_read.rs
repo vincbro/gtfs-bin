@@ -1,6 +1,10 @@
 use std::{io::Write, path::PathBuf};
 
-use gtfs_bin::{compiler::Compiler, consumer::Consumer, models::Date};
+use gtfs_bin::{
+    compiler::Compiler,
+    consumer::Consumer,
+    models::{Date, Weekday},
+};
 use memmap2::Mmap;
 use tempfile::NamedTempFile;
 
@@ -388,13 +392,13 @@ fn test_services_and_calendar() {
     assert_eq!(service1.start_date.to_string(), "2017-01-01");
     assert_eq!(service1.end_date.to_string(), "2017-01-15");
 
-    assert!(service1.weekdays.saturday());
-    assert!(service1.weekdays.sunday());
-    assert!(!service1.weekdays.monday());
+    assert!(service1.weekdays.contains(Weekday::SATURDAY));
+    assert!(service1.weekdays.contains(Weekday::SUNDAY));
+    assert!(!service1.weekdays.contains(Weekday::MONDAY));
 
     assert_eq!(service2.start_date.to_string(), "2017-01-01");
     assert_eq!(service2.end_date.to_string(), "2017-01-07");
-    assert!(!service2.weekdays.sunday());
+    assert!(!service2.weekdays.contains(Weekday::SUNDAY));
 
     assert!(
         !consumer.is_service_active(service1.idx, Date(service1.start_date.0)),

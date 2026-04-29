@@ -23,6 +23,12 @@ macro_rules! define_index {
             const NONE: Self = Self(u32::MAX);
         }
 
+        impl From<usize> for $name {
+            fn from(value: usize) -> Self {
+                Self(value as u32)
+            }
+        }
+
         impl Default for $name {
             fn default() -> Self {
                 Self::NONE
@@ -39,6 +45,7 @@ macro_rules! define_index {
 }
 
 define_index!(StopIdx);
+define_index!(SearchIdx);
 define_index!(TripIdx);
 define_index!(TripPatternIdx);
 define_index!(RouteIdx);

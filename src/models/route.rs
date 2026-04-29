@@ -1,4 +1,4 @@
-use crate::models::{Opt, RouteIdSlice, RouteIdx, StringSlice};
+use crate::models::{Opt, RouteIdSlice, RouteIdx, RouteType, StringSlice};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS route.
@@ -29,5 +29,6 @@ pub struct Route {
     pub idx: RouteIdx,
 
     ///Indicates the type of transportation used on a route
-    pub rtype: u32,
+    pub route_type: RouteType,
+    pub _pad: [u8; 2],
 }
