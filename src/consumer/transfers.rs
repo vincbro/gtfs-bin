@@ -9,9 +9,16 @@ impl<'a> Consumer<'a> {
     }
 
     /// Transfers from A-B by A idx
+    #[inline]
     pub fn outbound_transfers_by_stop(&self, idx: StopIdx) -> &'a [Transfer] {
         let slice = self.stop_to_transfer_out[idx.as_usize()];
         &self.transfers[slice.range()]
+    }
+
+    #[inline]
+    pub fn inbound_transfers_by_stop(&self, idx: StopIdx) -> &[TransferIdx] {
+        let slice = self.stop_to_transfer_in[idx.as_usize()];
+        &self.transfers_in_indencies[slice.range()]
     }
 
     /// Transfers from A-B by B idx
@@ -19,8 +26,7 @@ impl<'a> Consumer<'a> {
         &self,
         idx: StopIdx,
     ) -> impl Iterator<Item = &'a Transfer> {
-        let slice = self.stop_to_transfer_in[idx.as_usize()];
-        self.transfers_in_indencies[slice.range()]
+        self.inbound_transfers_by_stop(idx)
             .iter()
             .copied()
             .map(|idx| self.transfer(idx))

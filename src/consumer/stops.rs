@@ -27,9 +27,15 @@ impl<'a> Consumer<'a> {
     pub fn search(&self, idx: SearchIdx) -> &SearchStop {
         &self.search_stops[idx.as_usize()]
     }
-    pub fn iter_stops_by_search(&self, idx: SearchIdx) -> impl Iterator<Item = &'a Stop> {
+
+    #[inline]
+    pub fn stops_by_search(&self, idx: SearchIdx) -> &[StopIdx] {
         let search = self.search(idx);
-        self.search_to_stops[search.stops.range()]
+        &self.search_to_stops[search.stops.range()]
+    }
+
+    pub fn iter_stops_by_search(&self, idx: SearchIdx) -> impl Iterator<Item = &'a Stop> {
+        self.stops_by_search(idx)
             .iter()
             .copied()
             .map(|stop| self.stop(stop))
