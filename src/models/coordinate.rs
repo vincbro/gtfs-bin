@@ -54,6 +54,12 @@ impl Coordinate {
     }
 }
 
+impl From<(f64, f64)> for Coordinate {
+    fn from((lat, lon): (f64, f64)) -> Self {
+        Self::new(lat, lon)
+    }
+}
+
 impl Sentinel for Coordinate {
     const NONE: Self = Self {
         packed_latitude: i32::MAX,
