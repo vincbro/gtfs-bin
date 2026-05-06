@@ -1,3 +1,4 @@
+mod bit_mask;
 mod coordinate;
 mod date;
 mod distance;
@@ -18,7 +19,9 @@ mod time;
 mod transfer;
 mod trip;
 mod trip_pattern;
+mod weekday;
 
+pub use bit_mask::*;
 pub use coordinate::*;
 pub use date::*;
 pub use distance::*;
@@ -39,3 +42,4 @@ pub use time::*;
 pub use transfer::*;
 pub use trip::*;
 pub use trip_pattern::*;
+pub use weekday::*;

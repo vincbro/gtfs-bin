@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use rayon::slice::ParallelSliceMut;
 
-use crate::models::{Duration, Sentinel, StopIdx, Transfer, TransferIdx, TransferSlice};
+use crate::models::{Duration, Sentinel, Slice, StopIdx, Transfer, TransferIdx, TransferSlice};
 
-pub(crate) fn build_transfers(
+pub fn build_transfers(
     raw_transfers: &[gtfs_structures::RawTransfer],
     stop_map: &HashMap<String, StopIdx>,
 ) -> (
@@ -26,12 +26,13 @@ pub(crate) fn build_transfers(
                         .map(|to_stop_idx| (transfer, from_stop_idx, to_stop_idx))
                 })
         })
-        .map(|(transfer, from_stop_idx, to_stop_idx)| Transfer {
-            from_stop_idx,
-            to_stop_idx,
-            min_transfer_time: transfer.min_transfer_time.map(Duration).into(),
-            transfer_type: transfer.transfer_type as u8,
-            _pad: [0_u8; 3],
+        .map(|(transfer, from_stop_idx, to_stop_idx)| {
+            Transfer::new(
+                from_stop_idx,
+                to_stop_idx,
+                transfer.min_transfer_time.map(Duration).into(),
+                transfer.transfer_type as u8,
+            )
         })
         .collect();
 
@@ -44,22 +45,21 @@ pub(crate) fn build_transfers(
     for (i, transfer) in transfers.iter().enumerate() {
         if transfer.from_stop_idx != current_stop {
             if current_stop != StopIdx::NONE {
-                stop_to_transfers_out[current_stop.as_usize()] = TransferSlice { start, count };
+                stop_to_transfers_out[current_stop.as_usize()] =
+                    TransferSlice::from_usize(start, count);
             }
-            start = i as u32;
+            start = i;
             count = 0;
             current_stop = transfer.from_stop_idx;
         }
         count += 1;
     }
     if current_stop != StopIdx::NONE {
-        stop_to_transfers_out[current_stop.as_usize()] = TransferSlice { start, count };
+        stop_to_transfers_out[current_stop.as_usize()] = TransferSlice::from_usize(start, count);
     }
 
     // Inbound
-    let mut transfers_in_indencies: Vec<_> = (0..transfers.len())
-        .map(|i| TransferIdx(i as u32))
-        .collect();
+    let mut transfers_in_indencies: Vec<_> = (0..transfers.len()).map(TransferIdx::from).collect();
     transfers_in_indencies.par_sort_unstable_by_key(|idx| transfers[idx.as_usize()].to_stop_idx);
     let mut stop_to_transfers_in = vec![TransferSlice::NONE; stop_map.len()];
     let mut current_stop = StopIdx::NONE;
@@ -69,16 +69,17 @@ pub(crate) fn build_transfers(
         let transfer = &transfers[transfer_idx.as_usize()];
         if transfer.to_stop_idx != current_stop {
             if current_stop != StopIdx::NONE {
-                stop_to_transfers_in[current_stop.as_usize()] = TransferSlice { start, count };
+                stop_to_transfers_in[current_stop.as_usize()] =
+                    TransferSlice::from_usize(start, count);
             }
-            start = i as u32;
+            start = i;
             count = 0;
             current_stop = transfer.to_stop_idx;
         }
         count += 1;
     }
     if current_stop != StopIdx::NONE {
-        stop_to_transfers_in[current_stop.as_usize()] = TransferSlice { start, count };
+        stop_to_transfers_in[current_stop.as_usize()] = TransferSlice::from_usize(start, count);
     }
 
     (

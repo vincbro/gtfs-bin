@@ -25,7 +25,11 @@ macro_rules! define_index {
 
         impl From<usize> for $name {
             fn from(value: usize) -> Self {
-                Self(value as u32)
+                if let Ok(value) = u32::try_from(value) {
+                    Self(value)
+                } else {
+                    Self::NONE
+                }
             }
         }
 
@@ -37,7 +41,7 @@ macro_rules! define_index {
 
         impl $name {
             #[inline(always)]
-            pub fn as_usize(&self) -> usize {
+            pub const fn as_usize(&self) -> usize {
                 self.0 as usize
             }
         }

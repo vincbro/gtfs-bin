@@ -1,10 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 
-use crate::models::Sentinel;
+use crate::models::{BitMask, Sentinel};
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Pod, Zeroable)]
-pub struct RouteType(u16);
+pub struct RouteType(pub u16);
 
 impl From<gtfs_structures::RouteType> for RouteType {
     fn from(value: gtfs_structures::RouteType) -> Self {
@@ -79,12 +79,14 @@ impl RouteType {
     pub const COACH: Self = Self(1 << 8);
     pub const AIR: Self = Self(1 << 9);
     pub const TAXI: Self = Self(1 << 10);
+}
 
-    pub fn join(self, other: Self) -> Self {
+impl BitMask for RouteType {
+    fn join(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
-    pub fn contains(self, other: Self) -> bool {
+    fn contains(self, other: Self) -> bool {
         self.0 & other.0 == other.0
     }
 }

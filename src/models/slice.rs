@@ -7,6 +7,7 @@ pub trait Slice: Sentinel {
     fn range(self) -> std::ops::Range<usize>;
 
     fn new(start: u32, count: u32) -> Self;
+    fn from_usize(start: usize, count: usize) -> Self;
 }
 
 macro_rules! define_slice {
@@ -35,6 +36,28 @@ macro_rules! define_slice {
             }
         }
 
+        impl From<(u32, u32)> for $name {
+            fn from(value: (u32, u32)) -> Self {
+                let start = value.0;
+                let count = value.1;
+                Self::new(start, count)
+            }
+        }
+
+        impl From<(usize, usize)> for $name {
+            fn from(value: (usize, usize)) -> Self {
+                let start = u32::try_from(value.0);
+                let count = u32::try_from(value.1);
+                if let Ok(start) = start
+                    && let Ok(count) = count
+                {
+                    Self::new(start, count)
+                } else {
+                    Self::NONE
+                }
+            }
+        }
+
         impl Sentinel for $name {
             const NONE: Self = Self {
                 start: u32::MIN,
@@ -43,16 +66,29 @@ macro_rules! define_slice {
         }
 
         impl Slice for $name {
+            fn new(start: u32, count: u32) -> Self {
+                Self { start, count }
+            }
+
+            fn from_usize(start: usize, count: usize) -> Self {
+                let start = u32::try_from(start);
+                let count = u32::try_from(count);
+
+                if let Ok(start) = start
+                    && let Ok(count) = count
+                {
+                    Self { start, count }
+                } else {
+                    Self::NONE
+                }
+            }
+
             /// Helper to instantly convert this into a standard Rust range
             #[inline(always)]
             fn range(self) -> std::ops::Range<usize> {
                 let start = self.start as usize;
                 let end = start + self.count as usize;
                 start..end
-            }
-
-            fn new(start: u32, count: u32) -> Self {
-                Self { start, count }
             }
         }
     };
@@ -81,6 +117,7 @@ pub struct SliceBuilder<T: Slice> {
 }
 
 impl<T: Slice> SliceBuilder<T> {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             buffer: String::new(),
@@ -88,6 +125,7 @@ impl<T: Slice> SliceBuilder<T> {
         }
     }
 
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             buffer: String::with_capacity(capacity),
@@ -103,13 +141,14 @@ impl<T: Slice> SliceBuilder<T> {
             let start = self.buffer.len();
             let count = value.len();
             self.buffer.push_str(value);
-            let slice = T::new(start as u32, count as u32);
+            let slice = T::from_usize(start, count);
             self.map.insert(value.to_string(), slice);
             slice
         }
     }
 
     /// Returns the buffer
+    #[must_use]
     pub fn take(self) -> String {
         self.buffer
     }

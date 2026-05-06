@@ -3,7 +3,7 @@ use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS transfer.
 ///
-/// Based on the GTFS standard: https://gtfs.org/documentation/schedule/reference/#transferstxt
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#transferstxt>
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Transfer {
@@ -23,5 +23,23 @@ pub struct Transfer {
     pub min_transfer_time: Opt<Duration>,
     /// Indicates the type of connection for the specified pair.
     pub transfer_type: u8,
-    pub _pad: [u8; 3], // Pad to 32 bytes for perfect alignment
+    pad: [u8; 3], // Pad to 32 bytes for perfect alignment
+}
+
+impl Transfer {
+    #[must_use]
+    pub const fn new(
+        from_stop_idx: StopIdx,
+        to_stop_idx: StopIdx,
+        min_transfer_time: Opt<Duration>,
+        transfer_type: u8,
+    ) -> Self {
+        Self {
+            from_stop_idx,
+            to_stop_idx,
+            min_transfer_time,
+            transfer_type,
+            pad: [0_u8; 3],
+        }
+    }
 }

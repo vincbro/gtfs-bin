@@ -21,7 +21,7 @@ pub fn build_trip_patterns(
 ) -> BuildTripPatternsResult {
     let mut stop_seq_to_trips: HashMap<Vec<StopIdx>, Vec<TripIdx>> =
         HashMap::with_capacity(trips.len());
-    for trip in trips.iter() {
+    for trip in trips {
         let stop_times = &stop_times[trip.stop_times.range()];
         let stop_seq = stop_times.iter().map(|st| st.stop_idx).collect();
         stop_seq_to_trips
@@ -37,19 +37,13 @@ pub fn build_trip_patterns(
     let mut stop_to_trip_pattern_map: HashMap<StopIdx, Vec<TripPatternIdx>> = HashMap::new();
 
     for (i, (stop_seq, trips_in_seq)) in stop_seq_to_trips.iter().enumerate() {
-        let idx = TripPatternIdx(i as u32);
-        trips_in_seq.iter().for_each(|trip_idx| {
+        let idx = TripPatternIdx::from(i);
+        for trip_idx in trips_in_seq {
             trip_to_trip_pattern[trip_idx.as_usize()] = idx;
-        });
+        }
         trip_patterns.push(TripPattern {
-            stops: StopSlice {
-                start: stop_sequences.len() as u32,
-                count: stop_seq.len() as u32,
-            },
-            trips: TripSlice {
-                start: trips_in_sequences.len() as u32,
-                count: trips_in_seq.len() as u32,
-            },
+            stops: StopSlice::from_usize(stop_sequences.len(), stop_seq.len()),
+            trips: TripSlice::from_usize(trips_in_sequences.len(), trips_in_seq.len()),
             idx,
         });
 
@@ -57,7 +51,7 @@ pub fn build_trip_patterns(
             stop_to_trip_pattern_map
                 .entry(stop_idx)
                 .or_default()
-                .push(idx)
+                .push(idx);
         });
 
         stop_sequences.extend_from_slice(stop_seq);
@@ -67,11 +61,8 @@ pub fn build_trip_patterns(
     let mut stop_to_trip_pattern_lookup = vec![TripPatternSlice::NONE; stops.len()];
     let mut stop_to_trip_pattern: Vec<TripPatternIdx> = Vec::new();
 
-    for (stop_idx, trip_patterns) in stop_to_trip_pattern_map.into_iter() {
-        let slice = TripPatternSlice {
-            start: stop_to_trip_pattern.len() as u32,
-            count: trip_patterns.len() as u32,
-        };
+    for (stop_idx, trip_patterns) in stop_to_trip_pattern_map {
+        let slice = TripPatternSlice::from_usize(stop_to_trip_pattern.len(), trip_patterns.len());
 
         stop_to_trip_pattern.extend_from_slice(&trip_patterns);
         stop_to_trip_pattern_lookup[stop_idx.as_usize()] = slice;

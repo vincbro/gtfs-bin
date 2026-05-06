@@ -8,17 +8,19 @@ pub struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    pub fn new(mmap: &'a Mmap) -> Self {
+    pub const fn new(mmap: &'a Mmap) -> Self {
         Self { mmap }
     }
 
     pub fn get_bytes<T>(&self, section: Section) -> Result<&'a [u8], crate::Error> {
-        let start = section.offset as usize;
-        let end = start + (section.count as usize * size_of::<T>());
+        let offset =
+            usize::try_from(section.offset).map_err(|_| crate::Error::SectionOutOfBound)?;
+        let count = usize::try_from(section.count).map_err(|_| crate::Error::SectionOutOfBound)?;
+        let end = offset + (count * size_of::<T>());
         if end > self.mmap.len() {
             Err(crate::Error::SectionOutOfBound)
         } else {
-            Ok(&self.mmap[start..end])
+            Ok(&self.mmap[offset..end])
         }
     }
 

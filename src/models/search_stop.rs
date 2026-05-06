@@ -17,5 +17,23 @@ pub struct SearchStop {
     // 2. SMALLER FIELDS LAST (4 bytes)
     // ------------------------------------------------------------------------
     pub route_type: RouteType,
-    pub _pad: [u8; 2],
+    pad: [u8; 2],
+}
+
+impl SearchStop {
+    #[must_use]
+    pub const fn new(
+        idx: SearchIdx,
+        name: StringSlice,
+        stops: SearchSlice,
+        route_type: RouteType,
+    ) -> Self {
+        Self {
+            idx,
+            name,
+            stops,
+            route_type,
+            pad: [0_u8, 2],
+        }
+    }
 }

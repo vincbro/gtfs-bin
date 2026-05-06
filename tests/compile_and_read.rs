@@ -1,9 +1,12 @@
+#![allow(clippy::all)]
+#![allow(clippy::pedantic, clippy::restriction, clippy::nursery)]
+
 use std::{io::Write, path::PathBuf};
 
 use gtfs_bin::{
     compiler::Compiler,
     consumer::Consumer,
-    models::{Date, Weekday},
+    models::{BitMask, Date, Weekday},
 };
 use memmap2::Mmap;
 use tempfile::NamedTempFile;
@@ -11,6 +14,7 @@ use tempfile::NamedTempFile;
 // Helper to compile the GTFS and map it into memory.
 // Returns the NamedTempFile alongside the Mmap so the file isn't deleted
 // until the test finishes.
+#[must_use]
 pub fn compile_test() -> (NamedTempFile, Mmap) {
     let mut input_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     input_path.push("tests/fixtures/gtfs");
@@ -59,14 +63,14 @@ fn test_stops_lookup_and_hierarchy() {
         .stop_by_id("stop3")
         .expect("Stop 'stop3' not found");
     assert!(stop3.parent_idx.is_some());
-    assert_eq!(stop3.parent_idx.get().unwrap(), stop1.idx);
+    assert_eq!(stop3.parent_idx.as_option().unwrap(), stop1.idx);
 
     let coord = stop1
         .coordinate
-        .get()
+        .as_option()
         .expect("Expected coordinate on stop1");
-    assert_eq!(coord.lat_f64(), 48.796058);
-    assert_eq!(coord.lon_f64(), 2.449386);
+    assert_eq!(coord.lat_f64(), 48.796_058);
+    assert_eq!(coord.lon_f64(), 2.449_386);
 }
 
 #[test]
@@ -149,7 +153,7 @@ fn test_strings() {
         .expect("Failed to get trip4 by id");
     let headsign = trip
         .headsign
-        .get()
+        .as_option()
         .expect("Failed to get trip4 headsign slice");
 
     assert_eq!("85088455", consumer.string(headsign));
@@ -159,7 +163,7 @@ fn test_strings() {
         .expect("Failed to get trip1 by id");
     let headsign = trip
         .headsign
-        .get()
+        .as_option()
         .expect("Failed to get trip1 headsign slice");
 
     assert_eq!("85088452", consumer.string(headsign));
@@ -169,7 +173,7 @@ fn test_strings() {
         .expect("Failed to get trip3 by id");
     let headsign = trip
         .headsign
-        .get()
+        .as_option()
         .expect("Failed to get trip3 headsign slice");
 
     assert_eq!("85088454", consumer.string(headsign));
@@ -179,7 +183,7 @@ fn test_strings() {
         .expect("Failed to get route4 by id");
     let short_name = route
         .short_name
-        .get()
+        .as_option()
         .expect("Failed to get route4 short name slice");
 
     assert_eq!("F1", consumer.string(short_name));
@@ -193,26 +197,29 @@ fn test_shapes() {
     let trip = consumer
         .trip_by_id("trip5")
         .expect("Failed to get trip5 by id");
-    let shape = trip.shape.get().expect("Failed to get trip5 shape slice");
+    let shape = trip
+        .shape
+        .as_option()
+        .expect("Failed to get trip5 shape slice");
 
     let shapes = consumer.shapes(shape);
     assert_eq!(shapes.len(), 3);
 
     let dist = shapes[0]
         .distance_traveled
-        .get()
+        .as_option()
         .expect("Failed to get dist traveled");
     assert_eq!(dist.0, 0.0);
 
     let dist = shapes[1]
         .distance_traveled
-        .get()
+        .as_option()
         .expect("Failed to get dist traveled");
     assert_eq!(dist.0, 6.8310);
 
     let dist = shapes[2]
         .distance_traveled
-        .get()
+        .as_option()
         .expect("Failed to get dist traveled");
     assert_eq!(dist.0, 15.8765);
 }
@@ -392,13 +399,13 @@ fn test_services_and_calendar() {
     assert_eq!(service1.start_date.to_string(), "2017-01-01");
     assert_eq!(service1.end_date.to_string(), "2017-01-15");
 
-    assert!(service1.weekdays.contains(Weekday::SATURDAY));
-    assert!(service1.weekdays.contains(Weekday::SUNDAY));
-    assert!(!service1.weekdays.contains(Weekday::MONDAY));
+    assert!(service1.weekday.contains(Weekday::SATURDAY));
+    assert!(service1.weekday.contains(Weekday::SUNDAY));
+    assert!(!service1.weekday.contains(Weekday::MONDAY));
 
     assert_eq!(service2.start_date.to_string(), "2017-01-01");
     assert_eq!(service2.end_date.to_string(), "2017-01-07");
-    assert!(!service2.weekdays.contains(Weekday::SUNDAY));
+    assert!(!service2.weekday.contains(Weekday::SUNDAY));
 
     assert!(
         !consumer.is_service_active(service1.idx, Date(service1.start_date.0)),

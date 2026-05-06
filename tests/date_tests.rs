@@ -1,4 +1,7 @@
-use gtfs_bin::models::{Date, Weekday};
+#![allow(clippy::all)]
+#![allow(clippy::pedantic, clippy::restriction)]
+
+use gtfs_bin::models::{BitMask, Date, Weekday};
 
 #[test]
 fn test_unix_epoch() {
@@ -40,5 +43,5 @@ fn test_weekday_max() {
         .join(Weekday::SATURDAY)
         .join(Weekday::SUNDAY);
     let max = Weekday(u8::MAX);
-    assert!(max.contains(all))
+    assert!(max.contains(all));
 }
