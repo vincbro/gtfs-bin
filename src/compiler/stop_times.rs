@@ -1,11 +1,11 @@
 use crate::models::{
-    Distance, Sentinel, SliceBuilder, StopIdx, StopTime, StopTimeIdx, StopTimeSlice, StringSlice,
-    Time, Trip, TripIdx,
+    Distance, Sentinel, Slice, SliceBuilder, StopIdx, StopTime, StopTimeIdx, StopTimeSlice,
+    StringSlice, Time, Trip, TripIdx,
 };
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
 
-pub(crate) fn build_stop_times(
+pub fn build_stop_times(
     raw_stop_times: &[gtfs_structures::RawStopTime],
     trips: &mut [Trip],
     trip_map: &HashMap<String, TripIdx>,
@@ -48,23 +48,23 @@ pub(crate) fn build_stop_times(
     });
 
     let mut trip_idx = TripIdx::NONE;
-    let mut start: u32 = u32::MAX;
-    let mut count: u32 = 0;
+    let mut start = usize::MAX;
+    let mut count = 0;
     for (i, stop_times) in stop_times.iter_mut().enumerate() {
         if stop_times.trip_idx != trip_idx {
             if trip_idx != TripIdx::NONE {
-                trips[trip_idx.as_usize()].stop_times = StopTimeSlice { start, count }
+                trips[trip_idx.as_usize()].stop_times = StopTimeSlice::from_usize(start, count);
             }
-            start = i as u32;
+            start = i;
             count = 0;
             trip_idx = stop_times.trip_idx;
         }
 
-        stop_times.idx = StopTimeIdx(i as u32);
+        stop_times.idx = StopTimeIdx::from(i);
         count += 1;
     }
     if trip_idx != TripIdx::NONE {
-        trips[trip_idx.as_usize()].stop_times = StopTimeSlice { start, count }
+        trips[trip_idx.as_usize()].stop_times = StopTimeSlice::from_usize(start, count);
     }
 
     stop_times

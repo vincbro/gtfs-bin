@@ -1,6 +1,6 @@
 use crate::models::{
-    Date, Sentinel, Service, ServiceBinarySlice, ServiceIdSlice, ServiceIdx, Slice, SliceBuilder,
-    Weekday,
+    BitMask, Date, Sentinel, Service, ServiceBinarySlice, ServiceIdSlice, ServiceIdx, Slice,
+    SliceBuilder, Weekday,
 };
 use bitvec::{bitvec, order::Msb0, vec::BitVec};
 use rayon::slice::ParallelSliceMut;
@@ -19,49 +19,48 @@ pub fn build_services(
         .iter()
         .enumerate()
         .map(|(i, service)| {
-            let idx = ServiceIdx(i as u32);
-            id_map.insert(service.id.to_string(), idx);
+            let idx = ServiceIdx::from(i);
+            id_map.insert(service.id.clone(), idx);
             let start_date = service.start_date.into();
             let end_date = service.end_date.into();
             base_bounds.push((start_date, end_date));
-            let mut weekdays = Weekday::default();
+            let mut weekday = Weekday::default();
             if service.monday {
-                weekdays = weekdays.join(Weekday::MONDAY);
+                weekday = weekday.join(Weekday::MONDAY);
             }
             if service.tuesday {
-                weekdays = weekdays.join(Weekday::TUESDAY);
+                weekday = weekday.join(Weekday::TUESDAY);
             }
             if service.wednesday {
-                weekdays = weekdays.join(Weekday::WEDNESDAY);
+                weekday = weekday.join(Weekday::WEDNESDAY);
             }
             if service.thursday {
-                weekdays = weekdays.join(Weekday::THURSDAY);
+                weekday = weekday.join(Weekday::THURSDAY);
             }
             if service.friday {
-                weekdays = weekdays.join(Weekday::FRIDAY);
+                weekday = weekday.join(Weekday::FRIDAY);
             }
             if service.saturday {
-                weekdays = weekdays.join(Weekday::SATURDAY);
+                weekday = weekday.join(Weekday::SATURDAY);
             }
             if service.sunday {
-                weekdays = weekdays.join(Weekday::SUNDAY);
+                weekday = weekday.join(Weekday::SUNDAY);
             }
 
-            Service {
-                id: ServiceIdSlice::NONE,
+            Service::new(
+                ServiceIdSlice::NONE,
                 idx,
+                ServiceBinarySlice::NONE,
                 start_date,
                 end_date,
-                active_mask: ServiceBinarySlice::NONE,
-                weekdays,
-                _pad: [0_u8; 3],
-            }
+                weekday,
+            )
         })
         .collect();
 
     // GTFS standard states that a GTFS set can have either, only calendar or only calendar dates or both
     // aggregating the date here makes building the binary arr later easier
-    for calendar_date in raw_calendar_dates.iter() {
+    for calendar_date in raw_calendar_dates {
         let date = Date::from(calendar_date.date);
         if let Some(idx) = id_map.get(&calendar_date.service_id) {
             let service = &mut services[idx.as_usize()];
@@ -73,18 +72,17 @@ pub fn build_services(
                 service.end_date = date;
             }
         } else {
-            let idx = ServiceIdx(services.len() as u32);
-            id_map.insert(calendar_date.service_id.to_string(), idx);
+            let idx = ServiceIdx::from(services.len());
+            id_map.insert(calendar_date.service_id.clone(), idx);
             base_bounds.push((Date(u32::MAX), Date(u32::MIN)));
-            services.push(Service {
-                id: ServiceIdSlice::NONE,
+            services.push(Service::new(
+                ServiceIdSlice::NONE,
                 idx,
-                start_date: date,
-                end_date: date,
-                active_mask: ServiceBinarySlice::NONE,
-                weekdays: Weekday::default(),
-                _pad: [0_u8; 3],
-            });
+                ServiceBinarySlice::NONE,
+                date,
+                date,
+                Weekday::default(),
+            ));
         }
     }
 
@@ -104,7 +102,7 @@ pub fn build_services(
             let idx = start + (i - service.start_date.0) as usize;
             let date = Date(i);
             let runs_today = if date >= base_start && date <= base_end {
-                service.weekdays.contains(date.get_day_of_week().into())
+                service.weekday.contains(date.get_day_of_week().into())
             } else {
                 false
             };
@@ -112,13 +110,10 @@ pub fn build_services(
             _ = active_mask.replace(idx, runs_today);
         }
 
-        service.active_mask = ServiceBinarySlice {
-            start: start as u32,
-            count: (days + padding) as u32,
-        }
+        service.active_mask = ServiceBinarySlice::from_usize(start, days + padding);
     }
 
-    for calendar_date in raw_calendar_dates.iter() {
+    for calendar_date in raw_calendar_dates {
         if let Some(idx) = id_map.get(calendar_date.service_id.as_str()) {
             let service = &mut services[idx.as_usize()];
             let date: Date = calendar_date.date.into();
@@ -134,19 +129,19 @@ pub fn build_services(
     (services, id_map, active_mask)
 }
 
-pub(crate) fn build_service_ids(
+pub fn build_service_ids(
     services: &mut [Service],
     service_map: &HashMap<String, ServiceIdx>,
 ) -> (Vec<ServiceIdx>, String) {
     let mut id_builder = SliceBuilder::with_capacity(36 * services.len());
-    for (id, idx) in service_map.iter() {
+    for (id, idx) in service_map {
         services[idx.as_usize()].id = id_builder.add(id.as_str());
     }
 
     let service_ids = id_builder.take();
 
     // Build binary search friendly id lookup
-    let mut service_id_lookup: Vec<_> = (0..services.len()).map(|i| ServiceIdx(i as u32)).collect();
+    let mut service_id_lookup: Vec<_> = (0..services.len()).map(ServiceIdx::from).collect();
     service_id_lookup.par_sort_unstable_by(|a, b| {
         let id_a = &service_ids[services[a.as_usize()].id.range()];
         let id_b = &service_ids[services[b.as_usize()].id.range()];

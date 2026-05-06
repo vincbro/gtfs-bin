@@ -1,4 +1,7 @@
-use gtfs_bin::models::RouteType;
+#![allow(clippy::all)]
+#![allow(clippy::pedantic, clippy::restriction)]
+
+use gtfs_bin::models::{BitMask, RouteType};
 
 #[test]
 fn test_route_types() {

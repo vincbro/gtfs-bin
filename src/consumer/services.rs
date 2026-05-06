@@ -5,10 +5,12 @@ use crate::{
 
 impl<'a> Consumer<'a> {
     #[inline]
+    #[must_use]
     pub fn service(&self, idx: ServiceIdx) -> &'a Service {
         &self.services[idx.as_usize()]
     }
 
+    #[must_use]
     pub fn service_by_id(&self, id: &str) -> Option<&'a Service> {
         self.services_id_lookup
             .binary_search_by(|&idx| {
@@ -20,10 +22,12 @@ impl<'a> Consumer<'a> {
     }
 
     #[inline]
+    #[must_use]
     pub fn service_id(&self, id: ServiceIdSlice) -> &'a str {
         unsafe { std::str::from_utf8_unchecked(&self.service_ids[id.range()]) }
     }
 
+    #[must_use]
     pub fn is_service_active(&self, idx: ServiceIdx, date: Date) -> bool {
         let service = self.service(idx);
 

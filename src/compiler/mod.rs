@@ -48,10 +48,10 @@ impl Compiler {
         let mut slice_builder = SliceBuilder::new();
 
         let raw_stops = gtfs.stops?;
-        let (mut stops, stop_map) = build_stops(&raw_stops, &mut slice_builder)?;
+        let (mut stops, stop_map) = build_stops(&raw_stops, &mut slice_builder);
 
         let raw_routes = gtfs.routes?;
-        let (mut routes, route_map) = build_routes(&raw_routes, &mut slice_builder)?;
+        let (mut routes, route_map) = build_routes(&raw_routes, &mut slice_builder);
 
         let raw_calendar = gtfs.calendar.unwrap_or(Ok(vec![]))?;
         let raw_calendar_dates = gtfs.calendar_dates.unwrap_or(Ok(vec![]))?;
@@ -72,7 +72,7 @@ impl Compiler {
             &service_map,
             &shape_map,
             &mut slice_builder,
-        )?;
+        );
 
         let raw_stop_times = gtfs.stop_times?;
         let stop_times = build_stop_times(
