@@ -3,7 +3,7 @@ use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS trip.
 ///
-/// Based on the GTFS standard: https://gtfs.org/documentation/schedule/reference/#tripstxt
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#tripstxt>
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct TripPattern {

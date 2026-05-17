@@ -1,3 +1,6 @@
+#![allow(clippy::all)]
+#![allow(clippy::pedantic, clippy::restriction)]
+
 use gtfs_bin::{
     compiler::Compiler,
     consumer::Consumer,
@@ -16,9 +19,10 @@ use std::{
 };
 use tempfile::NamedTempFile;
 
-// Helper to compile the GTFS and map it into memory.
-// Returns the NamedTempFile alongside the Mmap so the file isn't deleted
-// until the test finishes.
+/// Helper to compile the GTFS and map it into memory.
+/// Returns the ``NamedTempFile`` alongside the Mmap so the file isn't deleted
+/// until the test finishes.
+#[must_use]
 pub fn compile_test() -> (NamedTempFile, Mmap) {
     let mut input_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     input_path.push("tests/fixtures/gtfs");
@@ -34,10 +38,11 @@ pub fn compile_test() -> (NamedTempFile, Mmap) {
     (temp_file, mmap)
 }
 
+#[must_use]
 pub fn create_fake_feed_message() -> FeedMessage {
     let current_timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("Failed to get duration since epoch")
         .as_secs();
 
     FeedMessage {
@@ -122,11 +127,11 @@ fn test_realtime_builder_ingestion() {
 
     let arrival_delay = realtime.stop_time_arrival_delays[global_idx];
     assert!(arrival_delay.is_some(), "Expected an arrival delay");
-    assert_eq!(arrival_delay.get().unwrap(), Delay(120));
+    assert_eq!(arrival_delay.as_option().unwrap(), Delay(120));
 
     let departure_delay = realtime.stop_time_departure_delays[global_idx];
     assert!(departure_delay.is_some(), "Expected a departure delay");
-    assert_eq!(departure_delay.get().unwrap(), Delay(120));
+    assert_eq!(departure_delay.as_option().unwrap(), Delay(120));
 
     let trip3 = consumer
         .trip_by_id("trip3")

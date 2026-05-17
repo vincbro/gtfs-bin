@@ -1,4 +1,7 @@
-use gtfs_bin::models::{Date, WeekdaySet};
+#![allow(clippy::all)]
+#![allow(clippy::pedantic, clippy::restriction)]
+
+use gtfs_bin::models::{BitMask, Date, Weekday};
 
 #[test]
 fn test_unix_epoch() {
@@ -21,24 +24,24 @@ fn test_leap_year_day() {
 
 #[test]
 fn test_dates() {
-    let weekday = WeekdaySet::new().with_monday(true);
-    assert!(weekday.monday());
-    assert!(!weekday.tuesday());
-    let weekday = WeekdaySet::new().with_friday(true);
-    assert!(weekday.friday());
-    assert!(!weekday.thursday());
-    assert!(!weekday.saturday());
+    let weekday = Weekday::MONDAY;
+    assert!(weekday.contains(Weekday::MONDAY));
+    assert!(!weekday.contains(Weekday::TUESDAY));
+    let weekday = Weekday::FRIDAY;
+    assert!(weekday.contains(Weekday::FRIDAY));
+    assert!(!weekday.contains(Weekday::THURSDAY));
+    assert!(!weekday.contains(Weekday::SATURDAY));
 }
 
 #[test]
 fn test_weekday_max() {
-    let weekday = WeekdaySet(u8::MAX);
-
-    assert!(weekday.monday());
-    assert!(weekday.tuesday());
-    assert!(weekday.wednesday());
-    assert!(weekday.thursday());
-    assert!(weekday.friday());
-    assert!(weekday.saturday());
-    assert!(weekday.sunday());
+    let all = Weekday::MONDAY
+        .join(Weekday::TUESDAY)
+        .join(Weekday::WEDNESDAY)
+        .join(Weekday::THURSDAY)
+        .join(Weekday::FRIDAY)
+        .join(Weekday::SATURDAY)
+        .join(Weekday::SUNDAY);
+    let max = Weekday(u8::MAX);
+    assert!(max.contains(all));
 }

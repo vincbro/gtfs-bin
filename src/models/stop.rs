@@ -1,9 +1,9 @@
-use crate::models::{Coordinate, Opt, StopIdSlice, StopIdx, StringSlice};
+use crate::models::{Coordinate, LocationType, Opt, StopIdSlice, StopIdx, StringSlice};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS stop, station, or entrance.
 ///
-/// Based on the GTFS standard: https://gtfs.org/documentation/schedule/reference/#stopstxt
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#stopstxt>
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Stop {
@@ -13,7 +13,7 @@ pub struct Stop {
     /// The geographic location of the stop.
     pub coordinate: Opt<Coordinate>,
 
-    /// The string ID from the original GTFS file (e.g., "STOP_123").
+    /// The string ID from the original GTFS file (e.g., ``STOP_123``).
     pub id: StopIdSlice,
 
     /// Short text or a number that identifies the stop to passengers.
@@ -33,4 +33,36 @@ pub struct Stop {
 
     /// The internal array index of the parent station, if one exists.
     pub parent_idx: Opt<StopIdx>,
+
+    /// Defines the type of location
+    pub location_type: LocationType,
+
+    pad: [u8; 3], // Pad to ensure 4-byte alignment for bytemuck
+}
+
+impl Stop {
+    #[allow(clippy::too_many_arguments)]
+    #[must_use]
+    pub const fn new(
+        id: StopIdSlice,
+        idx: StopIdx,
+        parent_idx: Opt<StopIdx>,
+        name: Opt<StringSlice>,
+        description: Opt<StringSlice>,
+        code: Opt<StringSlice>,
+        coordinate: Opt<Coordinate>,
+        location_type: LocationType,
+    ) -> Self {
+        Self {
+            coordinate,
+            id,
+            code,
+            name,
+            description,
+            idx,
+            parent_idx,
+            location_type,
+            pad: [0_u8; 3],
+        }
+    }
 }

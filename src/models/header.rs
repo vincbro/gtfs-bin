@@ -33,6 +33,9 @@ pub struct Header {
     pub stop_to_trips: Section,
     pub stop_to_trips_lookup: Section,
 
+    pub search_stops: Section,
+    pub search_to_stops: Section,
+
     pub route_to_trips: Section,
     pub route_to_trips_lookup: Section,
 

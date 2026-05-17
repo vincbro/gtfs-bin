@@ -1,4 +1,4 @@
-pub const GTFS_BIN_VERSION: u32 = 3;
+pub const GTFS_BIN_VERSION: u32 = 4;
 
 pub mod models;
 

@@ -7,17 +7,14 @@ use bytemuck::{Pod, Zeroable};
 pub struct Opt<T: Sentinel>(T);
 
 impl<T: Sentinel> Opt<T> {
-    pub fn new(value: T) -> Self {
+    pub const fn new(value: T) -> Self {
         Self(value)
     }
 }
 
 impl<T: Sentinel> From<Option<T>> for Opt<T> {
     fn from(value: Option<T>) -> Self {
-        match value {
-            Some(value) => Opt::new(value),
-            None => Opt::new(T::NONE),
-        }
+        value.map_or_else(|| Self::new(T::NONE), |value| Self::new(value))
     }
 }
 
@@ -27,17 +24,14 @@ unsafe impl<T: Pod + Sentinel> Pod for Opt<T> {}
 
 impl<T: Sentinel> Opt<T> {
     /// Forces the user to handle the Option
-    #[inline(always)]
-    pub fn get(self) -> Option<T> {
+    pub fn as_option(self) -> Option<T> {
         self.0.as_option()
     }
 
-    #[inline(always)]
     pub fn is_some(self) -> bool {
         self.0.is_some()
     }
 
-    #[inline(always)]
     pub fn is_none(self) -> bool {
         self.0.is_none()
     }

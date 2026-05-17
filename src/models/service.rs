@@ -1,19 +1,19 @@
-use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIdx, WeekdaySet};
+use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIdx, Weekday};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS service.
 ///
-/// Based on the GTFS standard: https://gtfs.org/documentation/schedule/reference/#calendartxt
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#calendartxt>
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Service {
     // ------------------------------------------------------------------------
     // 1. LARGEST FIELDS FIRST (8 to 16 bytes)
     // ------------------------------------------------------------------------
-    /// The string ID from the original GTFS file (e.g., "SERVICE_123").
+    /// The string ID from the original GTFS file (e.g., ``SERVICE_123``).
     pub id: ServiceIdSlice,
 
-    ///  A binary mask representing the days from start_date to end_date. 1 is running 0 is not running
+    ///  A binary mask representing the days from ``start_date`` to ``end_date``. 1 is running 0 is not running
     pub active_mask: ServiceBinarySlice,
 
     // ------------------------------------------------------------------------
@@ -28,6 +28,28 @@ pub struct Service {
     /// End service day for the service interval. This service day is included in the interval.
     pub end_date: Date,
 
-    pub weekdays: WeekdaySet,
-    pub _pad: [u8; 3], // Pad to ensure 4-byte alignment for bytemuck
+    pub weekday: Weekday,
+    pad: [u8; 3], // Pad to ensure 4-byte alignment for bytemuck
+}
+
+impl Service {
+    #[must_use]
+    pub const fn new(
+        id: ServiceIdSlice,
+        idx: ServiceIdx,
+        active_mask: ServiceBinarySlice,
+        start_date: Date,
+        end_date: Date,
+        weekday: Weekday,
+    ) -> Self {
+        Self {
+            id,
+            active_mask,
+            idx,
+            start_date,
+            end_date,
+            weekday,
+            pad: [0_u8; 3],
+        }
+    }
 }

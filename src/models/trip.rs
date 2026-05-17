@@ -5,14 +5,14 @@ use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS trip.
 ///
-/// Based on the GTFS standard: https://gtfs.org/documentation/schedule/reference/#tripstxt
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#tripstxt>
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Trip {
     // ------------------------------------------------------------------------
     // 1. LARGEST FIELDS FIRST (8 to 16 bytes)
     // ------------------------------------------------------------------------
-    /// The string ID from the original GTFS file (e.g., "TRIP_123").
+    /// The string ID from the original GTFS file (e.g., ``TRIP_123``).
     pub id: TripIdSlice,
 
     /// Text that appears on signage identifying the trip's destination to riders.

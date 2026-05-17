@@ -12,15 +12,25 @@ macro_rules! define_index {
             PartialEq,
             Eq,
             Hash,
-            bytemuck::Pod,
-            bytemuck::Zeroable,
             PartialOrd,
             Ord,
+            bytemuck::Pod,
+            bytemuck::Zeroable,
         )]
         pub struct $name(pub u32);
 
         impl Sentinel for $name {
             const NONE: Self = Self(u32::MAX);
+        }
+
+        impl From<usize> for $name {
+            fn from(value: usize) -> Self {
+                if let Ok(value) = u32::try_from(value) {
+                    Self(value)
+                } else {
+                    Self::NONE
+                }
+            }
         }
 
         impl Default for $name {
@@ -31,7 +41,7 @@ macro_rules! define_index {
 
         impl $name {
             #[inline(always)]
-            pub fn as_usize(&self) -> usize {
+            pub const fn as_usize(&self) -> usize {
                 self.0 as usize
             }
         }
@@ -39,6 +49,7 @@ macro_rules! define_index {
 }
 
 define_index!(StopIdx);
+define_index!(SearchIdx);
 define_index!(TripIdx);
 define_index!(TripPatternIdx);
 define_index!(RouteIdx);

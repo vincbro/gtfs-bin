@@ -1,7 +1,11 @@
 mod builder;
 
 pub use builder::*;
-use gtfs_rt::vehicle_position::{OccupancyStatus, VehicleStopStatus};
+use gtfs_rt::{
+    trip_descriptor,
+    trip_update::stop_time_update,
+    vehicle_position::{OccupancyStatus, VehicleStopStatus},
+};
 
 use crate::{
     consumer::Consumer,
@@ -18,6 +22,18 @@ pub enum TripStatus {
     Unscheduled,
 }
 
+impl From<trip_descriptor::ScheduleRelationship> for TripStatus {
+    fn from(value: trip_descriptor::ScheduleRelationship) -> Self {
+        match value {
+            trip_descriptor::ScheduleRelationship::Added => Self::Added,
+            trip_descriptor::ScheduleRelationship::Unscheduled => Self::Unscheduled,
+            trip_descriptor::ScheduleRelationship::Canceled => Self::Cancled,
+            trip_descriptor::ScheduleRelationship::Deleted => Self::Deleted,
+            _ => Self::Unchanged,
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StopTimeStatus {
     #[default]
@@ -26,6 +42,17 @@ pub enum StopTimeStatus {
     Skipped,
     NoData,
     Unscheduled,
+}
+
+impl From<stop_time_update::ScheduleRelationship> for StopTimeStatus {
+    fn from(value: stop_time_update::ScheduleRelationship) -> Self {
+        match value {
+            stop_time_update::ScheduleRelationship::Scheduled => Self::Scheduled,
+            stop_time_update::ScheduleRelationship::Skipped => Self::Skipped,
+            stop_time_update::ScheduleRelationship::NoData => Self::NoData,
+            stop_time_update::ScheduleRelationship::Unscheduled => Self::Unscheduled,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -47,6 +74,7 @@ pub struct Realtime {
 }
 
 impl Realtime {
+    #[must_use]
     pub fn new(consumer: &Consumer) -> Self {
         Self {
             stop_time_departure_delays: vec![Opt::new(Delay::NONE); consumer.stop_times.len()],
