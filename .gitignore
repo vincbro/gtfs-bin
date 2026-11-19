@@ -6,3 +6,6 @@
 *.zip
 *.gtfs
 *.pb
+
+# Local secrets, such as the Trafiklab keys.
+.env

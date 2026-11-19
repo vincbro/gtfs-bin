@@ -1,0 +1,103 @@
+name: CI
+
+# `just check`, one step per check so a failure names what failed. Pushes to main also run the
+# property tests for many more cases than a normal run.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just,cargo-sort,taplo
+
+      # The toolchain pinned in rust-toolchain.toml, plus the nightly rustfmt pinned in the
+      # justfile, as on a laptop.
+      - name: Set up Rust
+        run: just toolchain
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          # A PR's first push often fails; its fix shouldn't start cold again.
+          cache-on-failure: true
+
+      - name: Format
+        run: just fmt-check
+
+      - name: Clippy
+        run: just clippy
+
+      - name: Docs
+        run: just doc
+
+      - name: Test
+        run: just test
+
+      - name: Features
+        run: just features
+
+  # Separate from check: a new advisory can fail this without the PR touching anything.
+  deps:
+    name: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just,cargo-machete,cargo-deny
+
+      - name: Check dependencies
+        run: just deps
+
+  # The property tests with many more cases, on main only.
+  full:
+    name: property tests
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - name: Set up Rust
+        run: just toolchain
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: just test-full
