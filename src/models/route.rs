@@ -1,4 +1,4 @@
-use crate::models::{Opt, RouteIdSlice, RouteIdx, RouteType, StringSlice};
+use crate::models::{Optional, RouteIdSlice, RouteIndex, RouteType, StringSlice};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS route.
@@ -7,40 +7,33 @@ use bytemuck::{Pod, Zeroable};
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Route {
-    // ------------------------------------------------------------------------
-    // 1. LARGEST FIELDS FIRST (8 to 16 bytes)
-    // ------------------------------------------------------------------------
-    /// The string ID from the original GTFS file (e.g., ``STOP_123``).
+    /// The string ID from the original GTFS file (e.g., `ROUTE_123`).
     pub id: RouteIdSlice,
 
     /// Full name of a route.
-    pub long_name: Opt<StringSlice>,
+    pub long_name: Optional<StringSlice>,
 
     /// Short name of a route.
-    pub short_name: Opt<StringSlice>,
+    pub short_name: Optional<StringSlice>,
 
     /// Description of a route that provides useful, quality information.
-    pub description: Opt<StringSlice>,
+    pub description: Optional<StringSlice>,
 
-    // ------------------------------------------------------------------------
-    // 2. SMALLER FIELDS LAST (4 bytes)
-    // ------------------------------------------------------------------------
-    /// The internal array index of this route in the file.
-    pub idx: RouteIdx,
+    pub index: RouteIndex,
 
-    ///Indicates the type of transportation used on a route
     pub route_type: RouteType,
-    pad: [u8; 2],
+    /// Always zero. Makes the layout free of implicit padding, which `Pod` requires.
+    pub padding: [u8; 2],
 }
 
 impl Route {
     #[must_use]
     pub const fn new(
         id: RouteIdSlice,
-        idx: RouteIdx,
-        long_name: Opt<StringSlice>,
-        short_name: Opt<StringSlice>,
-        description: Opt<StringSlice>,
+        index: RouteIndex,
+        long_name: Optional<StringSlice>,
+        short_name: Optional<StringSlice>,
+        description: Optional<StringSlice>,
         route_type: RouteType,
     ) -> Self {
         Self {
@@ -48,9 +41,9 @@ impl Route {
             long_name,
             short_name,
             description,
-            idx,
+            index,
             route_type,
-            pad: [0_u8, 2],
+            padding: [0_u8; 2],
         }
     }
 }

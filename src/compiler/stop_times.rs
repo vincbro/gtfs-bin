@@ -1,6 +1,9 @@
-use crate::models::{
-    Distance, Sentinel, Slice, SliceBuilder, StopIdx, StopTime, StopTimeIdx, StopTimeSlice,
-    StringSlice, Time, Trip, TripIdx,
+use crate::{
+    compiler::tables,
+    models::{
+        Distance, Sentinel, SliceBuilder, StopIndex, StopTime, StopTimeIndex, StopTimeSlice,
+        StringSlice, Time, Trip, TripIndex,
+    },
 };
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
@@ -8,32 +11,26 @@ use std::collections::HashMap;
 pub fn build_stop_times(
     raw_stop_times: &[gtfs_structures::RawStopTime],
     trips: &mut [Trip],
-    trip_map: &HashMap<String, TripIdx>,
-    stop_map: &HashMap<String, StopIdx>,
+    trip_map: &HashMap<String, TripIndex>,
+    stop_map: &HashMap<String, StopIndex>,
     slice_builder: &mut SliceBuilder<StringSlice>,
 ) -> Vec<StopTime> {
     let mut stop_times: Vec<_> = raw_stop_times
         .iter()
         .filter_map(|stop_time| {
-            trip_map
-                .get(&stop_time.trip_id)
-                .copied()
-                .and_then(|trip_idx| {
-                    stop_map
-                        .get(&stop_time.stop_id)
-                        .copied()
-                        .map(|idx| (stop_time, trip_idx, idx))
-                })
+            let trip_index = trip_map.get(&stop_time.trip_id).copied()?;
+            let stop_index = stop_map.get(&stop_time.stop_id).copied()?;
+            Some((stop_time, trip_index, stop_index))
         })
-        .map(|(stop_time, trip_idx, stop_idx)| StopTime {
-            idx: StopTimeIdx::NONE,
+        .map(|(stop_time, trip_index, stop_index)| StopTime {
+            index: StopTimeIndex::NONE,
             headsign: stop_time
                 .stop_headsign
                 .as_ref()
-                .map(|hs| slice_builder.add(hs))
+                .map(|headsign| slice_builder.add(headsign))
                 .into(),
-            stop_idx,
-            trip_idx,
+            stop_index,
+            trip_index,
             sequence: stop_time.stop_sequence,
             arrival_time: stop_time.arrival_time.map(Time).into(),
             departure_time: stop_time.departure_time.map(Time).into(),
@@ -42,29 +39,21 @@ pub fn build_stop_times(
         .collect();
 
     stop_times.par_sort_unstable_by(|a, b| {
-        a.trip_idx
-            .cmp(&b.trip_idx)
+        a.trip_index
+            .cmp(&b.trip_index)
             .then(a.sequence.cmp(&b.sequence))
     });
 
-    let mut trip_idx = TripIdx::NONE;
-    let mut start = usize::MAX;
-    let mut count = 0;
-    for (i, stop_times) in stop_times.iter_mut().enumerate() {
-        if stop_times.trip_idx != trip_idx {
-            if trip_idx != TripIdx::NONE {
-                trips[trip_idx.as_usize()].stop_times = StopTimeSlice::from_usize(start, count);
-            }
-            start = i;
-            count = 0;
-            trip_idx = stop_times.trip_idx;
-        }
-
-        stop_times.idx = StopTimeIdx::from(i);
-        count += 1;
+    for (position, stop_time) in stop_times.iter_mut().enumerate() {
+        stop_time.index = StopTimeIndex::from(position);
     }
-    if trip_idx != TripIdx::NONE {
-        trips[trip_idx.as_usize()].stop_times = StopTimeSlice::from_usize(start, count);
+
+    let slices: Vec<StopTimeSlice> = tables::slices_by_key(
+        stop_times.iter().map(|stop_time| stop_time.trip_index),
+        trips.len(),
+    );
+    for (trip, slice) in trips.iter_mut().zip(slices) {
+        trip.stop_times = slice;
     }
 
     stop_times

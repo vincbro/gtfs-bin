@@ -3,28 +3,21 @@ use bytemuck::{Pod, Zeroable};
 
 /// A memory-efficient geographic coordinate.
 ///
-/// To save space in the binary file, `f64` coordinates (16 bytes)
-/// are scaled by 1,000,000 and packed into 32-bit integers (8 bytes total).
-/// This maintains 6 decimal places of precision, which equates to roughly
-/// 11 centimeters of accuracy at the equator—perfect for GTFS routing.
+/// To save space in the binary file, `f64` coordinates (16 bytes) are scaled by 10,000,000 and
+/// packed into 32-bit integers (8 bytes total). That keeps 7 decimal places, which is roughly
+/// 1 centimeter at the equator.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable, PartialEq, Eq)]
 pub struct Coordinate {
-    /// The latitude, scaled by 10,000,000 and rounded to the nearest integer.
     packed_latitude: i32,
-    /// The longitude, scaled by 10,000,000 and rounded to the nearest integer.
     packed_longitude: i32,
 }
 
 impl Coordinate {
-    /// Creates a new `Coordinate` by compressing standard floating-point coordinates.
-    ///
-    /// The input values are multiplied by 1,000,000 and rounded to preserve
-    /// precision before being stored as 32-bit integers.
+    /// Packs floating-point degrees into a `Coordinate`.
     #[must_use]
     pub fn new(latitude: f64, longitude: f64) -> Self {
-        // Explicitly allow truncation because max geographic bounds
-        // (180 * 10^7) fit safely within i32::MAX.
+        // Truncation can't happen for valid input because the largest value (180 * 10^7) fits in i32.
         #[allow(clippy::cast_possible_truncation)]
         Self {
             packed_latitude: (latitude * 10_000_000.0).round() as i32,
@@ -32,35 +25,26 @@ impl Coordinate {
         }
     }
 
-    /// Decompresses the internal integer back into a standard `f64` latitude.
-    ///
-    /// This restores the original value up to 6 decimal places.
     #[must_use]
-    pub fn lat_f64(&self) -> f64 {
+    pub fn latitude_f64(self) -> f64 {
         f64::from(self.packed_latitude) / 10_000_000.0
     }
 
-    /// Decompresses the internal integer back into a standard `f64` longitude.
-    ///
-    /// This restores the original value up to 6 decimal places.
     #[must_use]
-    pub fn lon_f64(&self) -> f64 {
+    pub fn longitude_f64(self) -> f64 {
         f64::from(self.packed_longitude) / 10_000_000.0
     }
 
-    /// Returns both the decompressed latitude and longitude as a tuple.
-    ///
-    /// Useful for passing coordinates directly into distance calculation algorithms
-    /// like the Haversine formula.
+    /// Returns the latitude and longitude, in that order.
     #[must_use]
-    pub fn tuple_f64(&self) -> (f64, f64) {
-        (self.lat_f64(), self.lon_f64())
+    pub fn to_f64_pair(self) -> (f64, f64) {
+        (self.latitude_f64(), self.longitude_f64())
     }
 }
 
 impl From<(f64, f64)> for Coordinate {
-    fn from((lat, lon): (f64, f64)) -> Self {
-        Self::new(lat, lon)
+    fn from((latitude, longitude): (f64, f64)) -> Self {
+        Self::new(latitude, longitude)
     }
 }
 
@@ -69,4 +53,36 @@ impl Sentinel for Coordinate {
         packed_latitude: i32::MAX,
         packed_longitude: i32::MAX,
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_seven_decimal_places() {
+        let coordinate = Coordinate::new(48.796_058_1, -2.449_386_4);
+
+        assert_eq!(
+            coordinate.latitude_f64(),
+            48.796_058_1,
+            "latitude round-trips"
+        );
+        assert_eq!(
+            coordinate.longitude_f64(),
+            -2.449_386_4,
+            "longitude round-trips"
+        );
+    }
+
+    #[test]
+    fn extremes_fit() {
+        let coordinate = Coordinate::new(90.0, 180.0);
+
+        assert_eq!(
+            coordinate.to_f64_pair(),
+            (90.0, 180.0),
+            "the largest valid input fits in i32"
+        );
+    }
 }

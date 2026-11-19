@@ -52,7 +52,7 @@ pub struct Header {
 
     pub transfers: Section,
     pub stop_to_transfers_out: Section,
-    pub transfers_in_indencies: Section,
+    pub transfers_in_indices: Section,
     pub stop_to_transfers_in: Section,
 
     pub strings: Section,
@@ -60,6 +60,6 @@ pub struct Header {
 
 impl Default for Header {
     fn default() -> Self {
-        unsafe { std::mem::zeroed() }
+        Self::zeroed()
     }
 }

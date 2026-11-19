@@ -1,4 +1,4 @@
-use crate::models::{Distance, Opt, StopIdx, StopTimeIdx, StringSlice, Time, TripIdx};
+use crate::models::{Distance, Optional, StopIndex, StopTimeIndex, StringSlice, Time, TripIndex};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS ``stop_time``.
@@ -7,33 +7,24 @@ use bytemuck::{Pod, Zeroable};
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct StopTime {
-    // ------------------------------------------------------------------------
-    // 1. LARGEST FIELDS FIRST (8 to 16 bytes)
-    // ------------------------------------------------------------------------
     /// Text that appears on signage identifying the trip's destination to riders.
-    pub headsign: Opt<StringSlice>,
+    pub headsign: Optional<StringSlice>,
 
-    // ------------------------------------------------------------------------
-    // 2. SMALLER FIELDS LAST (4 bytes)
-    // ------------------------------------------------------------------------
-    /// The internal array index of this stop time in the file.
-    pub idx: StopTimeIdx,
+    pub index: StopTimeIndex,
 
-    /// The internal array index of the stop in the file.
-    pub stop_idx: StopIdx,
+    pub stop_index: StopIndex,
 
-    /// The internal array index of the trip in the file.
-    pub trip_idx: TripIdx,
+    pub trip_index: TripIndex,
 
     /// Order of stops.
     pub sequence: u32,
 
     /// Arrival time at the stop.
-    pub arrival_time: Opt<Time>,
+    pub arrival_time: Optional<Time>,
 
     /// Departure time from the stop.
-    pub departure_time: Opt<Time>,
+    pub departure_time: Optional<Time>,
 
     /// Actual distance traveled along the associated shape.
-    pub distance_traveled: Opt<Distance>,
+    pub distance_traveled: Optional<Distance>,
 }

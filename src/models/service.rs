@@ -1,4 +1,4 @@
-use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIdx, Weekday};
+use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIndex, Weekday};
 use bytemuck::{Pod, Zeroable};
 
 /// A single GTFS service.
@@ -7,20 +7,13 @@ use bytemuck::{Pod, Zeroable};
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Service {
-    // ------------------------------------------------------------------------
-    // 1. LARGEST FIELDS FIRST (8 to 16 bytes)
-    // ------------------------------------------------------------------------
-    /// The string ID from the original GTFS file (e.g., ``SERVICE_123``).
+    /// The string ID from the original GTFS file (e.g., `SERVICE_123`).
     pub id: ServiceIdSlice,
 
-    ///  A binary mask representing the days from ``start_date`` to ``end_date``. 1 is running 0 is not running
+    /// One bit per day from `start_date` to `end_date`, set when the service runs that day.
     pub active_mask: ServiceBinarySlice,
 
-    // ------------------------------------------------------------------------
-    // 2. SMALLER FIELDS LAST (4 bytes)
-    // ------------------------------------------------------------------------
-    /// The internal array index of this service in the file.
-    pub idx: ServiceIdx,
+    pub index: ServiceIndex,
 
     /// Start service day for the service interval.
     pub start_date: Date,
@@ -29,14 +22,15 @@ pub struct Service {
     pub end_date: Date,
 
     pub weekday: Weekday,
-    pad: [u8; 3], // Pad to ensure 4-byte alignment for bytemuck
+    /// Always zero. Makes the layout free of implicit padding, which `Pod` requires.
+    pub padding: [u8; 3],
 }
 
 impl Service {
     #[must_use]
     pub const fn new(
         id: ServiceIdSlice,
-        idx: ServiceIdx,
+        index: ServiceIndex,
         active_mask: ServiceBinarySlice,
         start_date: Date,
         end_date: Date,
@@ -45,11 +39,11 @@ impl Service {
         Self {
             id,
             active_mask,
-            idx,
+            index,
             start_date,
             end_date,
             weekday,
-            pad: [0_u8; 3],
+            padding: [0_u8; 3],
         }
     }
 }

@@ -1,3 +1,6 @@
+/// A type with one value reserved to mean "absent", so `Optional<T>` needs no extra tag byte.
+///
+/// The reserved value must never be a real value of the type.
 pub trait Sentinel: Sized + Copy + PartialEq {
     const NONE: Self;
 

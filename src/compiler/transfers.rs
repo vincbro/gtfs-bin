@@ -2,90 +2,60 @@ use std::collections::HashMap;
 
 use rayon::slice::ParallelSliceMut;
 
-use crate::models::{Duration, Sentinel, Slice, StopIdx, Transfer, TransferIdx, TransferSlice};
+use crate::{
+    compiler::tables,
+    models::{Duration, StopIndex, Transfer, TransferIndex, TransferSlice},
+};
+
+/// The transfers and the two lookups from a stop to its transfers.
+pub struct BuiltTransfers {
+    /// Sorted by the stop they start at.
+    pub transfers: Vec<Transfer>,
+    /// By stop: the run of `transfers` that starts there.
+    pub outbound: Vec<TransferSlice>,
+    /// Indices into `transfers`, sorted by the stop they end at.
+    pub inbound_indices: Vec<TransferIndex>,
+    /// By stop: the run of `inbound_indices` that ends there.
+    pub inbound: Vec<TransferSlice>,
+}
 
 pub fn build_transfers(
     raw_transfers: &[gtfs_structures::RawTransfer],
-    stop_map: &HashMap<String, StopIdx>,
-) -> (
-    Vec<Transfer>,
-    Vec<TransferSlice>,
-    Vec<TransferIdx>,
-    Vec<TransferSlice>,
-) {
+    stop_map: &HashMap<String, StopIndex>,
+) -> BuiltTransfers {
     let mut transfers: Vec<_> = raw_transfers
         .iter()
         .filter_map(|transfer| {
-            stop_map
-                .get(&transfer.from_stop_id)
-                .copied()
-                .and_then(|from_stop_idx| {
-                    stop_map
-                        .get(&transfer.to_stop_id)
-                        .copied()
-                        .map(|to_stop_idx| (transfer, from_stop_idx, to_stop_idx))
-                })
-        })
-        .map(|(transfer, from_stop_idx, to_stop_idx)| {
-            Transfer::new(
-                from_stop_idx,
-                to_stop_idx,
+            let from_stop_index = stop_map.get(&transfer.from_stop_id).copied()?;
+            let to_stop_index = stop_map.get(&transfer.to_stop_id).copied()?;
+            Some(Transfer::new(
+                from_stop_index,
+                to_stop_index,
                 transfer.min_transfer_time.map(Duration).into(),
                 transfer.transfer_type as u8,
-            )
+            ))
         })
         .collect();
 
-    // Outbound
-    transfers.par_sort_unstable_by_key(|t| t.from_stop_idx);
-    let mut stop_to_transfers_out = vec![TransferSlice::NONE; stop_map.len()];
-    let mut current_stop = StopIdx::NONE;
-    let mut start = 0;
-    let mut count = 0;
-    for (i, transfer) in transfers.iter().enumerate() {
-        if transfer.from_stop_idx != current_stop {
-            if current_stop != StopIdx::NONE {
-                stop_to_transfers_out[current_stop.as_usize()] =
-                    TransferSlice::from_usize(start, count);
-            }
-            start = i;
-            count = 0;
-            current_stop = transfer.from_stop_idx;
-        }
-        count += 1;
-    }
-    if current_stop != StopIdx::NONE {
-        stop_to_transfers_out[current_stop.as_usize()] = TransferSlice::from_usize(start, count);
-    }
+    transfers.par_sort_unstable_by_key(|transfer| transfer.from_stop_index);
+    let outbound = tables::slices_by_key(
+        transfers.iter().map(|transfer| transfer.from_stop_index),
+        stop_map.len(),
+    );
 
-    // Inbound
-    let mut transfers_in_indencies: Vec<_> = (0..transfers.len()).map(TransferIdx::from).collect();
-    transfers_in_indencies.par_sort_unstable_by_key(|idx| transfers[idx.as_usize()].to_stop_idx);
-    let mut stop_to_transfers_in = vec![TransferSlice::NONE; stop_map.len()];
-    let mut current_stop = StopIdx::NONE;
-    let mut start = 0;
-    let mut count = 0;
-    for (i, transfer_idx) in transfers_in_indencies.iter().enumerate() {
-        let transfer = &transfers[transfer_idx.as_usize()];
-        if transfer.to_stop_idx != current_stop {
-            if current_stop != StopIdx::NONE {
-                stop_to_transfers_in[current_stop.as_usize()] =
-                    TransferSlice::from_usize(start, count);
-            }
-            start = i;
-            count = 0;
-            current_stop = transfer.to_stop_idx;
-        }
-        count += 1;
-    }
-    if current_stop != StopIdx::NONE {
-        stop_to_transfers_in[current_stop.as_usize()] = TransferSlice::from_usize(start, count);
-    }
+    let mut inbound_indices: Vec<_> = (0..transfers.len()).map(TransferIndex::from).collect();
+    inbound_indices.par_sort_unstable_by_key(|index| transfers[index.as_usize()].to_stop_index);
+    let inbound = tables::slices_by_key(
+        inbound_indices
+            .iter()
+            .map(|index| transfers[index.as_usize()].to_stop_index),
+        stop_map.len(),
+    );
 
-    (
+    BuiltTransfers {
         transfers,
-        stop_to_transfers_out,
-        transfers_in_indencies,
-        stop_to_transfers_in,
-    )
+        outbound,
+        inbound_indices,
+        inbound,
+    }
 }

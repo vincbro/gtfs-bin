@@ -1,42 +1,42 @@
 use std::collections::HashMap;
 
-use rayon::slice::ParallelSliceMut;
-
-use crate::models::{
-    RouteIdx, Sentinel, ServiceIdx, ShapeSlice, Slice, SliceBuilder, StopTimeSlice, StringSlice,
-    Trip, TripIdSlice, TripIdx,
+use crate::{
+    compiler::tables,
+    models::{
+        RouteIndex, Sentinel, ServiceIndex, ShapeSlice, SliceBuilder, StopTimeSlice, StringSlice,
+        Trip, TripIdSlice, TripIndex,
+    },
 };
 
 pub fn build_trips(
     raw_trips: &[gtfs_structures::RawTrip],
-    route_map: &HashMap<String, RouteIdx>,
-    service_map: &HashMap<String, ServiceIdx>,
+    route_map: &HashMap<String, RouteIndex>,
+    service_map: &HashMap<String, ServiceIndex>,
     shape_map: &HashMap<String, ShapeSlice>,
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> (Vec<Trip>, HashMap<String, TripIdx>) {
-    let mut id_map: HashMap<String, TripIdx> = HashMap::new();
+) -> (Vec<Trip>, HashMap<String, TripIndex>) {
+    let mut id_map: HashMap<String, TripIndex> = HashMap::with_capacity(raw_trips.len());
 
     let trips: Vec<_> = raw_trips
         .iter()
         .filter_map(|trip| {
             route_map
                 .get(&trip.route_id)
-                .copied()
-                .map(|idx| (trip, idx))
+                .map(|&route_index| (trip, route_index))
         })
         .enumerate()
-        .map(|(i, (trip, route_idx))| {
-            let idx = TripIdx::from(i);
-            id_map.insert(trip.id.clone(), idx);
+        .map(|(position, (trip, route_index))| {
+            let index = TripIndex::from(position);
+            id_map.insert(trip.id.clone(), index);
 
-            let service_idx = service_map
+            let service_index = service_map
                 .get(&trip.service_id)
                 .copied()
-                .unwrap_or(ServiceIdx::NONE);
+                .unwrap_or(ServiceIndex::NONE);
 
             Trip {
                 id: TripIdSlice::NONE,
-                idx,
+                index,
                 shape: trip
                     .shape_id
                     .as_ref()
@@ -45,15 +45,15 @@ pub fn build_trips(
                 headsign: trip
                     .trip_headsign
                     .as_ref()
-                    .map(|hs| slice_builder.add(hs))
+                    .map(|headsign| slice_builder.add(headsign))
                     .into(),
-                route_idx,
-                service_idx,
+                route_index,
+                service_index,
                 stop_times: StopTimeSlice::NONE,
                 short_name: trip
                     .trip_short_name
                     .as_ref()
-                    .map(|sn| slice_builder.add(sn))
+                    .map(|name| slice_builder.add(name))
                     .into(),
             }
         })
@@ -64,22 +64,11 @@ pub fn build_trips(
 
 pub fn build_trip_ids(
     trips: &mut [Trip],
-    trip_map: &HashMap<String, TripIdx>,
-) -> (Vec<TripIdx>, String) {
-    let mut id_builder = SliceBuilder::with_capacity(36 * trips.len());
-    for (id, idx) in trip_map {
-        trips[idx.as_usize()].id = id_builder.add(id.as_str());
+    trip_map: &HashMap<String, TripIndex>,
+) -> (Vec<TripIndex>, String) {
+    let table = tables::build_id_table::<TripIdSlice, _>(trip_map, trips.len());
+    for (trip, id) in trips.iter_mut().zip(table.slices) {
+        trip.id = id;
     }
-
-    let trip_ids = id_builder.take();
-
-    // Build binary search friendly id lookup
-    let mut trip_id_lookup: Vec<_> = (0..trips.len()).map(TripIdx::from).collect();
-    trip_id_lookup.par_sort_unstable_by(|a, b| {
-        let id_a = &trip_ids[trips[a.as_usize()].id.range()];
-        let id_b = &trip_ids[trips[b.as_usize()].id.range()];
-        id_a.cmp(id_b)
-    });
-
-    (trip_id_lookup, trip_ids)
+    (table.lookup, table.buffer)
 }

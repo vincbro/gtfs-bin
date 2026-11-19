@@ -1,46 +1,55 @@
 use crate::{
     consumer::Consumer,
-    models::{Date, Service, ServiceIdSlice, ServiceIdx, Slice},
+    models::{Date, Service, ServiceIdSlice, ServiceIndex, Slice},
 };
 
 impl<'a> Consumer<'a> {
-    #[inline]
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range, which includes `ServiceIndex::NONE`.
     #[must_use]
-    pub fn service(&self, idx: ServiceIdx) -> &'a Service {
-        &self.services[idx.as_usize()]
+    pub fn service(&self, index: ServiceIndex) -> &'a Service {
+        &self.services[index.as_usize()]
     }
 
     #[must_use]
     pub fn service_by_id(&self, id: &str) -> Option<&'a Service> {
         self.services_id_lookup
-            .binary_search_by(|&idx| {
-                let service = self.service(idx);
+            .binary_search_by(|&index| {
+                let service = self.service(index);
                 self.service_id(service.id).cmp(id)
             })
             .ok()
-            .map(|idx| self.service(self.services_id_lookup[idx]))
+            .map(|position| self.service(self.services_id_lookup[position]))
     }
 
-    #[inline]
+    /// # Panics
+    ///
+    /// Panics if the slice is out of range.
     #[must_use]
     pub fn service_id(&self, id: ServiceIdSlice) -> &'a str {
-        unsafe { std::str::from_utf8_unchecked(&self.service_ids[id.range()]) }
+        super::text(&self.service_ids[id.range()])
     }
 
+    /// Returns whether the service runs on `date`.
+    ///
+    /// A trip whose service the file doesn't define has `ServiceIndex::NONE`, and that never runs.
     #[must_use]
-    pub fn is_service_active(&self, idx: ServiceIdx, date: Date) -> bool {
-        let service = self.service(idx);
+    pub fn is_service_active(&self, index: ServiceIndex, date: Date) -> bool {
+        let Some(service) = self.services.get(index.as_usize()) else {
+            return false;
+        };
 
         if date < service.start_date || date > service.end_date {
             return false;
         }
 
         let day_offset = date.0 - service.start_date.0;
-        let bit_idx = service.active_mask.start + day_offset;
+        let bit_index = service.active_mask.start + day_offset;
 
-        let byte_idx = (bit_idx / 8) as usize;
-        let bit_offset = 7 - (bit_idx % 8);
+        let byte_index = (bit_index / 8) as usize;
+        let bit_offset = 7 - (bit_index % 8);
 
-        (self.active_mask[byte_idx] & (1 << bit_offset)) != 0
+        (self.active_mask[byte_index] & (1 << bit_offset)) != 0
     }
 }

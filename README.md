@@ -64,19 +64,17 @@ If you are building a data pipeline, use the `Compiler` to generate the `.gtfs` 
 
 ```rust
 use gtfs_bin::compiler::Compiler;
-use std::fs::File;
-use std::io::Write;
+use std::{fs, path::Path};
 
 fn main() {
     // Read from a zip file or an extracted directory
-    let compiler = Compiler::new("path/to/gtfs.zip");
+    let compiler = Compiler::new(Path::new("path/to/gtfs.zip"));
     
     // Parse the data and generate the binary byte array
     let bytes = compiler.compile().expect("Failed to compile GTFS");
 
     // Save the artifact to disk
-    let mut file = File::create("network.gtfs").unwrap();
-    file.write_all(&bytes).unwrap();
+    fs::write("network.gtfs", &bytes).unwrap();
 }
 ```
 
@@ -100,11 +98,11 @@ fn main() {
 
     // Example: Look up a route by its original GTFS text ID
     if let Some(route) = consumer.route_by_id("route_1") {
-        let route_name = consumer.string(route.short_name.get().unwrap());
+        let route_name = consumer.string(route.short_name.as_option().unwrap());
         println!("Found route: {}", route_name);
         
         // Iterate over all trips belonging to this route
-        for trip in consumer.iter_route_trips(route.idx) {
+        for trip in consumer.iter_trips_by_route(route.index) {
             println!("Trip ID: {}", consumer.trip_id(trip.id));
         }
     }
@@ -123,6 +121,8 @@ use gtfs_bin::rt::RealtimeBuilder;
 
 let realtime_state = RealtimeBuilder::new(&consumer)
     .with_cascading_delays(true)
+    // Stop times are local times, so delays computed from timestamps need the agency offset.
+    .with_utc_offset_seconds(3600)
     .build(feed_messages);
     
 // You can now query realtime delays, cancellations, and vehicle positions!

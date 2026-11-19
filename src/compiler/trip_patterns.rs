@@ -1,79 +1,82 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::models::{
-    Sentinel, Slice, Stop, StopIdx, StopSlice, StopTime, Trip, TripIdx, TripPattern,
-    TripPatternIdx, TripPatternSlice, TripSlice,
+    Sentinel, Slice, Stop, StopIndex, StopSlice, StopTime, Trip, TripIndex, TripPattern,
+    TripPatternIndex, TripPatternSlice, TripSlice,
 };
 
-pub struct BuildTripPatternsResult(
-    pub Vec<TripPattern>,
-    pub Vec<StopIdx>,
-    pub Vec<TripIdx>,
-    pub Vec<TripPatternIdx>,
-    pub Vec<TripPatternIdx>,
-    pub Vec<TripPatternSlice>,
-);
+pub struct TripPatterns {
+    pub patterns: Vec<TripPattern>,
+    /// The stops of every pattern, back to back.
+    pub stop_sequences: Vec<StopIndex>,
+    /// The trips of every pattern, back to back.
+    pub trips_in_patterns: Vec<TripIndex>,
+    /// By trip: the pattern it follows.
+    pub trip_to_pattern: Vec<TripPatternIndex>,
+    /// The patterns that visit each stop, back to back.
+    pub stop_to_pattern: Vec<TripPatternIndex>,
+    /// By stop: the run of `stop_to_pattern` that visits it.
+    pub stop_to_pattern_lookup: Vec<TripPatternSlice>,
+}
 
 pub fn build_trip_patterns(
     trips: &[Trip],
     stops: &[Stop],
     stop_times: &[StopTime],
-) -> BuildTripPatternsResult {
-    let mut stop_seq_to_trips: HashMap<Vec<StopIdx>, Vec<TripIdx>> =
-        HashMap::with_capacity(trips.len());
+) -> TripPatterns {
+    // Ordered maps so the same input always gives the same bytes.
+    let mut trips_by_stop_sequence: BTreeMap<Vec<StopIndex>, Vec<TripIndex>> = BTreeMap::new();
     for trip in trips {
-        let stop_times = &stop_times[trip.stop_times.range()];
-        let stop_seq = stop_times.iter().map(|st| st.stop_idx).collect();
-        stop_seq_to_trips
-            .entry(stop_seq)
+        let stop_sequence = stop_times[trip.stop_times.range()]
+            .iter()
+            .map(|stop_time| stop_time.stop_index)
+            .collect();
+        trips_by_stop_sequence
+            .entry(stop_sequence)
             .or_default()
-            .push(trip.idx);
+            .push(trip.index);
     }
 
-    let mut trip_patterns: Vec<TripPattern> = Vec::with_capacity(stop_seq_to_trips.len());
-    let mut stop_sequences: Vec<StopIdx> = Vec::new();
-    let mut trips_in_sequences: Vec<TripIdx> = Vec::new();
-    let mut trip_to_trip_pattern: Vec<TripPatternIdx> = vec![TripPatternIdx::NONE; trips.len()];
-    let mut stop_to_trip_pattern_map: HashMap<StopIdx, Vec<TripPatternIdx>> = HashMap::new();
+    let mut patterns: Vec<TripPattern> = Vec::with_capacity(trips_by_stop_sequence.len());
+    let mut stop_sequences: Vec<StopIndex> = Vec::with_capacity(stop_times.len());
+    let mut trips_in_patterns: Vec<TripIndex> = Vec::with_capacity(trips.len());
+    let mut trip_to_pattern = vec![TripPatternIndex::NONE; trips.len()];
+    let mut patterns_by_stop: BTreeMap<StopIndex, Vec<TripPatternIndex>> = BTreeMap::new();
 
-    for (i, (stop_seq, trips_in_seq)) in stop_seq_to_trips.iter().enumerate() {
-        let idx = TripPatternIdx::from(i);
-        for trip_idx in trips_in_seq {
-            trip_to_trip_pattern[trip_idx.as_usize()] = idx;
+    for (position, (stop_sequence, pattern_trips)) in trips_by_stop_sequence.iter().enumerate() {
+        let index = TripPatternIndex::from(position);
+        for trip_index in pattern_trips {
+            trip_to_pattern[trip_index.as_usize()] = index;
         }
-        trip_patterns.push(TripPattern {
-            stops: StopSlice::from_usize(stop_sequences.len(), stop_seq.len()),
-            trips: TripSlice::from_usize(trips_in_sequences.len(), trips_in_seq.len()),
-            idx,
+        patterns.push(TripPattern {
+            stops: StopSlice::from_usize(stop_sequences.len(), stop_sequence.len()),
+            trips: TripSlice::from_usize(trips_in_patterns.len(), pattern_trips.len()),
+            index,
         });
 
-        stop_seq.iter().copied().for_each(|stop_idx| {
-            stop_to_trip_pattern_map
-                .entry(stop_idx)
-                .or_default()
-                .push(idx);
-        });
+        for &stop_index in stop_sequence {
+            patterns_by_stop.entry(stop_index).or_default().push(index);
+        }
 
-        stop_sequences.extend_from_slice(stop_seq);
-        trips_in_sequences.extend_from_slice(trips_in_seq);
+        stop_sequences.extend_from_slice(stop_sequence);
+        trips_in_patterns.extend_from_slice(pattern_trips);
     }
 
-    let mut stop_to_trip_pattern_lookup = vec![TripPatternSlice::NONE; stops.len()];
-    let mut stop_to_trip_pattern: Vec<TripPatternIdx> = Vec::new();
+    let mut stop_to_pattern_lookup = vec![TripPatternSlice::NONE; stops.len()];
+    let mut stop_to_pattern: Vec<TripPatternIndex> = Vec::with_capacity(stop_sequences.len());
 
-    for (stop_idx, trip_patterns) in stop_to_trip_pattern_map {
-        let slice = TripPatternSlice::from_usize(stop_to_trip_pattern.len(), trip_patterns.len());
-
-        stop_to_trip_pattern.extend_from_slice(&trip_patterns);
-        stop_to_trip_pattern_lookup[stop_idx.as_usize()] = slice;
+    for (stop_index, stop_patterns) in patterns_by_stop {
+        stop_to_pattern_lookup[stop_index.as_usize()] =
+            TripPatternSlice::from_usize(stop_to_pattern.len(), stop_patterns.len());
+        stop_to_pattern.extend_from_slice(&stop_patterns);
     }
 
-    BuildTripPatternsResult(
-        trip_patterns,
+    TripPatterns {
+        patterns,
         stop_sequences,
-        trips_in_sequences,
-        trip_to_trip_pattern,
-        stop_to_trip_pattern,
-        stop_to_trip_pattern_lookup,
-    )
+        trips_in_patterns,
+        trip_to_pattern,
+        stop_to_pattern,
+        stop_to_pattern_lookup,
+    }
 }

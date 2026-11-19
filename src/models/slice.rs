@@ -2,14 +2,20 @@ use std::collections::HashMap;
 
 use crate::models::sentinel::Sentinel;
 
+/// A `start` and `count` pair that points into one of the file's tables.
+///
+/// `NONE` is `(0, 0)`, which is also a valid empty slice, so a `NONE` slice and an empty one read
+/// the same.
 pub trait Slice: Sentinel {
-    /// Helper to instantly convert this into a standard Rust range
+    /// Converts the slice into a range that indexes its table.
     fn range(self) -> std::ops::Range<usize>;
 
     fn new(start: u32, count: u32) -> Self;
     fn from_usize(start: usize, count: usize) -> Self;
 }
 
+// A macro because each slice needs its own distinct type, so a `TripSlice` can't be used where a
+// `StopSlice` is expected, and a generic wrapper would make them one type.
 macro_rules! define_slice {
     ($name:ident) => {
         #[repr(C)]
@@ -46,15 +52,7 @@ macro_rules! define_slice {
 
         impl From<(usize, usize)> for $name {
             fn from(value: (usize, usize)) -> Self {
-                let start = u32::try_from(value.0);
-                let count = u32::try_from(value.1);
-                if let Ok(start) = start
-                    && let Ok(count) = count
-                {
-                    Self::new(start, count)
-                } else {
-                    Self::NONE
-                }
+                Self::from_usize(value.0, value.1)
             }
         }
 
@@ -71,20 +69,12 @@ macro_rules! define_slice {
             }
 
             fn from_usize(start: usize, count: usize) -> Self {
-                let start = u32::try_from(start);
-                let count = u32::try_from(count);
-
-                if let Ok(start) = start
-                    && let Ok(count) = count
-                {
-                    Self { start, count }
-                } else {
-                    Self::NONE
+                match (u32::try_from(start), u32::try_from(count)) {
+                    (Ok(start), Ok(count)) => Self { start, count },
+                    _ => Self::NONE,
                 }
             }
 
-            /// Helper to instantly convert this into a standard Rust range
-            #[inline(always)]
             fn range(self) -> std::ops::Range<usize> {
                 let start = self.start as usize;
                 let end = start + self.count as usize;
@@ -110,19 +100,25 @@ define_slice!(TransferSlice);
 define_slice!(ServiceBinarySlice);
 define_slice!(ShapeSlice);
 
-#[derive(Default)]
+/// Collects strings into one buffer and hands back a `Slice` for each, sharing repeats.
 pub struct SliceBuilder<T: Slice> {
     buffer: String,
     map: HashMap<String, T>,
 }
 
-impl<T: Slice> SliceBuilder<T> {
-    #[must_use]
-    pub fn new() -> Self {
+impl<T: Slice> Default for SliceBuilder<T> {
+    fn default() -> Self {
         Self {
             buffer: String::new(),
             map: HashMap::new(),
         }
+    }
+}
+
+impl<T: Slice> SliceBuilder<T> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[must_use]
@@ -136,20 +132,58 @@ impl<T: Slice> SliceBuilder<T> {
     /// Returns where in the buffer to find the string. It only adds new strings to the buffer.
     pub fn add(&mut self, value: &str) -> T {
         if let Some(slice) = self.map.get(value).copied() {
-            slice
-        } else {
-            let start = self.buffer.len();
-            let count = value.len();
-            self.buffer.push_str(value);
-            let slice = T::from_usize(start, count);
-            self.map.insert(value.to_string(), slice);
-            slice
+            return slice;
         }
+        let slice = T::from_usize(self.buffer.len(), value.len());
+        self.buffer.push_str(value);
+        self.map.insert(value.to_string(), slice);
+        slice
     }
 
-    /// Returns the buffer
     #[must_use]
-    pub fn take(self) -> String {
+    pub fn into_buffer(self) -> String {
         self.buffer
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_strings_share_one_slice() {
+        let mut builder = SliceBuilder::<StringSlice>::new();
+
+        let first = builder.add("central");
+        let other = builder.add("north");
+        let again = builder.add("central");
+
+        assert_eq!(first, again, "the same text points at the same bytes");
+        assert_eq!(
+            other,
+            StringSlice::from_usize(7, 5),
+            "new text is appended after it"
+        );
+        assert_eq!(
+            builder.into_buffer(),
+            "centralnorth",
+            "each text is stored once"
+        );
+    }
+
+    #[test]
+    fn too_large_a_slice_becomes_none() {
+        let slice = StringSlice::from_usize(usize::MAX, 1);
+
+        assert_eq!(slice, StringSlice::NONE, "it doesn't fit in u32");
+    }
+
+    #[test]
+    fn range_covers_start_to_end() {
+        assert_eq!(
+            StringSlice::from_usize(3, 4).range(),
+            3..7,
+            "count items from start"
+        );
     }
 }

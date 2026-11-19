@@ -3,11 +3,11 @@ use std::fmt::Display;
 
 use crate::models::Sentinel;
 
+/// Days since the unix epoch.
 #[repr(transparent)]
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::Pod, bytemuck::Zeroable,
 )]
-/// Days since unix epoch
 pub struct Date(pub u32);
 
 impl Sentinel for Date {
@@ -28,9 +28,11 @@ impl From<NaiveDate> for Date {
 
 impl Display for Date {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Shift the epoch from 1970-01-01 to 0000-03-01
-        // Because input is u32, z will never be negative.
-        let epoch = self.0 + 719_468;
+        // Shift the epoch from 1970-01-01 to 0000-03-01. The sentinel is the one value that
+        // overflows here.
+        let Some(epoch) = self.0.checked_add(719_468) else {
+            return f.write_str("none");
+        };
 
         // Calculate the "era" (a 400-year block)
         // We can safely use standard division and modulo now.
@@ -64,9 +66,46 @@ impl Default for Date {
 }
 
 impl Date {
-    /// Returns the day of the week 0, 6
+    /// Returns the day of the week, with Monday as 0 and Sunday as 6.
     #[must_use]
-    pub const fn get_day_of_week(&self) -> u8 {
-        ((self.0 + 3) % 7) as u8
+    pub const fn day_of_week(self) -> u8 {
+        // 1970-01-01 was a Thursday. Reducing before adding keeps the sentinel from overflowing.
+        ((self.0 % 7 + 3) % 7) as u8
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unix_epoch_is_a_thursday() {
+        assert_eq!(
+            Date(0).day_of_week(),
+            3,
+            "1970-01-01 was a Thursday, Monday being 0"
+        );
+    }
+
+    #[test]
+    fn sentinel_does_not_overflow() {
+        assert_eq!(
+            Date::NONE.to_string(),
+            "none",
+            "the sentinel has no calendar date"
+        );
+        assert!(
+            Date::NONE.day_of_week() < 7,
+            "the sentinel still maps to a weekday"
+        );
+    }
+
+    #[test]
+    fn formats_a_leap_day() {
+        assert_eq!(
+            Date(11_016).to_string(),
+            "2000-02-29",
+            "2000 was a leap year"
+        );
     }
 }

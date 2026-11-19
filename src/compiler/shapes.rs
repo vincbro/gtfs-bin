@@ -1,29 +1,27 @@
 use rayon::slice::ParallelSliceMut;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::models::{Coordinate, Distance, Shape, ShapeSlice, Slice};
 
 pub fn build_shapes(
     raw_shapes: &[gtfs_structures::Shape],
 ) -> (Vec<Shape>, HashMap<String, ShapeSlice>) {
-    let mut raw_shape_map: HashMap<String, Vec<&gtfs_structures::Shape>> = HashMap::new();
+    // Ordered so the same input always gives the same bytes.
+    let mut raw_shape_map: BTreeMap<&str, Vec<&gtfs_structures::Shape>> = BTreeMap::new();
 
     for shape in raw_shapes {
-        raw_shape_map
-            .entry(shape.id.clone())
-            .or_default()
-            .push(shape);
+        raw_shape_map.entry(&shape.id).or_default().push(shape);
     }
 
-    let mut shapes: Vec<Shape> = Vec::new();
-    let mut shape_map: HashMap<String, ShapeSlice> = HashMap::new();
+    let mut shapes: Vec<Shape> = Vec::with_capacity(raw_shapes.len());
+    let mut shape_map: HashMap<String, ShapeSlice> = HashMap::with_capacity(raw_shape_map.len());
 
-    for (id, mut shape_seq) in raw_shape_map {
-        shape_seq.par_sort_unstable_by_key(|shape| shape.sequence);
-        let slice = ShapeSlice::from_usize(shapes.len(), shape_seq.len());
-        shape_map.insert(id, slice);
+    for (id, mut shape_sequence) in raw_shape_map {
+        shape_sequence.par_sort_unstable_by_key(|shape| shape.sequence);
+        let slice = ShapeSlice::from_usize(shapes.len(), shape_sequence.len());
+        shape_map.insert(id.to_string(), slice);
 
-        shapes.extend(shape_seq.iter().map(|shape| Shape {
+        shapes.extend(shape_sequence.iter().map(|shape| Shape {
             coordinate: Coordinate::new(shape.latitude, shape.longitude),
             distance_traveled: shape.dist_traveled.map(Distance).into(),
         }));

@@ -1,70 +1,86 @@
 use crate::{
     consumer::Consumer,
-    models::{Slice, Stop, StopIdx, Trip, TripIdx, TripPattern, TripPatternIdx},
+    models::{Slice, Stop, StopIndex, Trip, TripIndex, TripPattern, TripPatternIndex},
 };
 
 impl<'a> Consumer<'a> {
-    #[inline]
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range, which includes `TripPatternIndex::NONE`.
     #[must_use]
-    pub fn trip_pattern(&self, idx: TripPatternIdx) -> &'a TripPattern {
-        &self.trip_patterns[idx.as_usize()]
+    pub fn trip_pattern(&self, index: TripPatternIndex) -> &'a TripPattern {
+        &self.trip_patterns[index.as_usize()]
     }
 
-    #[inline]
+    /// # Panics
+    ///
+    /// Panics if `trip_index` is out of range.
     #[must_use]
-    pub fn trip_pattern_by_trip(&self, trip_idx: TripIdx) -> &'a TripPattern {
-        let idx = self.trip_to_trip_pattern[trip_idx.as_usize()];
-        self.trip_pattern(idx)
+    pub fn trip_pattern_by_trip(&self, trip_index: TripIndex) -> &'a TripPattern {
+        let index = self.trip_to_trip_pattern[trip_index.as_usize()];
+        self.trip_pattern(index)
     }
 
-    #[inline]
+    /// # Panics
+    ///
+    /// Panics if `stop_index` is out of range.
     #[must_use]
-    pub fn trip_patterns_by_stop(&self, stop_idx: StopIdx) -> &[TripPatternIdx] {
-        let slice = self.stop_to_trip_pattern_lookup[stop_idx.as_usize()];
+    pub fn trip_patterns_by_stop(&self, stop_index: StopIndex) -> &'a [TripPatternIndex] {
+        let slice = self.stop_to_trip_pattern_lookup[stop_index.as_usize()];
         &self.stop_to_trip_pattern[slice.range()]
     }
 
+    /// # Panics
+    ///
+    /// Panics if `stop_index` is out of range.
     pub fn iter_trip_patterns_by_stop(
         &self,
-        stop_idx: StopIdx,
+        stop_index: StopIndex,
     ) -> impl Iterator<Item = &'a TripPattern> {
-        self.trip_patterns_by_stop(stop_idx)
+        self.trip_patterns_by_stop(stop_index)
             .iter()
-            .copied()
-            .map(|trip_pattern_idx| self.trip_pattern(trip_pattern_idx))
+            .map(|&pattern_index| self.trip_pattern(pattern_index))
     }
 
-    #[inline]
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range.
     #[must_use]
-    pub fn stop_sequence_by_trip_pattern(&self, idx: TripPatternIdx) -> &'a [StopIdx] {
-        let slice = self.trip_pattern(idx).stops;
+    pub fn stop_sequence_by_trip_pattern(&self, index: TripPatternIndex) -> &'a [StopIndex] {
+        let slice = self.trip_pattern(index).stops;
         &self.trip_patterns_stop_seq[slice.range()]
     }
 
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range.
     pub fn iter_stop_sequence_by_trip_pattern(
         &self,
-        idx: TripPatternIdx,
+        index: TripPatternIndex,
     ) -> impl Iterator<Item = &'a Stop> {
-        self.stop_sequence_by_trip_pattern(idx)
+        self.stop_sequence_by_trip_pattern(index)
             .iter()
-            .copied()
-            .map(|idx| self.stop(idx))
+            .map(|&stop_index| self.stop(stop_index))
     }
 
-    #[inline]
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range.
     #[must_use]
-    pub fn trips_in_trip_pattern(&self, idx: TripPatternIdx) -> &[TripIdx] {
-        let slice = self.trip_pattern(idx).trips;
+    pub fn trips_in_trip_pattern(&self, index: TripPatternIndex) -> &'a [TripIndex] {
+        let slice = self.trip_pattern(index).trips;
         &self.trip_patterns_trips[slice.range()]
     }
 
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range.
     pub fn iter_trips_in_trip_pattern(
         &self,
-        idx: TripPatternIdx,
+        index: TripPatternIndex,
     ) -> impl Iterator<Item = &'a Trip> {
-        self.trips_in_trip_pattern(idx)
+        self.trips_in_trip_pattern(index)
             .iter()
-            .copied()
-            .map(|idx| self.trip(idx))
+            .map(|&trip_index| self.trip(trip_index))
     }
 }
