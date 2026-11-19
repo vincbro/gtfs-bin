@@ -69,7 +69,7 @@ Add `gtfs-bin` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gtfs-bin = "0.1.3"
+gtfs-bin = "0.2"
 memmap2 = "0.9"
 ```
 
