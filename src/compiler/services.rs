@@ -150,7 +150,7 @@ fn build_active_mask(
         let days = service.end_date.0 - service.start_date.0 + 1;
         if days > MAX_SERVICE_DAYS {
             return Err(Error::ServiceRangeTooLong {
-                service_id: ids[service.index.as_usize()].to_string(),
+                service_id: ids[service.index.as_usize()].to_owned(),
                 days,
                 maximum: MAX_SERVICE_DAYS,
             });

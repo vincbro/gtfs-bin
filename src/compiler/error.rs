@@ -1,5 +1,7 @@
 use std::{io, path::PathBuf, result};
 
+use zip::result::ZipError;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("failed to read {path}")]
@@ -9,7 +11,7 @@ pub enum Error {
         source: io::Error,
     },
     #[error("failed to read the zip archive")]
-    Zip(#[from] zip::result::ZipError),
+    Zip(#[from] ZipError),
     #[error("{file} is not valid csv")]
     Csv {
         file: &'static str,

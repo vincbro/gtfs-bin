@@ -5,7 +5,9 @@ use crate::{
     models::{Coordinate, Distance, Shape, ShapeSlice, Slice},
 };
 
-pub(super) fn build_shapes(table: &mut Table) -> Result<(Vec<Shape>, HashMap<String, ShapeSlice>)> {
+pub(super) fn build_shapes(
+    table: &mut Table<'_>,
+) -> Result<(Vec<Shape>, HashMap<String, ShapeSlice>)> {
     let id = table.require("shape_id")?;
     let latitude = table.require("shape_pt_lat")?;
     let longitude = table.require("shape_pt_lon")?;
@@ -26,7 +28,7 @@ pub(super) fn build_shapes(table: &mut Table) -> Result<(Vec<Shape>, HashMap<Str
                 ),
                 distance_traveled: row
                     .float(distance, "shape_dist_traveled")?
-                    .map(|meters| Distance(meters as f32))
+                    .map(Distance::from_meters)
                     .into(),
             },
         );
@@ -35,7 +37,7 @@ pub(super) fn build_shapes(table: &mut Table) -> Result<(Vec<Shape>, HashMap<Str
         match points_by_shape.get_mut(shape_id) {
             Some(points) => points.push(point),
             None => {
-                points_by_shape.insert(shape_id.to_string(), vec![point]);
+                points_by_shape.insert(shape_id.to_owned(), vec![point]);
             }
         }
     }

@@ -6,6 +6,7 @@ use crate::{
     compiler::{records::RawRoute, tables},
     models::{
         Route, RouteIdSlice, RouteIndex, Sentinel, SliceBuilder, StringSlice, Trip, TripIndex,
+        TripSlice,
     },
 };
 
@@ -63,7 +64,7 @@ pub(super) fn build_route_ids(
 pub(super) fn build_route_to_trips(
     trips: &[Trip],
     routes: &[Route],
-) -> (Vec<TripIndex>, Vec<crate::models::TripSlice>) {
+) -> (Vec<TripIndex>, Vec<TripSlice>) {
     let mut route_trip_pairs: Vec<(RouteIndex, TripIndex)> = trips
         .iter()
         .map(|trip| (trip.route_index, trip.index))

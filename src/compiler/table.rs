@@ -1,4 +1,4 @@
-use std::{io::Read, str::FromStr};
+use std::{io::Read, mem, str::FromStr};
 
 use csv::{ReaderBuilder, StringRecord, Trim};
 
@@ -101,7 +101,7 @@ impl<'a> Table<'a> {
 
     /// Returns the rows that were skipped, and how many there were in all.
     pub(super) fn take_skipped(&mut self) -> (Vec<SkippedRow>, usize) {
-        (std::mem::take(&mut self.skipped), self.skipped_total)
+        (mem::take(&mut self.skipped), self.skipped_total)
     }
 
     /// Reads the next row, or returns `None` at the end of the file.
@@ -217,7 +217,7 @@ impl<'a> Row<'a> {
             file: self.file,
             line: self.line,
             column,
-            value: value.to_string(),
+            value: value.to_owned(),
         }
     }
 }

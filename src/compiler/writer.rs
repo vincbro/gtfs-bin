@@ -1,4 +1,4 @@
-use bytemuck::NoUninit;
+use bytemuck::{NoUninit, checked};
 
 use crate::models::Section;
 
@@ -25,8 +25,7 @@ impl BinaryWriter {
     pub(super) fn write_section<T: NoUninit>(&mut self, slice: &[T]) -> Section {
         let offset = self.buffer.len() as u64;
         let count = slice.len() as u64;
-        self.buffer
-            .extend_from_slice(bytemuck::checked::cast_slice(slice));
+        self.buffer.extend_from_slice(checked::cast_slice(slice));
         self.align();
         Section { offset, count }
     }

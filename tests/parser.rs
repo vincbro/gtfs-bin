@@ -7,6 +7,7 @@ use std::{fs, io::Write, path::Path};
 use gtfs_bin::{
     compiler::{Compiler, Error},
     consumer::Consumer,
+    models::{Date, RouteType},
 };
 use zip::{ZipWriter, write::SimpleFileOptions};
 
@@ -52,7 +53,7 @@ fn with_file<'a>(
     files
 }
 
-fn open(bytes: &[u8], check: impl FnOnce(&Consumer)) {
+fn open(bytes: &[u8], check: impl FnOnce(&Consumer<'_>)) {
     let (_file, mmap) = common::map(bytes).expect("a compiled file maps");
     check(&Consumer::new(&mmap).expect("the compiler wrote a valid file"));
 }
@@ -212,8 +213,7 @@ fn only_calendar_dates_is_a_valid_calendar() {
 
     open(&bytes, |consumer| {
         let service = consumer.service_by_id("S").expect("the service exists");
-        let jan =
-            |day| gtfs_bin::models::Date::parse_gtfs(&format!("202401{day:02}")).expect("a date");
+        let jan = |day| Date::parse_gtfs(&format!("202401{day:02}")).expect("a date");
         assert!(
             consumer.is_service_active(service.index, jan(2)),
             "added on the 2nd"
@@ -411,7 +411,7 @@ fn extended_route_types_are_grouped() {
     open(&bytes, |consumer| {
         assert_eq!(
             consumer.routes()[0].route_type,
-            gtfs_bin::models::RouteType::BUS,
+            RouteType::BUS,
             "714 is a bus service"
         );
     });

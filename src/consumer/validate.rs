@@ -2,7 +2,7 @@ use std::str;
 
 use crate::{
     consumer::{Consumer, Error, Result},
-    models::{Index, Optional, Sentinel, Slice},
+    models::{Index, Optional, Sentinel, Slice, StopCell},
 };
 
 impl Consumer<'_> {
@@ -35,7 +35,10 @@ impl Consumer<'_> {
         for (section, bytes) in sections {
             str::from_utf8(bytes).map_err(|_| Error::InvalidUtf8 { section })?;
         }
+        self.validate_text_slices()
+    }
 
+    fn validate_text_slices(&self) -> Result<()> {
         // The sections are valid text, so a slice is too as long as it doesn't cut a character.
         let strings = |bytes| str::from_utf8(bytes).unwrap_or_default();
         check_text(
@@ -478,7 +481,7 @@ impl Consumer<'_> {
 impl Consumer<'_> {
     fn validate_grid(&self) -> Result<()> {
         let cells = self.stop_grid;
-        let key = |cell: &crate::models::StopCell| (cell.latitude_cell, cell.longitude_cell);
+        let key = |cell: &StopCell| (cell.latitude_cell, cell.longitude_cell);
         if cells.windows(2).any(|pair| key(&pair[0]) >= key(&pair[1])) {
             return Err(Error::InvalidOrder { table: "stop_grid" });
         }

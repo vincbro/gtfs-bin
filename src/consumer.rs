@@ -7,9 +7,9 @@ use crate::{
     GTFS_BIN_VERSION,
     consumer::reader::Reader,
     models::{
-        Date, Header, Route, RouteIndex, SearchStop, Sentinel, Service, ServiceIndex, Shape, Stop,
-        StopCell, StopIndex, StopTime, Transfer, TransferIndex, TransferSlice, Trip, TripIndex,
-        TripPattern, TripPatternIndex, TripPatternSlice, TripSlice,
+        self, Date, Header, Route, RouteIndex, SearchStop, Sentinel, Service, ServiceIndex, Shape,
+        Stop, StopCell, StopIndex, StopTime, Transfer, TransferIndex, TransferSlice, Trip,
+        TripIndex, TripPattern, TripPatternIndex, TripPatternSlice, TripSlice,
     },
 };
 
@@ -144,7 +144,7 @@ impl<'a> Consumer<'a> {
     /// Returns an error if any byte after the header has changed.
     pub fn verify_checksum(&self) -> Result<()> {
         let body = &self.bytes[size_of::<Header>()..];
-        if crate::models::checksum(body) == self.expected_checksum {
+        if models::checksum(body) == self.expected_checksum {
             Ok(())
         } else {
             Err(Error::ChecksumMismatch)

@@ -8,7 +8,7 @@ mod common;
 use std::fs;
 
 use gtfs_bin::{compiler::Compiler, consumer::Consumer};
-use proptest::prelude::*;
+use proptest::{collection, prelude::*};
 
 const FILES: [&str; 10] = [
     "stops.txt",
@@ -52,7 +52,7 @@ fn apply(text: &str, edit: &Edit) -> String {
     if chars.is_empty() {
         return String::new();
     }
-    let at = |fraction: &f64, length: usize| ((fraction * length as f64) as usize).min(length - 1);
+    let at = |fraction: &f64, length: usize| common::scale(*fraction, length);
     match edit {
         Edit::Replace(fraction, character) => {
             let position = at(fraction, chars.len());
@@ -111,8 +111,8 @@ proptest! {
 
     #[test]
     fn damaged_feeds_never_panic_and_never_miscompile(
-        damage in proptest::collection::vec(
-            (0..FILES.len(), proptest::collection::vec(edit(), 1..6)),
+        damage in collection::vec(
+            (0..FILES.len(), collection::vec(edit(), 1..6)),
             1..4,
         ),
     ) {

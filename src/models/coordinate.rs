@@ -79,14 +79,12 @@ mod tests {
     fn keeps_seven_decimal_places() {
         let coordinate = Coordinate::new(48.796_058_1, -2.449_386_4);
 
-        assert_eq!(
-            coordinate.latitude_f64(),
-            48.796_058_1,
+        assert!(
+            (coordinate.latitude_f64() - 48.796_058_1).abs() < 1e-7,
             "latitude round-trips"
         );
-        assert_eq!(
-            coordinate.longitude_f64(),
-            -2.449_386_4,
+        assert!(
+            (coordinate.longitude_f64() + 2.449_386_4).abs() < 1e-7,
             "longitude round-trips"
         );
     }

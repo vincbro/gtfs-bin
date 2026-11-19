@@ -6,7 +6,7 @@ use crate::models::{
 
 /// A single GTFS ``stop_time``.
 ///
-/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#stop_timestxt>
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#stop_timestxt>.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct StopTime {

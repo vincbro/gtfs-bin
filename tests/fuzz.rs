@@ -3,14 +3,17 @@
 mod common;
 
 use gtfs_bin::{consumer::Consumer, models::Header};
-use proptest::prelude::*;
+use proptest::{collection, prelude::*};
 
 /// The byte range of every non-empty section, read from the header.
 fn section_ranges(bytes: &[u8]) -> Vec<(usize, usize)> {
     // The header ends with two dates, the file length and the checksum, which aren't sections.
     let section_bytes = size_of::<Header>() - 8 - 24;
     let words: &[u64] = bytemuck::cast_slice(&bytes[8..8 + section_bytes]);
-    let mut starts: Vec<usize> = words.chunks(2).map(|pair| pair[0] as usize).collect();
+    let mut starts: Vec<usize> = words
+        .chunks(2)
+        .map(|pair| usize::try_from(pair[0]).expect("an offset in a file fits in usize"))
+        .collect();
     starts.push(bytes.len());
     starts.sort_unstable();
     starts.dedup();
@@ -32,19 +35,19 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(512))]
 
     #[test]
-    fn arbitrary_bytes_never_panic(bytes in proptest::collection::vec(any::<u8>(), 0..2048)) {
+    fn arbitrary_bytes_never_panic(bytes in collection::vec(any::<u8>(), 0..2048)) {
         common::open_and_exercise(&bytes);
     }
 
     #[test]
     fn damaged_files_never_panic(
-        edits in proptest::collection::vec((0.0_f64..1.0, any::<u8>()), 1..24),
+        edits in collection::vec((0.0_f64..1.0, any::<u8>()), 1..24),
         header_bias in any::<bool>(),
     ) {
         let mut bytes = common::compile_fixture();
         let limit = if header_bias { 400.min(bytes.len()) } else { bytes.len() };
         for (fraction, value) in edits {
-            let position = (fraction * limit as f64) as usize % limit;
+            let position = common::scale(fraction, limit);
             bytes[position] = value;
         }
         common::open_and_exercise(&bytes);
@@ -58,7 +61,7 @@ proptest! {
 
     #[test]
     fn damaged_table_entries_never_panic(
-        edits in proptest::collection::vec(
+        edits in collection::vec(
             (any::<usize>(), 0.0_f64..1.0, 0_u8..6, any::<u32>()),
             1..8,
         ),
@@ -72,7 +75,7 @@ proptest! {
             if end - start < 4 {
                 continue;
             }
-            let position = start + ((fraction * (end - start - 4) as f64) as usize) / 4 * 4;
+            let position = start + common::scale(fraction, end - start - 3) / 4 * 4;
             let value = match kind {
                 0 => 0,
                 1 => 1,
@@ -88,15 +91,15 @@ proptest! {
 
     #[test]
     fn swapped_words_never_panic(
-        swaps in proptest::collection::vec((0.0_f64..1.0, 0.0_f64..1.0), 1..16),
+        swaps in collection::vec((0.0_f64..1.0, 0.0_f64..1.0), 1..16),
     ) {
         // Moving whole words around keeps the values plausible, which gets past the cheap checks
         // and into the index validation.
         let mut bytes = common::compile_fixture();
         let words = bytes.len() / 4;
         for (first, second) in swaps {
-            let first = (first * words as f64) as usize % words * 4;
-            let second = (second * words as f64) as usize % words * 4;
+            let first = common::scale(first, words) * 4;
+            let second = common::scale(second, words) * 4;
             for offset in 0..4 {
                 bytes.swap(first + offset, second + offset);
             }

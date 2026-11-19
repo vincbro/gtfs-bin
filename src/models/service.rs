@@ -4,7 +4,7 @@ use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIndex, Week
 
 /// A single GTFS service.
 ///
-/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#calendartxt>
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#calendartxt>.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Service {

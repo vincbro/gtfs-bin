@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 use crate::models::Sentinel;
 
@@ -20,7 +20,7 @@ impl From<u32> for Date {
 }
 
 impl Display for Date {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.to_year_month_day() {
             Some((year, month, day)) => write!(f, "{year:04}-{month:02}-{day:02}"),
             None => f.write_str("none"),

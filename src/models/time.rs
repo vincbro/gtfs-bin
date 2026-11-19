@@ -1,5 +1,5 @@
 use std::{
-    fmt::Display,
+    fmt::{self, Display},
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
@@ -30,7 +30,7 @@ impl Default for Time {
 }
 
 impl Display for Time {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let hours = self.0 / 3600;
         let minutes = (self.0 % 3600) / 60;
         let seconds = self.0 % 60;

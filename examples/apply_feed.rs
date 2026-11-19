@@ -2,7 +2,7 @@
 //!
 //! Run with `cargo run --release --example apply_feed -- network.gtfs TripUpdates.pb`.
 
-use std::{env, fs::File, time::Instant};
+use std::{env, fs, fs::File, time::Instant};
 
 use anyhow::Context;
 use gtfs_bin::{
@@ -29,8 +29,7 @@ fn main() -> anyhow::Result<()> {
     let builder = RealtimeBuilder::new(&consumer).with_preferred_language("sv");
     let mut realtime = Realtime::new(&consumer);
     for feed_path in args {
-        let bytes =
-            std::fs::read(&feed_path).with_context(|| format!("failed to read {feed_path}"))?;
+        let bytes = fs::read(&feed_path).with_context(|| format!("failed to read {feed_path}"))?;
         let message =
             rt::decode_feed(&bytes).with_context(|| format!("failed to decode {feed_path}"))?;
         println!(

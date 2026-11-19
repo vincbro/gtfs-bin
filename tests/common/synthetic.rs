@@ -44,8 +44,18 @@ impl LinearCongruential {
     }
 
     fn below(&mut self, limit: usize) -> usize {
-        (self.next() % limit as u64) as usize
+        let limit = u64::try_from(limit).expect("a limit fits in u64");
+        usize::try_from(self.next() % limit).expect("a value below the limit fits in usize")
     }
+}
+
+/// A random offset of up to 0.3 degrees.
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "the value is below 300,000, far inside f64's exact range"
+)]
+fn microdegrees(random: &mut LinearCongruential) -> f64 {
+    random.below(300_000) as f64 / 1_000_000.0
 }
 
 /// Writes a feed of the given size into `directory`. The same size always gives the same feed.
@@ -58,8 +68,8 @@ pub(crate) fn write_feed(directory: &Path, size: Size) {
     let mut stops =
         String::from("stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n");
     for stop in 0..size.stops {
-        let latitude = 59.2 + random.below(300_000) as f64 / 1_000_000.0;
-        let longitude = 17.9 + random.below(300_000) as f64 / 1_000_000.0;
+        let latitude = 59.2 + microdegrees(&mut random);
+        let longitude = 17.9 + microdegrees(&mut random);
         writeln!(
             stops,
             "stop{stop},Stop number {},{latitude:.6},{longitude:.6},0,",
@@ -91,8 +101,7 @@ pub(crate) fn write_feed(directory: &Path, size: Size) {
     write("calendar.txt", calendar);
     write(
         "agency.txt",
-        "agency_id,agency_name,agency_url,agency_timezone\nA,Agency,https://example.org,Europe/Stockholm\n"
-            .to_string(),
+        "agency_id,agency_name,agency_url,agency_timezone\nA,Agency,https://example.org,Europe/Stockholm\n".to_owned(),
     );
 
     let patterns: Vec<Vec<usize>> = (0..size.routes * 2)

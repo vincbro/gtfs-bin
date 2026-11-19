@@ -13,6 +13,17 @@ use gtfs_bin::{
 use memmap2::Mmap;
 use tempfile::NamedTempFile;
 
+/// Picks a position in `0..length` from a fraction between 0 and 1.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "the fraction is between 0 and 1 and the length is small"
+)]
+pub(crate) fn scale(fraction: f64, length: usize) -> usize {
+    ((fraction * length as f64) as usize).min(length.saturating_sub(1))
+}
+
 pub(crate) fn fixture_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/gtfs")
 }
@@ -37,7 +48,7 @@ pub(crate) fn map(bytes: &[u8]) -> Option<(NamedTempFile, Mmap)> {
 }
 
 /// Calls every accessor with every index the file holds. Any panic fails the test.
-pub(crate) fn exercise(consumer: &Consumer) {
+pub(crate) fn exercise(consumer: &Consumer<'_>) {
     let date = Date::parse_gtfs("20170102").expect("a valid date");
     for index in 0..consumer.stops().len() {
         let stop = consumer.stop(StopIndex::from(index));
@@ -110,7 +121,7 @@ pub(crate) fn exercise(consumer: &Consumer) {
     let _ = consumer.timezone();
     let _ = consumer.service_range();
     let _ = consumer.feed_start_date();
-    let _ = consumer.verify_checksum();
+    drop(consumer.verify_checksum());
     let _ = consumer.stop_by_id("stop1");
     let _ = consumer.trip_by_id("trip1");
     let _ = consumer.route_by_id("route1");

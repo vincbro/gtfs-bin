@@ -84,6 +84,10 @@ impl Compiler {
     /// # Errors
     ///
     /// Returns the same errors as `compile`.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one pass that reads each table and then lists every section in file order"
+    )]
     pub fn compile_with_report(&self) -> Result<(Vec<u8>, CompileReport)> {
         let mut source = Source::open(&self.path)?;
         let mut report = CompileReport::default();
@@ -298,7 +302,7 @@ impl Compiler {
 }
 
 /// Moves what a table skipped into the report.
-fn absorb(report: &mut CompileReport, table: &mut Table) {
+fn absorb(report: &mut CompileReport, table: &mut Table<'_>) {
     let (rows, total) = table.take_skipped();
     report.skipped_total += total;
     report.skipped_rows.extend(rows);
@@ -310,7 +314,7 @@ fn read<T>(
     name: &'static str,
     lenient: bool,
     report: &mut CompileReport,
-    read_records: impl FnOnce(&mut Table) -> Result<T>,
+    read_records: impl FnOnce(&mut Table<'_>) -> Result<T>,
 ) -> Result<Option<T>> {
     let Some(mut table) = open_optional(source, name, lenient)? else {
         return Ok(None);

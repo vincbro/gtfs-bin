@@ -81,11 +81,11 @@ fn keep_first<T>(items: &mut Vec<T>, id: impl Fn(&T) -> &str) {
 }
 
 fn owned(text: Option<&str>) -> Option<String> {
-    text.map(str::to_string)
+    text.map(str::to_owned)
 }
 
 /// Reads every row of a table with `parse`, dropping the ones lenient mode skips.
-fn read_rows<T>(table: &mut Table, parse: impl Fn(&Row) -> Result<T>) -> Result<Vec<T>> {
+fn read_rows<T>(table: &mut Table<'_>, parse: impl Fn(&Row<'_>) -> Result<T>) -> Result<Vec<T>> {
     let mut items = Vec::new();
     while let Some(row) = table.next_row()? {
         let parsed = parse(&row);
@@ -96,7 +96,7 @@ fn read_rows<T>(table: &mut Table, parse: impl Fn(&Row) -> Result<T>) -> Result<
     Ok(items)
 }
 
-pub(super) fn read_stops(table: &mut Table) -> Result<Vec<RawStop>> {
+pub(super) fn read_stops(table: &mut Table<'_>) -> Result<Vec<RawStop>> {
     let id = table.require("stop_id")?;
     let code = table.column("stop_code");
     let name = table.column("stop_name");
@@ -108,7 +108,7 @@ pub(super) fn read_stops(table: &mut Table) -> Result<Vec<RawStop>> {
 
     let mut stops = read_rows(table, |row| {
         Ok(RawStop {
-            id: row.required(id, "stop_id")?.to_string(),
+            id: row.required(id, "stop_id")?.to_owned(),
             code: owned(row.text(code)),
             name: owned(row.text(name)),
             description: owned(row.text(description)),
@@ -124,7 +124,7 @@ pub(super) fn read_stops(table: &mut Table) -> Result<Vec<RawStop>> {
     Ok(stops)
 }
 
-pub(super) fn read_routes(table: &mut Table) -> Result<Vec<RawRoute>> {
+pub(super) fn read_routes(table: &mut Table<'_>) -> Result<Vec<RawRoute>> {
     let id = table.require("route_id")?;
     let route_type = table.require("route_type")?;
     let short_name = table.column("route_short_name");
@@ -133,7 +133,7 @@ pub(super) fn read_routes(table: &mut Table) -> Result<Vec<RawRoute>> {
 
     let mut routes = read_rows(table, |row| {
         Ok(RawRoute {
-            id: row.required(id, "route_id")?.to_string(),
+            id: row.required(id, "route_id")?.to_owned(),
             short_name: owned(row.text(short_name)),
             long_name: owned(row.text(long_name)),
             description: owned(row.text(description)),
@@ -144,7 +144,7 @@ pub(super) fn read_routes(table: &mut Table) -> Result<Vec<RawRoute>> {
     Ok(routes)
 }
 
-pub(super) fn read_trips(table: &mut Table) -> Result<Vec<RawTrip>> {
+pub(super) fn read_trips(table: &mut Table<'_>) -> Result<Vec<RawTrip>> {
     let id = table.require("trip_id")?;
     let route_id = table.require("route_id")?;
     let service_id = table.require("service_id")?;
@@ -156,9 +156,9 @@ pub(super) fn read_trips(table: &mut Table) -> Result<Vec<RawTrip>> {
 
     let mut trips = read_rows(table, |row| {
         Ok(RawTrip {
-            id: row.required(id, "trip_id")?.to_string(),
-            route_id: row.required(route_id, "route_id")?.to_string(),
-            service_id: row.required(service_id, "service_id")?.to_string(),
+            id: row.required(id, "trip_id")?.to_owned(),
+            route_id: row.required(route_id, "route_id")?.to_owned(),
+            service_id: row.required(service_id, "service_id")?.to_owned(),
             headsign: owned(row.text(headsign)),
             short_name: owned(row.text(short_name)),
             shape_id: owned(row.text(shape_id)),
@@ -182,7 +182,7 @@ const WEEKDAY_COLUMNS: [&str; 7] = [
     "sunday",
 ];
 
-pub(super) fn read_calendar(table: &mut Table) -> Result<Vec<RawCalendar>> {
+pub(super) fn read_calendar(table: &mut Table<'_>) -> Result<Vec<RawCalendar>> {
     let id = table.require("service_id")?;
     let start_date = table.require("start_date")?;
     let end_date = table.require("end_date")?;
@@ -197,7 +197,7 @@ pub(super) fn read_calendar(table: &mut Table) -> Result<Vec<RawCalendar>> {
             *runs = row.flag(column, name)?;
         }
         Ok(RawCalendar {
-            id: row.required(id, "service_id")?.to_string(),
+            id: row.required(id, "service_id")?.to_owned(),
             days,
             start_date: row.date(start_date, "start_date")?,
             end_date: row.date(end_date, "end_date")?,
@@ -207,7 +207,7 @@ pub(super) fn read_calendar(table: &mut Table) -> Result<Vec<RawCalendar>> {
     Ok(calendar)
 }
 
-pub(super) fn read_calendar_dates(table: &mut Table) -> Result<Vec<RawCalendarDate>> {
+pub(super) fn read_calendar_dates(table: &mut Table<'_>) -> Result<Vec<RawCalendarDate>> {
     let service_id = table.require("service_id")?;
     let date = table.require("date")?;
     let exception_type = table.require("exception_type")?;
@@ -219,14 +219,14 @@ pub(super) fn read_calendar_dates(table: &mut Table) -> Result<Vec<RawCalendarDa
             other => return Err(row.invalid("exception_type", other)),
         };
         Ok(RawCalendarDate {
-            service_id: row.required(service_id, "service_id")?.to_string(),
+            service_id: row.required(service_id, "service_id")?.to_owned(),
             date: row.date(date, "date")?,
             added,
         })
     })
 }
 
-pub(super) fn read_transfers(table: &mut Table) -> Result<Vec<RawTransfer>> {
+pub(super) fn read_transfers(table: &mut Table<'_>) -> Result<Vec<RawTransfer>> {
     let from_stop_id = table.require("from_stop_id")?;
     let to_stop_id = table.require("to_stop_id")?;
     let from_trip_id = table.column("from_trip_id");
@@ -236,8 +236,8 @@ pub(super) fn read_transfers(table: &mut Table) -> Result<Vec<RawTransfer>> {
 
     read_rows(table, |row| {
         Ok(RawTransfer {
-            from_stop_id: row.required(from_stop_id, "from_stop_id")?.to_string(),
-            to_stop_id: row.required(to_stop_id, "to_stop_id")?.to_string(),
+            from_stop_id: row.required(from_stop_id, "from_stop_id")?.to_owned(),
+            to_stop_id: row.required(to_stop_id, "to_stop_id")?.to_owned(),
             from_trip_id: owned(row.text(from_trip_id)),
             to_trip_id: owned(row.text(to_trip_id)),
             transfer_type: row.parse(transfer_type, "transfer_type")?.unwrap_or(0),
@@ -247,16 +247,16 @@ pub(super) fn read_transfers(table: &mut Table) -> Result<Vec<RawTransfer>> {
 }
 
 /// Reads the time zone of the first agency that has one. A feed's agencies all share a zone.
-pub(super) fn read_timezone(table: &mut Table) -> Result<Option<String>> {
+pub(super) fn read_timezone(table: &mut Table<'_>) -> Result<Option<String>> {
     let timezone = table.require("agency_timezone")?;
     let zones = read_rows(table, |row| Ok(owned(row.text(Some(timezone)))))?;
     Ok(zones.into_iter().flatten().next())
 }
 
-pub(super) fn read_feed_validity(table: &mut Table) -> Result<FeedValidity> {
+pub(super) fn read_feed_validity(table: &mut Table<'_>) -> Result<FeedValidity> {
     let start = table.column("feed_start_date");
     let end = table.column("feed_end_date");
-    let parse_date = |row: &Row, column: Option<usize>, name: &'static str| match column {
+    let parse_date = |row: &Row<'_>, column: Option<usize>, name: &'static str| match column {
         Some(column) if row.text(Some(column)).is_some() => row.date(column, name).map(Some),
         _ => Ok(None),
     };

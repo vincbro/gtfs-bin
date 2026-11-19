@@ -4,7 +4,7 @@ use crate::models::{Coordinate, LocationType, Optional, StopIdSlice, StopIndex, 
 
 /// A single GTFS stop, station, or entrance.
 ///
-/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#stopstxt>
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#stopstxt>.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Stop {

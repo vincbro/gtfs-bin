@@ -33,6 +33,7 @@ enum Resolved {
 ///
 /// Trips are matched by `trip_id`, or by route, start time and date when there is no id. Stop times
 /// are matched by `stop_sequence`, or by `stop_id`.
+#[derive(Debug)]
 pub struct RealtimeBuilder<'a> {
     consumer: &'a Consumer<'a>,
     cascade_delays: bool,
@@ -44,7 +45,7 @@ pub struct RealtimeBuilder<'a> {
 
 impl<'a> RealtimeBuilder<'a> {
     #[must_use]
-    pub fn new(consumer: &'a Consumer) -> Self {
+    pub fn new(consumer: &'a Consumer<'_>) -> Self {
         Self {
             consumer,
             cascade_delays: true,
@@ -97,7 +98,7 @@ impl<'a> RealtimeBuilder<'a> {
     /// Returns an error if the name isn't a time zone the system knows.
     pub fn with_time_zone(mut self, name: &str) -> Result<Self> {
         self.time_zone =
-            Some(TimeZone::get(name).map_err(|_| Error::UnknownTimeZone(name.to_string()))?);
+            Some(TimeZone::get(name).map_err(|_| Error::UnknownTimeZone(name.to_owned()))?);
         Ok(self)
     }
 
@@ -105,7 +106,7 @@ impl<'a> RealtimeBuilder<'a> {
     /// that language, the first translation is used.
     #[must_use]
     pub fn with_preferred_language(mut self, language: &str) -> Self {
-        self.language = Some(language.to_string());
+        self.language = Some(language.to_owned());
         self
     }
 
@@ -157,19 +158,19 @@ impl<'a> RealtimeBuilder<'a> {
 
         let mut report = ApplyReport::default();
         for entity in message.entity {
-            report += self.apply_entity(entity, message_time, realtime);
+            report += self.apply_entity(&entity, message_time, realtime);
         }
         report
     }
 
     fn apply_entity(
         &self,
-        entity: FeedEntity,
+        entity: &FeedEntity,
         message_time: u64,
         realtime: &mut Realtime,
     ) -> ApplyReport {
         if entity.is_deleted() {
-            return self.delete_entity(&entity, realtime);
+            return self.delete_entity(entity, realtime);
         }
 
         let mut report = ApplyReport::default();
@@ -384,22 +385,21 @@ impl<'a> RealtimeBuilder<'a> {
         let (Some(actual), Some(scheduled)) = (event.time, scheduled.as_option()) else {
             return none;
         };
-        let difference = match day.and_then(|day| self.service_day_start(day)) {
+        let difference = if let Some(start) = day.and_then(|day| self.service_day_start(day)) {
             // With the service day known the difference is exact, even past midnight. A timestamp
             // can be any i64, so the subtraction clamps. The result is far outside the delay range
             // and becomes `NONE` either way.
-            Some(start) => actual
+            actual
                 .saturating_sub(start)
-                .saturating_sub(i64::from(scheduled.0)),
+                .saturating_sub(i64::from(scheduled.0))
+        } else {
             // Without it both sides are times of day, so wrap to the nearest day instead of being
             // a day off for a trip just either side of midnight.
-            None => {
-                let local = self.local_seconds(actual);
-                let half_day = SECONDS_PER_DAY / 2;
-                (local.rem_euclid(SECONDS_PER_DAY) - i64::from(scheduled.0) + half_day)
-                    .rem_euclid(SECONDS_PER_DAY)
-                    - half_day
-            }
+            let local = self.local_seconds(actual);
+            let half_day = SECONDS_PER_DAY / 2;
+            (local.rem_euclid(SECONDS_PER_DAY) - i64::from(scheduled.0) + half_day)
+                .rem_euclid(SECONDS_PER_DAY)
+                - half_day
         };
         Optional::new(Delay::from(difference))
     }

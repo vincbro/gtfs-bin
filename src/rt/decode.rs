@@ -22,7 +22,7 @@ mod tests {
     fn a_feed_round_trips() {
         let feed = FeedMessage {
             header: FeedHeader {
-                gtfs_realtime_version: "2.0".to_string(),
+                gtfs_realtime_version: "2.0".to_owned(),
                 timestamp: Some(42),
                 ..Default::default()
             },

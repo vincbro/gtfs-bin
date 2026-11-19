@@ -45,9 +45,15 @@ impl Consumer<'_> {
                 self.collect_near(here, radius_meters, cell, found);
             }
         }
-        found.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+        found.sort_unstable_by(|first, second| {
+            first.1.total_cmp(&second.1).then(first.0.cmp(&second.0))
+        });
     }
 
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "meters in an f32 is exact enough to sort and show"
+    )]
     fn collect_near(
         &self,
         here: Coordinate,

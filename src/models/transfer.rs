@@ -4,7 +4,7 @@ use crate::models::{Duration, Optional, StopIndex, TripIndex};
 
 /// A single GTFS transfer.
 ///
-/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#transferstxt>
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#transferstxt>.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Transfer {

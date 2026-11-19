@@ -6,9 +6,10 @@ mod common;
 use std::{fs, path::Path};
 
 use gtfs_bin::{
-    compiler::{Compiler, Error},
+    compiler::{CompileReport, Compiler, Error},
     consumer::{self, Consumer},
-    models::{BoardingRule, Date, Direction, Sentinel},
+    models::{BoardingRule, Coordinate, Date, Direction, SearchIndex, Sentinel, StopIndex},
+    rt::Realtime,
 };
 use proptest::prelude::*;
 
@@ -19,9 +20,7 @@ const CALENDAR: &str = "service_id,monday,tuesday,wednesday,thursday,friday,satu
     S,1,1,1,1,1,0,0,20240101,20240131\n";
 
 #[allow(clippy::unwrap_in_result, reason = "a test helper that fails the test")]
-fn compile_with(
-    files: &[(&str, &str)],
-) -> Result<(Vec<u8>, gtfs_bin::compiler::CompileReport), Error> {
+fn compile_with(files: &[(&str, &str)]) -> Result<(Vec<u8>, CompileReport), Error> {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write(directory.path(), files);
     Compiler::new(directory.path()).compile_with_report()
@@ -43,7 +42,7 @@ fn feed<'a>(trips: &'a str, stop_times: &'a str) -> Vec<(&'a str, &'a str)> {
     ]
 }
 
-fn with_consumer(bytes: &[u8], body: impl FnOnce(&Consumer)) {
+fn with_consumer(bytes: &[u8], body: impl FnOnce(&Consumer<'_>)) {
     let (_file, mmap) = common::map(bytes).expect("a compiled file maps");
     body(&Consumer::new(&mmap).expect("the compiler wrote a valid file"));
 }
@@ -250,8 +249,8 @@ fn an_unvalidated_open_skips_the_table_checks_but_not_the_header_checks() {
 fn the_state_can_be_shared_between_threads() {
     fn assert_shareable<T: Send + Sync>() {}
 
-    assert_shareable::<Consumer>();
-    assert_shareable::<gtfs_bin::rt::Realtime>();
+    assert_shareable::<Consumer<'_>>();
+    assert_shareable::<Realtime>();
 }
 
 #[cfg(unix)]
@@ -379,7 +378,7 @@ fn nearby_stops_are_found_nearest_first() {
 #[test]
 fn nothing_is_found_for_a_bad_search() {
     with_consumer(&common::compile_fixture(), |consumer| {
-        let mut found = vec![(gtfs_bin::models::StopIndex(0), 0.0)];
+        let mut found = vec![(StopIndex(0), 0.0)];
 
         consumer.stops_near(f64::NAN, 2.0, 100.0, &mut found);
         assert!(
@@ -412,7 +411,7 @@ proptest! {
         let mut found = Vec::new();
         consumer.stops_near(latitude, longitude, radius, &mut found);
 
-        let here = gtfs_bin::models::Coordinate::new(latitude, longitude);
+        let here = Coordinate::new(latitude, longitude);
         let mut expected: Vec<_> = consumer
             .stops()
             .iter()
@@ -439,10 +438,10 @@ fn names_are_found_ignoring_case_and_accents() {
 
     with_consumer(&bytes, |consumer| {
         let mut found = Vec::new();
-        let names = |found: &[gtfs_bin::models::SearchIndex]| -> Vec<String> {
+        let names = |found: &[SearchIndex]| -> Vec<String> {
             found
                 .iter()
-                .map(|&index| consumer.string(consumer.search(index).name).to_string())
+                .map(|&index| consumer.string(consumer.search(index).name).to_owned())
                 .collect()
         };
 

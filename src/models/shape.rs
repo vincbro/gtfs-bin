@@ -4,7 +4,7 @@ use crate::models::{Coordinate, Distance, Optional};
 
 /// Represents a single point in a shape in the GTFS dataset.
 ///
-/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#shapestxt>
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#shapestxt>.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Shape {

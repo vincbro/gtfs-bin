@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 
 use crate::models::sentinel::Sentinel;
 
@@ -8,7 +8,7 @@ use crate::models::sentinel::Sentinel;
 /// the same.
 pub trait Slice: Sentinel {
     /// Converts the slice into a range that indexes its table.
-    fn range(self) -> std::ops::Range<usize>;
+    fn range(self) -> Range<usize>;
 
     fn new(start: u32, count: u32) -> Self;
     fn from_usize(start: usize, count: usize) -> Self;
@@ -75,7 +75,7 @@ macro_rules! define_slice {
                 }
             }
 
-            fn range(self) -> std::ops::Range<usize> {
+            fn range(self) -> Range<usize> {
                 let start = self.start as usize;
                 let end = start + self.count as usize;
                 start..end
@@ -102,6 +102,7 @@ define_slice!(ShapeSlice);
 define_slice!(GridSlice);
 
 /// Collects strings into one buffer and hands back a `Slice` for each, sharing repeats.
+#[derive(Debug)]
 pub struct SliceBuilder<T: Slice> {
     buffer: String,
     map: HashMap<String, T>,
@@ -137,7 +138,7 @@ impl<T: Slice> SliceBuilder<T> {
         }
         let slice = T::from_usize(self.buffer.len(), value.len());
         self.buffer.push_str(value);
-        self.map.insert(value.to_string(), slice);
+        self.map.insert(value.to_owned(), slice);
         slice
     }
 

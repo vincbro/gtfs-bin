@@ -33,7 +33,7 @@ struct Columns {
 /// A stop time with no times between two that have them gets a time spread evenly between them, by
 /// distance along the shape when the feed has it. The spec asks for exactly that.
 pub(super) fn build_stop_times(
-    table: &mut Table,
+    table: &mut Table<'_>,
     trips: &mut [Trip],
     trip_map: &HashMap<String, TripIndex>,
     stop_map: &HashMap<String, StopIndex>,
@@ -59,11 +59,12 @@ pub(super) fn build_stop_times(
         }
     }
 
-    stop_times.par_sort_unstable_by(|a, b| {
-        a.trip_index
-            .cmp(&b.trip_index)
-            .then(a.sequence.cmp(&b.sequence))
-            .then(a.stop_index.cmp(&b.stop_index))
+    stop_times.par_sort_unstable_by(|first, second| {
+        first
+            .trip_index
+            .cmp(&second.trip_index)
+            .then(first.sequence.cmp(&second.sequence))
+            .then(first.stop_index.cmp(&second.stop_index))
     });
 
     for (position, stop_time) in stop_times.iter_mut().enumerate() {
@@ -84,7 +85,7 @@ pub(super) fn build_stop_times(
 
 /// Parses one row, or returns `None` when it names a trip or stop the feed doesn't define.
 fn parse_row(
-    row: &Row,
+    row: &Row<'_>,
     columns: &Columns,
     trip_map: &HashMap<String, TripIndex>,
     stop_map: &HashMap<String, StopIndex>,
@@ -115,7 +116,7 @@ fn parse_row(
         departure_time: row.time(columns.departure_time, "departure_time")?.into(),
         distance_traveled: row
             .float(columns.distance, "shape_dist_traveled")?
-            .map(|meters| Distance(meters as f32))
+            .map(Distance::from_meters)
             .into(),
         pickup: boarding(columns.pickup, "pickup_type")?,
         drop_off: boarding(columns.drop_off, "drop_off_type")?,
@@ -135,6 +136,15 @@ fn interpolate_times(run: &mut [StopTime]) {
             fill_between(run, pair[0], pair[1]);
         }
     }
+}
+
+/// Returns `part` as a share of `whole`.
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "a trip has far fewer than 2^52 stops"
+)]
+fn share(part: usize, whole: usize) -> f64 {
+    part as f64 / whole as f64
 }
 
 /// Gives the stops strictly between `first` and `last` a time between theirs.
@@ -169,7 +179,7 @@ fn fill_between(run: &mut [StopTime], first: usize, last: usize) {
             ((Some(from), Some(to)), Some(at)) if to.0 > from.0 => {
                 f64::from((at.0 - from.0) / (to.0 - from.0)).clamp(0.0, 1.0)
             }
-            _ => (offset + 1) as f64 / (last - first) as f64,
+            _ => share(offset + 1, last - first),
         };
         // The result is between the two times, so it fits in u32.
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]

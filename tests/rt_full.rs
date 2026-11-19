@@ -11,6 +11,7 @@ use gtfs_rt::{
     FeedEntity, FeedHeader, FeedMessage, TripDescriptor, TripUpdate, VehiclePosition,
     alert::{Cause, Effect},
     feed_header::Incrementality,
+    translated_string::Translation,
     trip_descriptor::ScheduleRelationship as TripRelationship,
     trip_update::{StopTimeEvent, StopTimeUpdate, stop_time_update::ScheduleRelationship},
     vehicle_position::VehicleStopStatus,
@@ -25,7 +26,7 @@ fn saturday() -> Date {
 fn message(entities: Vec<FeedEntity>) -> FeedMessage {
     FeedMessage {
         header: FeedHeader {
-            gtfs_realtime_version: "2.0".to_string(),
+            gtfs_realtime_version: "2.0".to_owned(),
             ..Default::default()
         },
         entity: entities,
@@ -34,14 +35,14 @@ fn message(entities: Vec<FeedEntity>) -> FeedMessage {
 
 fn entity(id: &str) -> FeedEntity {
     FeedEntity {
-        id: id.to_string(),
+        id: id.to_owned(),
         ..Default::default()
     }
 }
 
 fn descriptor(trip_id: &str) -> TripDescriptor {
     TripDescriptor {
-        trip_id: Some(trip_id.to_string()),
+        trip_id: Some(trip_id.to_owned()),
         ..Default::default()
     }
 }
@@ -73,7 +74,7 @@ fn trip_update(trip: TripDescriptor, updates: Vec<StopTimeUpdate>) -> FeedEntity
     }
 }
 
-fn first_slot(consumer: &Consumer, trip_id: &str) -> usize {
+fn first_slot(consumer: &Consumer<'_>, trip_id: &str) -> usize {
     consumer
         .trip_by_id(trip_id)
         .expect("the fixture has the trip")
@@ -81,7 +82,7 @@ fn first_slot(consumer: &Consumer, trip_id: &str) -> usize {
         .start as usize
 }
 
-fn trip_index(consumer: &Consumer, trip_id: &str) -> TripIndex {
+fn trip_index(consumer: &Consumer<'_>, trip_id: &str) -> TripIndex {
     consumer
         .trip_by_id(trip_id)
         .expect("the fixture has the trip")
@@ -89,7 +90,7 @@ fn trip_index(consumer: &Consumer, trip_id: &str) -> TripIndex {
 }
 
 /// Runs a test body against the compiled fixture.
-fn with_consumer(body: impl FnOnce(&Consumer)) {
+fn with_consumer(body: impl FnOnce(&Consumer<'_>)) {
     let bytes = common::compile_fixture();
     let (_file, mmap) = common::map(&bytes).expect("the fixture maps");
     body(&Consumer::new(&mmap).expect("the fixture is valid"));
@@ -99,7 +100,7 @@ fn with_consumer(body: impl FnOnce(&Consumer)) {
 fn stop_times_are_matched_by_stop_id_when_there_is_no_sequence() {
     with_consumer(|consumer| {
         let update = StopTimeUpdate {
-            stop_id: Some("stop9".to_string()),
+            stop_id: Some("stop9".to_owned()),
             arrival: Some(delay_event(90)),
             departure: Some(delay_event(90)),
             ..Default::default()
@@ -127,7 +128,7 @@ fn stop_times_are_matched_by_stop_id_when_there_is_no_sequence() {
 fn an_unknown_stop_is_counted_and_not_applied() {
     with_consumer(|consumer| {
         let update = StopTimeUpdate {
-            stop_id: Some("nowhere".to_string()),
+            stop_id: Some("nowhere".to_owned()),
             arrival: Some(delay_event(90)),
             ..Default::default()
         };
@@ -152,8 +153,8 @@ fn an_unknown_stop_is_counted_and_not_applied() {
 fn a_trip_is_found_by_route_and_start_time_without_an_id() {
     with_consumer(|consumer| {
         let by_start = TripDescriptor {
-            route_id: Some("route1".to_string()),
-            start_time: Some("14:00:00".to_string()),
+            route_id: Some("route1".to_owned()),
+            start_time: Some("14:00:00".to_owned()),
             schedule_relationship: Some(TripRelationship::Canceled as i32),
             ..Default::default()
         };
@@ -173,8 +174,8 @@ fn a_trip_is_found_by_route_and_start_time_without_an_id() {
 fn a_start_time_that_fits_two_trips_is_ambiguous() {
     with_consumer(|consumer| {
         let ambiguous = TripDescriptor {
-            route_id: Some("route2".to_string()),
-            start_time: Some("09:00:00".to_string()),
+            route_id: Some("route2".to_owned()),
+            start_time: Some("09:00:00".to_owned()),
             schedule_relationship: Some(TripRelationship::Canceled as i32),
             ..Default::default()
         };
@@ -200,7 +201,7 @@ fn a_start_time_that_fits_two_trips_is_ambiguous() {
 fn updates_for_another_service_date_are_ignored() {
     with_consumer(|consumer| {
         let mut other_day = descriptor("trip4");
-        other_day.start_date = Some("20170108".to_string());
+        other_day.start_date = Some("20170108".to_owned());
         other_day.schedule_relationship = Some(TripRelationship::Canceled as i32);
         let mut realtime = Realtime::for_service_date(consumer, saturday());
 
@@ -233,7 +234,7 @@ fn a_timestamp_gives_an_exact_delay_past_midnight() {
             ..Default::default()
         };
         let mut trip = descriptor("trip4");
-        trip.start_date = Some(SATURDAY.to_string());
+        trip.start_date = Some(SATURDAY.to_owned());
 
         let realtime = RealtimeBuilder::new(consumer)
             .with_utc_offset_seconds(2 * 3600)
@@ -475,7 +476,7 @@ fn effective_times_apply_the_delay_and_hide_skipped_stops() {
             realtime
                 .departure_time(&stop_times[0])
                 .map(|time| time.to_string()),
-            Some("09:02:00".to_string()),
+            Some("09:02:00".to_owned()),
             "scheduled 09:00 plus two minutes"
         );
         assert_eq!(
@@ -491,11 +492,11 @@ fn a_new_trip_from_the_feed_is_kept_beside_the_static_ones() {
     with_consumer(|consumer| {
         let midnight_utc = i64::from(saturday().0) * 86_400;
         let mut trip = descriptor("extra-1");
-        trip.route_id = Some("route1".to_string());
-        trip.start_date = Some(SATURDAY.to_string());
+        trip.route_id = Some("route1".to_owned());
+        trip.start_date = Some(SATURDAY.to_owned());
         trip.schedule_relationship = Some(TripRelationship::Added as i32);
         let at = |stop: &str, seconds: i64| StopTimeUpdate {
-            stop_id: Some(stop.to_string()),
+            stop_id: Some(stop.to_owned()),
             arrival: Some(StopTimeEvent {
                 time: Some(midnight_utc + seconds),
                 ..Default::default()
@@ -662,7 +663,7 @@ fn vehicles_are_stored_with_their_stop_and_motion() {
                     speed: Some(12.5),
                     ..Default::default()
                 }),
-                stop_id: Some("stop7".to_string()),
+                stop_id: Some("stop7".to_owned()),
                 current_status: Some(VehicleStopStatus::StoppedAt as i32),
                 timestamp: Some(500),
                 ..Default::default()
@@ -720,9 +721,9 @@ fn a_vehicle_without_a_known_trip_is_counted() {
 
 fn text(value: &str, language: &str) -> gtfs_rt::TranslatedString {
     gtfs_rt::TranslatedString {
-        translation: vec![gtfs_rt::translated_string::Translation {
-            text: value.to_string(),
-            language: Some(language.to_string()),
+        translation: vec![Translation {
+            text: value.to_owned(),
+            language: Some(language.to_owned()),
         }],
     }
 }
@@ -735,7 +736,7 @@ fn alert_entity(id: &str, stop_id: &str) -> FeedEntity {
                 end: Some(200),
             }],
             informed_entity: vec![gtfs_rt::EntitySelector {
-                stop_id: Some(stop_id.to_string()),
+                stop_id: Some(stop_id.to_owned()),
                 ..Default::default()
             }],
             cause: Some(Cause::Construction as i32),
@@ -896,7 +897,7 @@ fn the_agency_time_zone_makes_delays_exact_across_a_clock_change() {
         let day = Date::parse_gtfs("20261025").expect("a valid date");
         let on_time = i64::from(day.0) * 86_400 + 8 * 3600;
         let mut trip = descriptor("trip4");
-        trip.start_date = Some("20261025".to_string());
+        trip.start_date = Some("20261025".to_owned());
         let departing = |time: i64| StopTimeUpdate {
             stop_sequence: Some(0),
             departure: Some(StopTimeEvent {
@@ -905,7 +906,7 @@ fn the_agency_time_zone_makes_delays_exact_across_a_clock_change() {
             }),
             ..Default::default()
         };
-        let delay_of = |builder: RealtimeBuilder, time: i64| {
+        let delay_of = |builder: RealtimeBuilder<'_>, time: i64| {
             let realtime = builder.build(
                 [message(vec![trip_update(
                     trip.clone(),
@@ -959,8 +960,8 @@ fn the_direction_tells_apart_trips_that_start_together() {
     with_consumer(|consumer| {
         // trip4 (direction 1) and trip7 (direction 0) are both route2 trips starting at 09:00.
         let mut by_start = TripDescriptor {
-            route_id: Some("route2".to_string()),
-            start_time: Some("09:00:00".to_string()),
+            route_id: Some("route2".to_owned()),
+            start_time: Some("09:00:00".to_owned()),
             direction_id: Some(1),
             schedule_relationship: Some(TripRelationship::Canceled as i32),
             ..Default::default()

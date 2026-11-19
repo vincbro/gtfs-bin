@@ -30,7 +30,7 @@ pub(super) fn build_id_table<S: Slice, I: Index + Send>(
     let slices = ids.iter().map(|id| builder.add(id)).collect();
 
     let mut lookup: Vec<I> = (0..count).map(I::from).collect();
-    lookup.par_sort_unstable_by(|a, b| ids[a.as_usize()].cmp(ids[b.as_usize()]));
+    lookup.par_sort_unstable_by(|first, second| ids[first.as_usize()].cmp(ids[second.as_usize()]));
 
     IdTable {
         slices,
@@ -71,15 +71,17 @@ pub(super) fn slices_by_key<K: Index, S: Slice>(
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use super::*;
     use crate::models::{Sentinel, StopIdSlice, StopIndex, TripSlice};
 
     #[test]
     fn id_table_is_in_index_order_and_lookup_is_sorted() {
         let id_map = HashMap::from([
-            ("b".to_string(), StopIndex(0)),
-            ("c".to_string(), StopIndex(1)),
-            ("a".to_string(), StopIndex(2)),
+            ("b".to_owned(), StopIndex(0)),
+            ("c".to_owned(), StopIndex(1)),
+            ("a".to_owned(), StopIndex(2)),
         ]);
 
         let table = build_id_table::<StopIdSlice, StopIndex>(&id_map, 3);
@@ -110,7 +112,7 @@ mod tests {
 
     #[test]
     fn no_keys_gives_no_slices() {
-        let slices: Vec<TripSlice> = slices_by_key(std::iter::empty::<StopIndex>(), 2);
+        let slices: Vec<TripSlice> = slices_by_key(iter::empty::<StopIndex>(), 2);
 
         assert_eq!(slices, vec![TripSlice::NONE; 2], "every key is absent");
     }

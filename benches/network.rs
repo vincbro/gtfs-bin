@@ -82,7 +82,7 @@ fn consumer(c: &mut Criterion) {
 }
 
 /// Adds up every departure time, the way a router's inner loop reads them.
-fn scan(consumer: &Consumer) -> u64 {
+fn scan(consumer: &Consumer<'_>) -> u64 {
     let mut seconds = 0_u64;
     for trip in consumer.trips() {
         for stop_time in consumer.stop_times_by_trip(trip.index) {
@@ -121,7 +121,7 @@ fn update_feed() -> FeedMessage {
     };
     FeedMessage {
         header: gtfs_rt::FeedHeader {
-            gtfs_realtime_version: "2.0".to_string(),
+            gtfs_realtime_version: "2.0".to_owned(),
             ..Default::default()
         },
         entity: (0..1000).map(entity).collect(),

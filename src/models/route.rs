@@ -4,7 +4,7 @@ use crate::models::{Optional, RouteIdSlice, RouteIndex, RouteType, StringSlice};
 
 /// A single GTFS route.
 ///
-/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#routestxt>
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#routestxt>.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Route {

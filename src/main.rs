@@ -1,3 +1,5 @@
+//! The `gtfs-bin` command: compiles a GTFS feed into a file `gtfs_bin::consumer::Consumer` can map.
+
 use std::{fs, path::PathBuf, time::Instant};
 
 use anyhow::Context;
@@ -18,7 +20,7 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let started = Instant::now();
-    let mut spinner = Spinner::new(Spinners::Dots, "Compiling data".to_string());
+    let mut spinner = Spinner::new(Spinners::Dots, "Compiling data".to_owned());
     let bytes = Compiler::new(&args.input)
         .compile()
         .with_context(|| format!("failed to compile {}", args.input.display()))?;
@@ -28,7 +30,7 @@ fn main() -> anyhow::Result<()> {
     ));
 
     let started = Instant::now();
-    let mut spinner = Spinner::new(Spinners::Dots, "Writing output to disk".to_string());
+    let mut spinner = Spinner::new(Spinners::Dots, "Writing output to disk".to_owned());
     fs::write(&args.output, &bytes)
         .with_context(|| format!("failed to write {}", args.output.display()))?;
     spinner.stop_with_message(format!(

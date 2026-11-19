@@ -12,7 +12,7 @@ use gtfs_rt::{
     TripDescriptor, TripUpdate, VehiclePosition,
     trip_update::{StopTimeEvent, StopTimeUpdate},
 };
-use proptest::{option, prelude::*};
+use proptest::{collection, option, prelude::*};
 
 const TRIPS: [&str; 8] = [
     "trip1", "trip2", "trip3", "trip4", "trip5", "trip6", "trip7", "ghost",
@@ -21,7 +21,7 @@ const STOPS: [&str; 6] = ["stop1", "stop2", "stop6", "stop8", "stop15", "nowhere
 const ROUTES: [&str; 5] = ["route1", "route2", "route3", "route4", "ghost"];
 
 fn name(options: &'static [&'static str]) -> impl Strategy<Value = String> {
-    (0..options.len()).prop_map(move |index| options[index].to_string())
+    (0..options.len()).prop_map(move |index| options[index].to_owned())
 }
 
 fn event() -> impl Strategy<Value = StopTimeEvent> {
@@ -67,13 +67,13 @@ fn descriptor() -> impl Strategy<Value = TripDescriptor> {
         option::of(name(&TRIPS)),
         option::of(name(&ROUTES)),
         option::of(prop_oneof![
-            Just("09:00:00".to_string()),
-            Just("14:00:00".to_string()),
+            Just("09:00:00".to_owned()),
+            Just("14:00:00".to_owned()),
             "[0-9:]{0,10}",
         ]),
         option::of(prop_oneof![
-            Just("20170107".to_string()),
-            Just("20170108".to_string()),
+            Just("20170107".to_owned()),
+            Just("20170108".to_owned()),
             "[0-9]{0,9}",
         ]),
         option::of(0_i32..9),
@@ -93,7 +93,7 @@ fn descriptor() -> impl Strategy<Value = TripDescriptor> {
 fn entity() -> impl Strategy<Value = FeedEntity> {
     let trip_update = (
         descriptor(),
-        proptest::collection::vec(stop_time_update(), 0..5),
+        collection::vec(stop_time_update(), 0..5),
         option::of(any::<i32>()),
         option::of(0_u64..5000),
     )
@@ -122,7 +122,7 @@ fn entity() -> impl Strategy<Value = FeedEntity> {
             ..Default::default()
         });
     let alert = (
-        proptest::collection::vec(
+        collection::vec(
             (
                 option::of(name(&STOPS)),
                 option::of(name(&ROUTES)),
@@ -130,7 +130,7 @@ fn entity() -> impl Strategy<Value = FeedEntity> {
             ),
             0..3,
         ),
-        proptest::collection::vec((option::of(any::<u64>()), option::of(any::<u64>())), 0..3),
+        collection::vec((option::of(any::<u64>()), option::of(any::<u64>())), 0..3),
     )
         .prop_map(|(selectors, periods)| Alert {
             informed_entity: selectors
@@ -168,13 +168,13 @@ fn entity() -> impl Strategy<Value = FeedEntity> {
 
 fn message() -> impl Strategy<Value = FeedMessage> {
     (
-        proptest::collection::vec(entity(), 0..6),
+        collection::vec(entity(), 0..6),
         option::of(0_i32..2),
         option::of(0_u64..5000),
     )
         .prop_map(|(entity, incrementality, timestamp)| FeedMessage {
             header: FeedHeader {
-                gtfs_realtime_version: "2.0".to_string(),
+                gtfs_realtime_version: "2.0".to_owned(),
                 incrementality,
                 timestamp,
             },
@@ -187,7 +187,7 @@ proptest! {
 
     #[test]
     fn arbitrary_feeds_never_panic_or_resize_the_state(
-        messages in proptest::collection::vec(message(), 1..4),
+        messages in collection::vec(message(), 1..4),
         cascade in any::<bool>(),
         replace in any::<bool>(),
         offset in -200_000_i32..200_000,

@@ -122,7 +122,7 @@ impl Realtime {
     /// Creates a state with nothing updated, sized for `consumer`, that accepts updates for any
     /// service date.
     #[must_use]
-    pub fn new(consumer: &Consumer) -> Self {
+    pub fn new(consumer: &Consumer<'_>) -> Self {
         let stop_time_count = consumer.stop_times().len();
         let trip_count = consumer.trips().len();
         Self {
@@ -143,7 +143,7 @@ impl Realtime {
 
     /// Creates a state for one service day. Trip updates that name another day are ignored.
     #[must_use]
-    pub fn for_service_date(consumer: &Consumer, service_date: Date) -> Self {
+    pub fn for_service_date(consumer: &Consumer<'_>, service_date: Date) -> Self {
         Self {
             service_date: Some(service_date),
             ..Self::new(consumer)
@@ -320,7 +320,7 @@ impl Realtime {
     /// # Panics
     ///
     /// Panics if the state doesn't match the consumer, or if an id is stored twice.
-    pub(crate) fn check_invariants(&self, consumer: &Consumer) {
+    pub(crate) fn check_invariants(&self, consumer: &Consumer<'_>) {
         if !cfg!(debug_assertions) {
             return;
         }
@@ -356,7 +356,7 @@ impl Realtime {
     }
 
     /// Resets one trip to its static schedule.
-    fn reset_trip(&mut self, consumer: &Consumer, trip: TripIndex) {
+    fn reset_trip(&mut self, consumer: &Consumer<'_>, trip: TripIndex) {
         let range = consumer.trip(trip).stop_times;
         let stop_times = range.start as usize..(range.start + range.count) as usize;
         self.stop_time_departure_delays[stop_times.clone()].fill(Optional::new(Delay::NONE));
