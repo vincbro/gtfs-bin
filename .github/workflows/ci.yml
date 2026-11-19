@@ -81,6 +81,57 @@ jobs:
       - name: Check dependencies
         run: just deps
 
+  # code-standards/COMMITS.md S-COMMITS for every commit the PR adds, the same check as the
+  # commit-msg hook from `just hooks`.
+  commits:
+    name: commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - name: Commit messages
+        run: just commits ${{ github.event.pull_request.base.sha }}
+
+  # The oldest Rust we claim to build on: rust-version in Cargo.toml.
+  msrv:
+    name: msrv
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      # rust-version from the manifest, overriding rust-toolchain.toml.
+      - name: Set up Rust
+        run: |
+          msrv=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)
+          rustup toolchain install "$msrv" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$msrv" >> "$GITHUB_ENV"
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv
+
+      - name: Build
+        run: cargo build --all-targets --all-features --locked
+
   # The property tests with many more cases, on main only.
   full:
     name: property tests
