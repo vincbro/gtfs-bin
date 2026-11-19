@@ -33,6 +33,10 @@ jobs:
         with:
           tool: just,cargo-sort,taplo
 
+      # gtfs-rt's build script compiles its .proto files, which needs protoc.
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
       # The toolchain pinned in rust-toolchain.toml, plus the nightly rustfmt pinned in the
       # justfile, as on a laptop.
       - name: Set up Rust
@@ -92,6 +96,10 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: just
+
+      # gtfs-rt's build script compiles its .proto files, which needs protoc.
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Set up Rust
         run: just toolchain

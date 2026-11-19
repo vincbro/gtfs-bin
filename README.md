@@ -182,6 +182,8 @@ What is not: shapes and stops sent in a feed, trip modifications, and replaced o
 
 ## Development
 
+The `rt` feature needs `protoc` installed, because `gtfs-rt` compiles its protobuf files when it builds (`brew install protobuf`, `apt install protobuf-compiler`, or the Nix shell in `flake.nix`).
+
 Everything runs through [`just`](https://github.com/casey/just). `just toolchain` installs the pinned Rust, the nightly `rustfmt`, the cargo tools and the git hooks, and `just check` is the same gate CI runs. `just --list` shows the rest: `compile`, `inspect`, `apply`, `bench`, `real-data` and `check-full`.
 
 ## Roadmap
