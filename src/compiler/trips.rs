@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 
 use crate::{
-    compiler::tables,
+    compiler::{records::RawTrip, tables},
     models::{
         RouteIndex, Sentinel, ServiceIndex, ShapeSlice, SliceBuilder, StopTimeSlice, StringSlice,
         Trip, TripIdSlice, TripIndex,
     },
 };
 
-pub fn build_trips(
-    raw_trips: &[gtfs_structures::RawTrip],
+pub(super) fn build_trips(
+    raw_trips: &[RawTrip],
     route_map: &HashMap<String, RouteIndex>,
     service_map: &HashMap<String, ServiceIndex>,
     shape_map: &HashMap<String, ShapeSlice>,
@@ -43,15 +43,22 @@ pub fn build_trips(
                     .and_then(|shape_id| shape_map.get(shape_id).copied())
                     .into(),
                 headsign: trip
-                    .trip_headsign
+                    .headsign
                     .as_ref()
                     .map(|headsign| slice_builder.add(headsign))
                     .into(),
                 route_index,
                 service_index,
                 stop_times: StopTimeSlice::NONE,
+                block: trip
+                    .block_id
+                    .as_ref()
+                    .map(|block| slice_builder.add(block))
+                    .into(),
+                direction: trip.direction,
+                padding: [0; 3],
                 short_name: trip
-                    .trip_short_name
+                    .short_name
                     .as_ref()
                     .map(|name| slice_builder.add(name))
                     .into(),
@@ -62,7 +69,7 @@ pub fn build_trips(
     (trips, id_map)
 }
 
-pub fn build_trip_ids(
+pub(super) fn build_trip_ids(
     trips: &mut [Trip],
     trip_map: &HashMap<String, TripIndex>,
 ) -> (Vec<TripIndex>, String) {

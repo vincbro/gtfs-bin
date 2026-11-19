@@ -1,5 +1,6 @@
-use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIndex, Weekday};
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIndex, Weekday};
 
 /// A single GTFS service.
 ///

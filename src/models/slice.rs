@@ -99,6 +99,7 @@ define_slice!(SearchSlice);
 define_slice!(TransferSlice);
 define_slice!(ServiceBinarySlice);
 define_slice!(ShapeSlice);
+define_slice!(GridSlice);
 
 /// Collects strings into one buffer and hands back a `Slice` for each, sharing repeats.
 pub struct SliceBuilder<T: Slice> {

@@ -6,57 +6,34 @@ use crate::models::{BitMask, Sentinel};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Pod, Zeroable)]
 pub struct RouteType(pub u16);
 
-impl From<gtfs_structures::RouteType> for RouteType {
-    fn from(value: gtfs_structures::RouteType) -> Self {
-        match value {
-            gtfs_structures::RouteType::Tramway => Self::TRAM,
-            gtfs_structures::RouteType::Subway => Self::SUBWAY,
-            gtfs_structures::RouteType::Rail => Self::RAIL,
-            gtfs_structures::RouteType::Bus => Self::BUS,
-            gtfs_structures::RouteType::Ferry => Self::FERRY,
-            gtfs_structures::RouteType::CableCar => Self::CABLE_CAR,
-            gtfs_structures::RouteType::Gondola => Self::GONDOLA,
-            gtfs_structures::RouteType::Funicular => Self::FUNICULAR,
-            gtfs_structures::RouteType::Coach => Self::COACH,
-            gtfs_structures::RouteType::Air => Self::AIR,
-            gtfs_structures::RouteType::Taxi => Self::TAXI,
-
-            // From googles documentation about extended GTFS route types: https://developers.google.com/transit/gtfs/reference/extended-route-types
-            gtfs_structures::RouteType::Other(code) => match code {
-                // 100-199: Railway Service | 300-399: Suburban Railway
-                100..=199 | 300..=399 => Self::RAIL,
-
-                // 200-299: Coach Service
-                200..=299 => Self::COACH,
-
-                // 400-699: Urban/Metro/Underground Railway
-                400..=699 => Self::SUBWAY,
-
-                // 700-899: Bus and Trolleybus
-                700..=899 => Self::BUS,
-
-                // 900-999: Tram Service
-                900..=999 => Self::TRAM,
-
-                // 1000-1099: Water Transport | 1200-1299: Ferry Service
-                1000..=1099 | 1200..=1299 => Self::FERRY,
-
-                // 1100-1199: Air Service
-                1100..=1199 => Self::AIR,
-
-                // 1300-1399: Aerial Lift Service (Telecabin)
-                1300..=1399 => Self::GONDOLA,
-
-                // 1400-1499: Funicular Service
-                1400..=1499 => Self::FUNICULAR,
-
-                // 1500-1599: Taxi Service
-                1500..=1599 => Self::TAXI,
-                _ => Self(0),
-            },
+impl From<u16> for RouteType {
+    /// Converts a GTFS `route_type` code, including the extended codes from Google's list:
+    /// <https://developers.google.com/transit/gtfs/reference/extended-route-types>.
+    ///
+    /// Codes that match no kind become `NONE`.
+    fn from(code: u16) -> Self {
+        match code {
+            0 | 900..=999 => Self::TRAM,
+            1 | 400..=699 => Self::SUBWAY,
+            // 2 rail, 12 monorail, 100-199 railway, 300-399 suburban railway
+            2 | 12 | 100..=199 | 300..=399 => Self::RAIL,
+            // 3 bus, 11 trolleybus, 700-899 bus and trolleybus
+            3 | 11 | 700..=899 => Self::BUS,
+            // 4 ferry, 1000-1099 water transport, 1200-1299 ferry
+            4 | 1000..=1099 | 1200..=1299 => Self::FERRY,
+            5 => Self::CABLE_CAR,
+            // 6 gondola, 1300-1399 aerial lift
+            6 | 1300..=1399 => Self::GONDOLA,
+            // 7 funicular, 1400-1499 funicular
+            7 | 1400..=1499 => Self::FUNICULAR,
+            200..=299 => Self::COACH,
+            1100..=1199 => Self::AIR,
+            1500..=1599 => Self::TAXI,
+            _ => Self::NONE,
         }
     }
 }
+
 impl Sentinel for RouteType {
     const NONE: Self = Self(0);
 }

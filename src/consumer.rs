@@ -1,18 +1,23 @@
+use std::str;
+
+pub use memmap2::Advice;
+use memmap2::Mmap;
+
 use crate::{
     GTFS_BIN_VERSION,
     consumer::reader::Reader,
     models::{
-        Header, Route, RouteIndex, SearchStop, Service, ServiceIndex, Shape, Stop, StopIndex,
-        StopTime, Transfer, TransferIndex, TransferSlice, Trip, TripIndex, TripPattern,
-        TripPatternIndex, TripPatternSlice, TripSlice,
+        Date, Header, Route, RouteIndex, SearchStop, Sentinel, Service, ServiceIndex, Shape, Stop,
+        StopCell, StopIndex, StopTime, Transfer, TransferIndex, TransferSlice, Trip, TripIndex,
+        TripPattern, TripPatternIndex, TripPatternSlice, TripSlice,
     },
 };
-use memmap2::Mmap;
-use std::str;
 
 mod error;
+mod grid;
 mod reader;
 mod routes;
+mod search;
 mod sections;
 mod services;
 mod shapes;
@@ -22,6 +27,7 @@ mod strings;
 mod transfers;
 mod trip_patterns;
 mod trips;
+mod validate;
 
 pub use error::{Error, Result};
 
@@ -29,12 +35,13 @@ pub use error::{Error, Result};
 ///
 /// Every table the file holds is a slice into the memory map, so nothing is copied.
 ///
-/// After `new` succeeds:
-/// - Every id and string section is valid UTF-8.
+/// After `new` succeeds, for any bytes it was given:
+/// - Every id and string section is valid UTF-8, and every slice into one ends on a character.
 /// - Each lookup table has one entry per item of the table it indexes.
+/// - Every index and slice stored in a table points inside the table it names.
+/// - Every item's own `index` is its position.
 ///
-/// The indices stored inside the tables are not checked. They are trusted to come from the
-/// compiler, so a hand-edited file can make an accessor panic.
+/// So the accessors can only panic on an index the caller made up.
 #[derive(Debug)]
 pub struct Consumer<'a> {
     // Stops
@@ -89,6 +96,16 @@ pub struct Consumer<'a> {
     stop_to_transfer_in: &'a [TransferSlice],
 
     strings: &'a [u8],
+
+    timezone: &'a [u8],
+    stop_grid: &'a [StopCell],
+    grid_stops: &'a [StopIndex],
+    feed_start_date: Date,
+    feed_end_date: Date,
+
+    /// The whole file, for `verify_checksum`.
+    bytes: &'a [u8],
+    expected_checksum: u64,
 }
 
 impl<'a> Consumer<'a> {
@@ -97,8 +114,44 @@ impl<'a> Consumer<'a> {
     /// # Errors
     ///
     /// Returns an error if the header is wrong, a section is out of bounds or misaligned, a text
-    /// section is not UTF-8, or a lookup table has the wrong length.
+    /// section is not UTF-8, or an index or slice inside a table points outside its target.
     pub fn new(mmap: &'a Mmap) -> Result<Self> {
+        let consumer = Self::open(mmap)?;
+        consumer.validate()?;
+        Ok(consumer)
+    }
+
+    /// Maps the sections of a compiled file without checking what is inside them.
+    ///
+    /// This still checks the header, the length of the file and that every section lies inside it.
+    /// What it skips is the check that the indices inside the tables point at real items, so a
+    /// damaged file can make an accessor panic. It can never cause undefined behavior. Use it for a
+    /// file this program wrote itself, and `new` for anything else.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the header is wrong or a section is out of bounds or misaligned.
+    pub fn new_unvalidated(mmap: &'a Mmap) -> Result<Self> {
+        Self::open(mmap)
+    }
+
+    /// Checks that the file is the one the compiler wrote, byte for byte, by comparing a hash of
+    /// everything after the header. It reads the whole file, so it costs about as much as copying
+    /// it, and `new` doesn't do it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any byte after the header has changed.
+    pub fn verify_checksum(&self) -> Result<()> {
+        let body = &self.bytes[size_of::<Header>()..];
+        if crate::models::checksum(body) == self.expected_checksum {
+            Ok(())
+        } else {
+            Err(Error::ChecksumMismatch)
+        }
+    }
+
+    fn open(mmap: &'a Mmap) -> Result<Self> {
         let header_size = size_of::<Header>();
         let header_bytes = mmap.get(..header_size).ok_or(Error::FileTooSmall)?;
         let header: &Header =
@@ -111,6 +164,13 @@ impl<'a> Consumer<'a> {
             return Err(Error::UnsupportedVersion {
                 expected: GTFS_BIN_VERSION,
                 actual: header.version,
+            });
+        }
+
+        if header.file_length != mmap.len() as u64 {
+            return Err(Error::LengthMismatch {
+                expected: header.file_length,
+                actual: mmap.len() as u64,
             });
         }
 
@@ -160,91 +220,66 @@ impl<'a> Consumer<'a> {
             stop_to_trip_pattern_lookup: reader.cast_slice(header.stop_to_trip_pattern_lookup)?,
 
             strings: reader.bytes::<u8>(header.strings)?,
-        };
 
-        consumer.validate()?;
+            timezone: reader.bytes::<u8>(header.timezone)?,
+            stop_grid: reader.cast_slice(header.stop_grid)?,
+            grid_stops: reader.cast_slice(header.grid_stops)?,
+            feed_start_date: header.feed_start_date,
+            feed_end_date: header.feed_end_date,
+
+            bytes: mmap,
+            expected_checksum: header.checksum,
+        };
         Ok(consumer)
     }
 
-    fn validate(&self) -> Result<()> {
-        for (section, bytes) in [
-            ("stop id", self.stop_ids),
-            ("route id", self.route_ids),
-            ("trip id", self.trip_ids),
-            ("service id", self.service_ids),
-            ("string", self.strings),
-        ] {
-            str::from_utf8(bytes).map_err(|_| Error::InvalidUtf8 { section })?;
-        }
-
-        for (table, table_len, lookup, lookup_len) in [
-            (
-                "stops",
-                self.stops.len(),
-                "stops_id_lookup",
-                self.stops_id_lookup.len(),
-            ),
-            (
-                "routes",
-                self.routes.len(),
-                "routes_id_lookup",
-                self.routes_id_lookup.len(),
-            ),
-            (
-                "trips",
-                self.trips.len(),
-                "trips_id_lookup",
-                self.trips_id_lookup.len(),
-            ),
-            (
-                "services",
-                self.services.len(),
-                "services_id_lookup",
-                self.services_id_lookup.len(),
-            ),
-            (
-                "routes",
-                self.routes.len(),
-                "route_to_trips_lookup",
-                self.route_to_trips_lookup.len(),
-            ),
-            (
-                "stops",
-                self.stops.len(),
-                "stop_to_trips_lookup",
-                self.stop_to_trips_lookup.len(),
-            ),
-            (
-                "stops",
-                self.stops.len(),
-                "stop_to_transfer_out",
-                self.stop_to_transfer_out.len(),
-            ),
-            (
-                "stops",
-                self.stops.len(),
-                "stop_to_transfer_in",
-                self.stop_to_transfer_in.len(),
-            ),
-            (
-                "stops",
-                self.stops.len(),
-                "stop_to_trip_pattern_lookup",
-                self.stop_to_trip_pattern_lookup.len(),
-            ),
-            (
-                "trips",
-                self.trips.len(),
-                "trip_to_trip_pattern",
-                self.trip_to_trip_pattern.len(),
-            ),
-        ] {
-            if table_len != lookup_len {
-                return Err(Error::MismatchedSections { table, lookup });
-            }
-        }
-        Ok(())
+    /// Returns the agency's time zone, such as `Europe/Stockholm`, if the feed has one.
+    #[must_use]
+    pub fn timezone(&self) -> Option<&'a str> {
+        let timezone = text_of(self.timezone);
+        (!timezone.is_empty()).then_some(timezone)
     }
+
+    /// Returns when the feed says it starts being valid, from `feed_info.txt`.
+    #[must_use]
+    pub fn feed_start_date(&self) -> Option<Date> {
+        self.feed_start_date.as_option()
+    }
+
+    /// Returns when the feed says it stops being valid, from `feed_info.txt`.
+    #[must_use]
+    pub fn feed_end_date(&self) -> Option<Date> {
+        self.feed_end_date.as_option()
+    }
+
+    /// Returns the first and last day any service runs, or `None` if there are no services. Unlike
+    /// the feed's own dates, it can't be left out of the feed.
+    #[must_use]
+    pub fn service_range(&self) -> Option<(Date, Date)> {
+        let first = self
+            .services
+            .iter()
+            .map(|service| service.start_date)
+            .min()?;
+        let last = self.services.iter().map(|service| service.end_date).max()?;
+        Some((first, last))
+    }
+}
+
+/// Opens the file for the operating system to read ahead or not, as a router that jumps around
+/// the tables wants.
+///
+/// # Errors
+///
+/// Returns an error if the operating system refuses the advice.
+#[cfg(unix)]
+pub fn advise(mmap: &Mmap, advice: Advice) -> Result<()> {
+    Ok(mmap.advise(advice)?)
+}
+
+/// Returns a whole validated text section.
+fn text_of(bytes: &[u8]) -> &str {
+    str::from_utf8(bytes).expect("a text section is checked to be utf-8 when the file is opened")
 }
 
 /// Returns the text of a slice of a validated section.

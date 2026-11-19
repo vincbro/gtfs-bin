@@ -5,7 +5,7 @@ use crate::models::{
     TripPatternIndex, TripPatternSlice, TripSlice,
 };
 
-pub struct TripPatterns {
+pub(super) struct TripPatterns {
     pub patterns: Vec<TripPattern>,
     /// The stops of every pattern, back to back.
     pub stop_sequences: Vec<StopIndex>,
@@ -19,7 +19,7 @@ pub struct TripPatterns {
     pub stop_to_pattern_lookup: Vec<TripPatternSlice>,
 }
 
-pub fn build_trip_patterns(
+pub(super) fn build_trip_patterns(
     trips: &[Trip],
     stops: &[Stop],
     stop_times: &[StopTime],

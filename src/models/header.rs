@@ -1,5 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 
+use crate::models::Date;
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct Section {
@@ -56,6 +58,22 @@ pub struct Header {
     pub stop_to_transfers_in: Section,
 
     pub strings: Section,
+
+    /// The agency time zone as text, such as `Europe/Stockholm`. Empty if the feed has none.
+    pub timezone: Section,
+
+    pub stop_grid: Section,
+    pub grid_stops: Section,
+
+    /// The start of the feed's validity from `feed_info.txt`, or `Date::NONE`.
+    pub feed_start_date: Date,
+    /// The end of the feed's validity from `feed_info.txt`, or `Date::NONE`.
+    pub feed_end_date: Date,
+
+    /// The length of the whole file, to notice a truncated one.
+    pub file_length: u64,
+    /// The `checksum` of every byte after the header.
+    pub checksum: u64,
 }
 
 impl Default for Header {

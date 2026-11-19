@@ -1,5 +1,6 @@
-use crate::models::sentinel::Sentinel;
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::sentinel::Sentinel;
 
 /// A memory-efficient geographic coordinate.
 ///
@@ -33,6 +34,21 @@ impl Coordinate {
     #[must_use]
     pub fn longitude_f64(self) -> f64 {
         f64::from(self.packed_longitude) / 10_000_000.0
+    }
+
+    /// Returns the distance to another position in meters, along the surface of a sphere.
+    #[must_use]
+    pub fn distance_meters(self, other: Self) -> f64 {
+        const EARTH_RADIUS_METERS: f64 = 6_371_008.8;
+        let (latitude, longitude) = self.to_f64_pair();
+        let (other_latitude, other_longitude) = other.to_f64_pair();
+        let delta_latitude = (other_latitude - latitude).to_radians();
+        let delta_longitude = (other_longitude - longitude).to_radians();
+        let haversine = (delta_latitude / 2.0).sin().powi(2)
+            + latitude.to_radians().cos()
+                * other_latitude.to_radians().cos()
+                * (delta_longitude / 2.0).sin().powi(2);
+        2.0 * EARTH_RADIUS_METERS * haversine.sqrt().min(1.0).asin()
     }
 
     /// Returns the latitude and longitude, in that order.

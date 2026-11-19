@@ -15,6 +15,10 @@ use tempfile::NamedTempFile;
 // Returns the NamedTempFile alongside the Mmap so the file isn't deleted
 // until the test finishes.
 #[must_use]
+#[allow(
+    unsafe_code,
+    reason = "mapping a file is unsafe in memmap2, and this file is not modified"
+)]
 pub fn compile_test() -> (NamedTempFile, Mmap) {
     let mut input_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     input_path.push("tests/fixtures/gtfs");

@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 117359cb868c9576f0d478e5006731400cea0dd5a50a44ddfaae2e732328bdb6 # shrinks to messages = [FeedMessage { header: FeedHeader { gtfs_realtime_version: "2.0", incrementality: None, timestamp: None }, entity: [FeedEntity { id: "a", is_deleted: None, trip_update: Some(TripUpdate { trip: TripDescriptor { trip_id: Some("trip1"), route_id: None, direction_id: None, start_time: None, start_date: None, schedule_relationship: None, modified_trip: None }, vehicle: None, stop_time_update: [StopTimeUpdate { stop_sequence: Some(0), stop_id: None, arrival: None, departure: Some(StopTimeEvent { delay: None, time: Some(-9223372036854775808), uncertainty: None }), departure_occupancy_status: None, schedule_relationship: None, stop_time_properties: None }], timestamp: None, delay: None, trip_properties: None }), vehicle: None, alert: None, shape: None, stop: None, trip_modifications: None }] }], cascade = false, replace = false, offset = 0, for_day = true

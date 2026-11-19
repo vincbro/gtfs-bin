@@ -5,7 +5,7 @@ use rayon::slice::ParallelSliceMut;
 use crate::models::{Index, Slice, SliceBuilder};
 
 /// The id strings of one table, in the three forms the binary file stores them.
-pub struct IdTable<S, I> {
+pub(super) struct IdTable<S, I> {
     /// Where each item's id sits in `buffer`, by item index.
     pub slices: Vec<S>,
     /// Item indices sorted by id, so the consumer can binary search.
@@ -17,7 +17,7 @@ pub struct IdTable<S, I> {
 ///
 /// Ids are laid out in index order, so the same input always gives the same bytes. An item with no
 /// entry in the map gets an empty id.
-pub fn build_id_table<S: Slice, I: Index + Send>(
+pub(super) fn build_id_table<S: Slice, I: Index + Send>(
     id_map: &HashMap<String, I>,
     count: usize,
 ) -> IdTable<S, I> {
@@ -42,7 +42,7 @@ pub fn build_id_table<S: Slice, I: Index + Send>(
 /// Finds where each key's run sits in a sorted sequence of keys.
 ///
 /// Returns one slice per key in `0..key_count`. A key that never appears gets `S::NONE`.
-pub fn slices_by_key<K: Index, S: Slice>(
+pub(super) fn slices_by_key<K: Index, S: Slice>(
     sorted_keys: impl Iterator<Item = K>,
     key_count: usize,
 ) -> Vec<S> {

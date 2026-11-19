@@ -1,5 +1,6 @@
-use crate::models::sentinel::Sentinel;
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::sentinel::Sentinel;
 
 /// A zero-overhead, memory-mappable wrapper for optional values.
 #[repr(transparent)]

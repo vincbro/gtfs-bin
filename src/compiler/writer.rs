@@ -1,27 +1,28 @@
-use crate::models::Section;
 use bytemuck::NoUninit;
+
+use crate::models::Section;
 
 /// Appends sections to a byte buffer, keeping each one aligned to 8 bytes.
 #[derive(Clone, Debug, Default)]
-pub struct BinaryWriter {
+pub(super) struct BinaryWriter {
     buffer: Vec<u8>,
 }
 
 impl BinaryWriter {
     #[must_use]
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self::default()
     }
 
     /// Reserves `size` zeroed bytes, such as room for a header written last.
     #[must_use]
-    pub fn with_reserved(mut self, size: usize) -> Self {
+    pub(super) fn with_reserved(mut self, size: usize) -> Self {
         self.buffer.resize(self.buffer.len() + size, 0);
         self.align();
         self
     }
 
-    pub fn write_section<T: NoUninit>(&mut self, slice: &[T]) -> Section {
+    pub(super) fn write_section<T: NoUninit>(&mut self, slice: &[T]) -> Section {
         let offset = self.buffer.len() as u64;
         let count = slice.len() as u64;
         self.buffer
@@ -30,12 +31,18 @@ impl BinaryWriter {
         Section { offset, count }
     }
 
+    /// Returns everything written so far.
+    #[must_use]
+    pub(super) fn as_bytes(&self) -> &[u8] {
+        &self.buffer
+    }
+
     /// Replaces the bytes at `offset`.
     ///
     /// # Panics
     ///
     /// Panics if the bytes don't fit in what has been written.
-    pub fn overwrite(&mut self, offset: usize, bytes: &[u8]) {
+    pub(super) fn overwrite(&mut self, offset: usize, bytes: &[u8]) {
         self.buffer[offset..offset + bytes.len()].copy_from_slice(bytes);
     }
 
@@ -47,7 +54,7 @@ impl BinaryWriter {
     }
 
     #[must_use]
-    pub fn into_bytes(self) -> Vec<u8> {
+    pub(super) fn into_bytes(self) -> Vec<u8> {
         self.buffer
     }
 }

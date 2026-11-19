@@ -1,19 +1,48 @@
-use crate::compiler::tables;
-use crate::models::{
-    BitMask, Date, Sentinel, Service, ServiceBinarySlice, ServiceIdSlice, ServiceIndex, Slice,
-    Weekday,
-};
-use bitvec::{order::Msb0, vec::BitVec};
 use std::collections::HashMap;
 
-pub fn build_services(
-    raw_calendar: &[gtfs_structures::Calendar],
-    raw_calendar_dates: &[gtfs_structures::CalendarDate],
-) -> (
-    Vec<Service>,
-    HashMap<String, ServiceIndex>,
-    BitVec<u8, Msb0>,
-) {
+use bitvec::{order::Msb0, vec::BitVec};
+
+use crate::{
+    compiler::{
+        Error, Result,
+        records::{RawCalendar, RawCalendarDate},
+        table::SkippedRow,
+        tables,
+    },
+    models::{
+        BitMask, Date, Sentinel, Service, ServiceBinarySlice, ServiceIdSlice, ServiceIndex, Slice,
+        Weekday,
+    },
+};
+
+/// The longest a service may run, about 100 years. It bounds the memory a bad date can cost, since
+/// every service stores a bit for each of its days.
+const MAX_SERVICE_DAYS: u32 = 36_600;
+
+const WEEKDAYS: [Weekday; 7] = [
+    Weekday::MONDAY,
+    Weekday::TUESDAY,
+    Weekday::WEDNESDAY,
+    Weekday::THURSDAY,
+    Weekday::FRIDAY,
+    Weekday::SATURDAY,
+    Weekday::SUNDAY,
+];
+
+/// The services, the map from a service id to its index, and the bits of days each service runs.
+pub(super) struct BuiltServices {
+    pub services: Vec<Service>,
+    pub id_map: HashMap<String, ServiceIndex>,
+    pub active_mask: BitVec<u8, Msb0>,
+    /// The calendar rows lenient mode left out.
+    pub skipped: Vec<SkippedRow>,
+}
+
+pub(super) fn build_services(
+    raw_calendar: &[RawCalendar],
+    raw_calendar_dates: &[RawCalendarDate],
+    lenient: bool,
+) -> Result<BuiltServices> {
     let mut id_map: HashMap<String, ServiceIndex> = HashMap::with_capacity(raw_calendar.len());
     // The dates the weekly pattern applies to, before calendar dates stretch a service's range.
     let mut base_bounds: Vec<(Date, Date)> = Vec::with_capacity(raw_calendar.len());
@@ -21,24 +50,36 @@ pub fn build_services(
 
     // A GTFS set can have only a calendar, only calendar dates, or both. The calendar goes first,
     // and the calendar dates are folded into it afterwards.
-    for (position, calendar) in raw_calendar.iter().enumerate() {
-        let index = ServiceIndex::from(position);
+    let mut skipped = Vec::new();
+    for calendar in raw_calendar {
+        if calendar.end_date < calendar.start_date {
+            let error = Error::ReversedServiceRange {
+                service_id: calendar.id.clone(),
+            };
+            if !lenient {
+                return Err(error);
+            }
+            skipped.push(SkippedRow {
+                file: "calendar.txt",
+                message: error.to_string(),
+            });
+            continue;
+        }
+        let index = ServiceIndex::from(services.len());
         id_map.insert(calendar.id.clone(), index);
-        let start_date = Date::from(calendar.start_date);
-        let end_date = Date::from(calendar.end_date);
-        base_bounds.push((start_date, end_date));
+        base_bounds.push((calendar.start_date, calendar.end_date));
         services.push(Service::new(
             ServiceIdSlice::NONE,
             index,
             ServiceBinarySlice::NONE,
-            start_date,
-            end_date,
+            calendar.start_date,
+            calendar.end_date,
             weekdays(calendar),
         ));
     }
 
     for calendar_date in raw_calendar_dates {
-        let date = Date::from(calendar_date.date);
+        let date = calendar_date.date;
         if let Some(index) = id_map.get(&calendar_date.service_id) {
             let service = &mut services[index.as_usize()];
             service.start_date = service.start_date.min(date);
@@ -61,23 +102,37 @@ pub fn build_services(
         ));
     }
 
-    let active_mask = build_active_mask(&mut services, &base_bounds, raw_calendar_dates, &id_map);
-    (services, id_map, active_mask)
+    let active_mask = build_active_mask(
+        &mut services,
+        &base_bounds,
+        raw_calendar_dates,
+        &id_map,
+        &raw_service_ids(&id_map),
+    )?;
+    Ok(BuiltServices {
+        services,
+        id_map,
+        active_mask,
+        skipped,
+    })
 }
 
-fn weekdays(calendar: &gtfs_structures::Calendar) -> Weekday {
-    [
-        (calendar.monday, Weekday::MONDAY),
-        (calendar.tuesday, Weekday::TUESDAY),
-        (calendar.wednesday, Weekday::WEDNESDAY),
-        (calendar.thursday, Weekday::THURSDAY),
-        (calendar.friday, Weekday::FRIDAY),
-        (calendar.saturday, Weekday::SATURDAY),
-        (calendar.sunday, Weekday::SUNDAY),
-    ]
-    .into_iter()
-    .filter(|&(runs, _)| runs)
-    .fold(Weekday::default(), |days, (_, day)| days.join(day))
+fn weekdays(calendar: &RawCalendar) -> Weekday {
+    calendar
+        .days
+        .iter()
+        .zip(WEEKDAYS)
+        .filter(|&(&runs, _)| runs)
+        .fold(Weekday::default(), |days, (_, day)| days.join(day))
+}
+
+/// The service ids by index, for error messages.
+fn raw_service_ids(id_map: &HashMap<String, ServiceIndex>) -> Vec<&str> {
+    let mut ids = vec![""; id_map.len()];
+    for (id, index) in id_map {
+        ids[index.as_usize()] = id;
+    }
+    ids
 }
 
 /// Builds one bit per service day, each service starting on a byte boundary: set when the service
@@ -85,13 +140,22 @@ fn weekdays(calendar: &gtfs_structures::Calendar) -> Weekday {
 fn build_active_mask(
     services: &mut [Service],
     base_bounds: &[(Date, Date)],
-    raw_calendar_dates: &[gtfs_structures::CalendarDate],
+    raw_calendar_dates: &[RawCalendarDate],
     id_map: &HashMap<String, ServiceIndex>,
-) -> BitVec<u8, Msb0> {
+    ids: &[&str],
+) -> Result<BitVec<u8, Msb0>> {
     let mut active_mask = BitVec::<u8, Msb0>::new();
 
     for (service, &(base_start, base_end)) in services.iter_mut().zip(base_bounds) {
-        let days = (service.end_date.0 - service.start_date.0) as usize + 1;
+        let days = service.end_date.0 - service.start_date.0 + 1;
+        if days > MAX_SERVICE_DAYS {
+            return Err(Error::ServiceRangeTooLong {
+                service_id: ids[service.index.as_usize()].to_string(),
+                days,
+                maximum: MAX_SERVICE_DAYS,
+            });
+        }
+        let days = days as usize;
         let start = active_mask.len();
         let padding = (8 - (start + days) % 8) % 8;
         active_mask.resize(start + days + padding, false);
@@ -112,19 +176,15 @@ fn build_active_mask(
             continue;
         };
         let service = &services[index.as_usize()];
-        let date = Date::from(calendar_date.date);
-        let active = matches!(
-            calendar_date.exception_type,
-            gtfs_structures::Exception::Added
-        );
-        let bit_index = (service.active_mask.start + date.0 - service.start_date.0) as usize;
-        active_mask.set(bit_index, active);
+        let bit_index =
+            (service.active_mask.start + calendar_date.date.0 - service.start_date.0) as usize;
+        active_mask.set(bit_index, calendar_date.added);
     }
 
-    active_mask
+    Ok(active_mask)
 }
 
-pub fn build_service_ids(
+pub(super) fn build_service_ids(
     services: &mut [Service],
     service_map: &HashMap<String, ServiceIndex>,
 ) -> (Vec<ServiceIndex>, String) {

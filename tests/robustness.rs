@@ -23,6 +23,10 @@ fn compile_fixture() -> Vec<u8> {
         .expect("the fixture is valid")
 }
 
+#[allow(
+    unsafe_code,
+    reason = "mapping a file is unsafe in memmap2, and this file is not modified"
+)]
 fn map(bytes: &[u8]) -> (NamedTempFile, Mmap) {
     let mut file = NamedTempFile::new().expect("a temp file can be created");
     file.write_all(bytes).expect("the temp file is writable");

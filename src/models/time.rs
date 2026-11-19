@@ -1,8 +1,9 @@
-use crate::models::sentinel::Sentinel;
 use std::{
     fmt::Display,
     ops::{Add, AddAssign, Sub, SubAssign},
 };
+
+use crate::models::sentinel::Sentinel;
 
 /// Seconds since the start of the day the trip started running.
 ///
@@ -60,11 +61,9 @@ impl Add<Duration> for Time {
     type Output = Self;
 
     fn add(self, rhs: Duration) -> Self::Output {
-        debug_assert!(
-            self != Self::NONE && rhs != Duration::NONE,
-            "arithmetic on a sentinel value is a bug in the caller"
-        );
-        Self(self.0 + rhs.0)
+        // The sum clamps at the largest value, which is the sentinel, so an overflow reads as
+        // absent instead of panicking.
+        Self(self.0.saturating_add(rhs.0))
     }
 }
 
@@ -105,16 +104,12 @@ impl Add<Delay> for Time {
     type Output = Self;
 
     fn add(self, rhs: Delay) -> Self::Output {
-        debug_assert!(
-            self != Self::NONE && rhs != Delay::NONE,
-            "arithmetic on a sentinel value is a bug in the caller"
-        );
         let magnitude = u32::from(rhs.0.unsigned_abs());
         if rhs.0.is_negative() {
             // An early time before the start of the day clamps to midnight.
             Self(self.0.saturating_sub(magnitude))
         } else {
-            Self(self.0 + magnitude)
+            Self(self.0.saturating_add(magnitude))
         }
     }
 }
@@ -130,13 +125,9 @@ impl Sub<Delay> for Time {
     type Output = Self;
 
     fn sub(self, rhs: Delay) -> Self::Output {
-        debug_assert!(
-            self != Self::NONE && rhs != Delay::NONE,
-            "arithmetic on a sentinel value is a bug in the caller"
-        );
         let magnitude = u32::from(rhs.0.unsigned_abs());
         if rhs.0.is_negative() {
-            Self(self.0 + magnitude)
+            Self(self.0.saturating_add(magnitude))
         } else {
             // Clamps to midnight, like `Time - Duration`.
             Self(self.0.saturating_sub(magnitude))
@@ -176,11 +167,8 @@ impl Add<Self> for Duration {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        debug_assert!(
-            self != Self::NONE && rhs != Self::NONE,
-            "arithmetic on a sentinel value is a bug in the caller"
-        );
-        Self(self.0 + rhs.0)
+        // Clamps at the largest value, like `Time`.
+        Self(self.0.saturating_add(rhs.0))
     }
 }
 

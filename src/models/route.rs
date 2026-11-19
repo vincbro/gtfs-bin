@@ -1,5 +1,6 @@
-use crate::models::{Optional, RouteIdSlice, RouteIndex, RouteType, StringSlice};
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::{Optional, RouteIdSlice, RouteIndex, RouteType, StringSlice};
 
 /// A single GTFS route.
 ///

@@ -1,5 +1,6 @@
-use crate::models::{Coordinate, LocationType, Optional, StopIdSlice, StopIndex, StringSlice};
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::{Coordinate, LocationType, Optional, StopIdSlice, StopIndex, StringSlice};
 
 /// A single GTFS stop, station, or entrance.
 ///

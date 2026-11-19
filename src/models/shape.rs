@@ -1,5 +1,6 @@
-use crate::models::{Coordinate, Distance, Optional};
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::{Coordinate, Distance, Optional};
 
 /// Represents a single point in a shape in the GTFS dataset.
 ///

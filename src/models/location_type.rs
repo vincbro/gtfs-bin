@@ -6,15 +6,16 @@ use crate::models::Sentinel;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Pod, Zeroable)]
 pub struct LocationType(u8);
 
-impl From<gtfs_structures::LocationType> for LocationType {
-    fn from(value: gtfs_structures::LocationType) -> Self {
-        match value {
-            gtfs_structures::LocationType::StopPoint => Self::STOP_POINT,
-            gtfs_structures::LocationType::StopArea => Self::STOP_AREA,
-            gtfs_structures::LocationType::StationEntrance => Self::STATION_ENTRANCE,
-            gtfs_structures::LocationType::GenericNode => Self::GENERIC_NODE,
-            gtfs_structures::LocationType::BoardingArea => Self::BOARDING_AREA,
-            gtfs_structures::LocationType::Unknown(_) => Self(u8::MAX),
+impl From<u8> for LocationType {
+    /// Converts a GTFS `location_type` code. Unknown codes become `NONE`.
+    fn from(code: u8) -> Self {
+        match code {
+            0 => Self::STOP_POINT,
+            1 => Self::STOP_AREA,
+            2 => Self::STATION_ENTRANCE,
+            3 => Self::GENERIC_NODE,
+            4 => Self::BOARDING_AREA,
+            _ => Self::NONE,
         }
     }
 }

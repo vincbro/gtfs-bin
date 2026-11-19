@@ -10,50 +10,77 @@ repository = "https://github.com/vincbro/gtfs-bin"
 keywords = ["gtfs", "transit", "mmap", "zero-copy", "raptor"]
 categories = ["data-structures", "parsing", "caching"]
 
-[dependencies]
-bitvec = "1.0.1"
-bytemuck = { version = "1.25.0", features = ["derive"] }
-clap = { version = "4.5.60", features = ["derive"] }
-gtfs-structures = { version = "0.47.0", default-features = false, optional = true}
-memmap2 = {version = "0.9.10", optional =  true}
-nix = "0.31.2"
-rayon = "1.11.0"
-thiserror = "2.0.18"
-
-gtfs-rt = { version = "0.5.0", optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-prost = { version = "0.14", optional = true }
-prost-derive = { version = "0.14", optional = true }
-chrono = "0.4.44"
-spinners = "4.2.0"
-anyhow = "1.0.104"
-
-[dev-dependencies]
-tempfile = "3.26.0"
-
-[build-dependencies]
-prost-build = { version = "0.14", optional = true }
+[[bin]]
+name = "gtfs-bin"
+path = "src/main.rs"
+required-features = ["cli"]
 
 [features]
-default = ["consumer","compiler","rt"]
+default = ["consumer", "compiler", "rt", "cli"]
 
-compiler = [
-    "dep:gtfs-structures"
-]
+compiler = ["dep:csv", "dep:zip"]
 
-consumer = [
-    "dep:memmap2"
-]
+consumer = ["dep:memmap2"]
 
-rt = [
-    "dep:gtfs-rt",
-    "dep:serde",
-    "dep:prost",
-    "dep:prost-derive",
-    "dep:prost-build"
-]
+cli = ["compiler", "dep:anyhow", "dep:clap", "dep:spinners"]
+
+rt = ["consumer", "dep:gtfs-rt", "dep:jiff", "dep:prost"]
+
+[dependencies]
+anyhow = { version = "1.0.104", optional = true }
+bitvec = "1.0.1"
+bytemuck = { version = "1.25.0", features = ["derive"] }
+clap = { version = "4.5.60", features = ["derive"], optional = true }
+csv = { version = "1.4", optional = true }
+
+gtfs-rt = { version = "0.5.0", optional = true }
+jiff = { version = "0.2", optional = true }
+memmap2 = { version = "0.9.10", optional = true }
+# The version gtfs-rt is built with, so its messages decode with the same trait.
+prost = { version = "0.11", optional = true }
+rayon = "1.11.0"
+spinners = { version = "4.2.0", optional = true }
+thiserror = "2.0.18"
+zip = { version = "9.7", default-features = false, features = ["deflate"], optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
+proptest = "1.12.0"
+tempfile = "3.26.0"
 
 [profile.release]
-lto = true          
-codegen-units = 1  
+lto = true
+codegen-units = 1
 strip = true
+
+[[example]]
+name = "inspect"
+required-features = ["consumer", "cli"]
+
+[[example]]
+name = "apply_feed"
+required-features = ["consumer", "rt", "cli"]
+
+[[bench]]
+name = "network"
+harness = false
+required-features = ["consumer", "compiler", "rt"]
+
+[lints.rust]
+unsafe_code = "warn"
+unreachable_pub = "warn"
+
+[lints.clippy]
+# The rules the shared code standards enforce with clippy. See code-standards/rust/STYLE.md.
+mod_module_files = "warn"
+excessive_nesting = "warn"
+partial_pub_fields = "warn"
+unwrap_used = "warn"
+panic = "warn"
+get_unwrap = "warn"
+unwrap_in_result = "warn"
+fn_params_excessive_bools = "warn"
+inline_always = "warn"
+undocumented_unsafe_blocks = "warn"
+multiple_unsafe_ops_per_block = "warn"
+missing_panics_doc = "warn"

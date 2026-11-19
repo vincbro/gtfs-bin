@@ -1,14 +1,16 @@
+use std::collections::HashMap;
+
+use rayon::slice::ParallelSliceMut;
+
 use crate::{
-    compiler::tables,
+    compiler::{records::RawRoute, tables},
     models::{
         Route, RouteIdSlice, RouteIndex, Sentinel, SliceBuilder, StringSlice, Trip, TripIndex,
     },
 };
-use rayon::slice::ParallelSliceMut;
-use std::collections::HashMap;
 
-pub fn build_routes(
-    raw_routes: &[gtfs_structures::Route],
+pub(super) fn build_routes(
+    raw_routes: &[RawRoute],
     slice_builder: &mut SliceBuilder<StringSlice>,
 ) -> (Vec<Route>, HashMap<String, RouteIndex>) {
     let mut id_map: HashMap<String, RouteIndex> = HashMap::with_capacity(raw_routes.len());
@@ -30,7 +32,7 @@ pub fn build_routes(
                 .map(|name| slice_builder.add(name))
                 .into();
             let description = route
-                .desc
+                .description
                 .as_ref()
                 .map(|description| slice_builder.add(description))
                 .into();
@@ -40,14 +42,14 @@ pub fn build_routes(
                 long_name,
                 short_name,
                 description,
-                route.route_type.into(),
+                route.route_type,
             )
         })
         .collect();
     (routes, id_map)
 }
 
-pub fn build_route_ids(
+pub(super) fn build_route_ids(
     routes: &mut [Route],
     route_map: &HashMap<String, RouteIndex>,
 ) -> (Vec<RouteIndex>, String) {
@@ -58,7 +60,7 @@ pub fn build_route_ids(
     (table.lookup, table.buffer)
 }
 
-pub fn build_route_to_trips(
+pub(super) fn build_route_to_trips(
     trips: &[Trip],
     routes: &[Route],
 ) -> (Vec<TripIndex>, Vec<crate::models::TripSlice>) {

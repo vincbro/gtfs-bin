@@ -1,5 +1,6 @@
-use crate::models::{StopSlice, TripPatternIndex, TripSlice};
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::{StopSlice, TripPatternIndex, TripSlice};
 
 /// A distinct sequence of stops, shared by every trip that visits those stops in that order.
 ///

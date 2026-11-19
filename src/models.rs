@@ -1,7 +1,11 @@
 mod bit_mask;
+mod boarding_rule;
+mod checksum;
 mod coordinate;
 mod date;
+mod direction;
 mod distance;
+mod grid;
 mod header;
 mod index;
 mod location_type;
@@ -22,9 +26,13 @@ mod trip_pattern;
 mod weekday;
 
 pub use bit_mask::*;
+pub use boarding_rule::*;
+pub use checksum::checksum;
 pub use coordinate::*;
 pub use date::*;
+pub use direction::*;
 pub use distance::*;
+pub use grid::*;
 pub use header::*;
 pub use index::*;
 pub use location_type::*;

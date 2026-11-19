@@ -1,16 +1,17 @@
 use std::collections::{BTreeMap, HashMap};
 
+use rayon::slice::ParallelSliceMut;
+
 use crate::{
-    compiler::tables,
+    compiler::{records::RawStop, tables},
     models::{
         Coordinate, LocationType, Optional, RouteType, SearchSlice, SearchStop, Sentinel, Slice,
         SliceBuilder, Stop, StopIdSlice, StopIndex, StopTime, StringSlice, TripIndex, TripSlice,
     },
 };
-use rayon::slice::ParallelSliceMut;
 
-pub fn build_stops(
-    raw_stops: &[gtfs_structures::Stop],
+pub(super) fn build_stops(
+    raw_stops: &[RawStop],
     slice_builder: &mut SliceBuilder<StringSlice>,
 ) -> (Vec<Stop>, HashMap<String, StopIndex>) {
     let mut id_map: HashMap<String, StopIndex> = HashMap::with_capacity(raw_stops.len());
@@ -55,7 +56,7 @@ pub fn build_stops(
                 description,
                 code,
                 coordinate,
-                stop.location_type.into(),
+                stop.location_type,
             )
         })
         .collect();
@@ -73,7 +74,7 @@ pub fn build_stops(
     (stops, id_map)
 }
 
-pub fn build_stop_ids(
+pub(super) fn build_stop_ids(
     stops: &mut [Stop],
     stop_map: &HashMap<String, StopIndex>,
 ) -> (Vec<StopIndex>, String) {
@@ -84,7 +85,7 @@ pub fn build_stop_ids(
     (table.lookup, table.buffer)
 }
 
-pub fn build_stop_to_trips(
+pub(super) fn build_stop_to_trips(
     stops: &[Stop],
     stop_times: &[StopTime],
 ) -> (Vec<TripIndex>, Vec<TripSlice>) {
@@ -102,7 +103,7 @@ pub fn build_stop_to_trips(
 }
 
 /// Groups stops that share a name, so a search for the name finds every platform of a station.
-pub fn build_stop_search(stops: &[Stop]) -> (Vec<SearchStop>, Vec<StopIndex>) {
+pub(super) fn build_stop_search(stops: &[Stop]) -> (Vec<SearchStop>, Vec<StopIndex>) {
     // Ordered so the same input always gives the same bytes.
     let mut grouped_stops: BTreeMap<StringSlice, Vec<StopIndex>> = BTreeMap::new();
 
@@ -128,12 +129,15 @@ pub fn build_stop_search(stops: &[Stop]) -> (Vec<SearchStop>, Vec<StopIndex>) {
     (search_stops, search_to_stops)
 }
 
-/// The name a stop is searched under: its own for a station or a parentless node, otherwise its
-/// parent's.
+/// The name a stop is searched under: its own for a station, or for a stop that has no parent
+/// station, otherwise its parent's. An entrance or boarding area with no parent isn't a place to
+/// search for.
 fn search_name(stop: &Stop, stops: &[Stop]) -> Option<StringSlice> {
-    let is_station = stop.location_type == LocationType::STOP_AREA
-        || (stop.location_type == LocationType::GENERIC_NODE && stop.parent_index.is_none());
-    if is_station && let Some(name) = stop.name.as_option() {
+    let is_part_of_something = stop.location_type == LocationType::STATION_ENTRANCE
+        || stop.location_type == LocationType::BOARDING_AREA;
+    let is_named_place = stop.location_type == LocationType::STOP_AREA
+        || (stop.parent_index.is_none() && !is_part_of_something);
+    if is_named_place && let Some(name) = stop.name.as_option() {
         return Some(name);
     }
     let parent = stop.parent_index.as_option()?;

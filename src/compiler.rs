@@ -1,20 +1,27 @@
-use crate::{
-    GTFS_BIN_VERSION,
-    models::{Header, SliceBuilder},
-};
-use gtfs_structures::RawGtfs;
 use std::path::{Path, PathBuf};
 
+use services::BuiltServices;
+use source::Source;
+use table::Table;
 use transfers::BuiltTransfers;
 use trip_patterns::TripPatterns;
 use writer::BinaryWriter;
 
+use crate::{
+    GTFS_BIN_VERSION,
+    models::{self, Date, Header, Sentinel, SliceBuilder},
+};
+
 mod error;
+mod grid;
+mod records;
 mod routes;
 mod services;
 mod shapes;
+mod source;
 mod stop_times;
 mod stops;
+mod table;
 mod tables;
 mod transfers;
 mod trip_patterns;
@@ -22,6 +29,16 @@ mod trips;
 mod writer;
 
 pub use error::{Error, Result};
+pub use table::SkippedRow;
+
+/// What `Compiler::compile_with_report` has to say about a feed.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct CompileReport {
+    /// The first rows that were left out, which is only ever non-empty in lenient mode.
+    pub skipped_rows: Vec<SkippedRow>,
+    /// How many rows were left out in all.
+    pub skipped_total: usize,
+}
 
 /// Compiles a GTFS feed into the binary format `Consumer` reads.
 ///
@@ -29,43 +46,117 @@ pub use error::{Error, Result};
 #[derive(Debug, Default)]
 pub struct Compiler {
     path: PathBuf,
+    lenient: bool,
 }
 
 impl Compiler {
+    /// Creates a compiler for a feed that is a directory of text files or a zip archive of them.
     #[must_use]
     pub fn new(path: &Path) -> Self {
         Self {
             path: path.to_path_buf(),
+            lenient: false,
         }
+    }
+
+    /// Leaves out a row with a bad value instead of failing the whole feed.
+    ///
+    /// Use `compile_with_report` to see what was left out. A missing file or column, or a file that
+    /// isn't csv, is still an error.
+    #[must_use]
+    pub const fn lenient(mut self) -> Self {
+        self.lenient = true;
+        self
     }
 
     /// Reads the feed and returns the compiled file.
     ///
     /// # Errors
     ///
-    /// Returns an error if the feed can't be read or a required file is missing or malformed.
+    /// Returns an error if the feed can't be read, a required file or column is missing, or a value
+    /// is malformed. Rows that point at an unknown route, trip or stop are skipped.
     pub fn compile(&self) -> Result<Vec<u8>> {
-        let gtfs = RawGtfs::from_path(&self.path)?;
-        let mut slice_builder = SliceBuilder::new();
+        self.compile_with_report().map(|(bytes, _)| bytes)
+    }
 
-        let raw_stops = gtfs.stops?;
+    /// Like `compile`, and also says which rows were left out.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as `compile`.
+    pub fn compile_with_report(&self) -> Result<(Vec<u8>, CompileReport)> {
+        let mut source = Source::open(&self.path)?;
+        let mut report = CompileReport::default();
+        let mut slice_builder = SliceBuilder::new();
+        let lenient = self.lenient;
+
+        let raw_stops = read(
+            &mut source,
+            "stops.txt",
+            lenient,
+            &mut report,
+            records::read_stops,
+        )?
+        .ok_or(Error::MissingFile("stops.txt"))?;
         let (mut stops, stop_map) = stops::build_stops(&raw_stops, &mut slice_builder);
 
-        let raw_routes = gtfs.routes?;
+        let raw_routes = read(
+            &mut source,
+            "routes.txt",
+            lenient,
+            &mut report,
+            records::read_routes,
+        )?
+        .ok_or(Error::MissingFile("routes.txt"))?;
         let (mut routes, route_map) = routes::build_routes(&raw_routes, &mut slice_builder);
 
-        let raw_calendar = gtfs.calendar.unwrap_or(Ok(vec![]))?;
-        let raw_calendar_dates = gtfs.calendar_dates.unwrap_or(Ok(vec![]))?;
-        let (mut services, service_map, active_mask) =
-            services::build_services(&raw_calendar, &raw_calendar_dates);
+        let raw_calendar = read(
+            &mut source,
+            "calendar.txt",
+            lenient,
+            &mut report,
+            records::read_calendar,
+        )?;
+        let raw_calendar_dates = read(
+            &mut source,
+            "calendar_dates.txt",
+            lenient,
+            &mut report,
+            records::read_calendar_dates,
+        )?;
+        if raw_calendar.is_none() && raw_calendar_dates.is_none() {
+            return Err(Error::MissingFile("calendar.txt or calendar_dates.txt"));
+        }
+        let BuiltServices {
+            mut services,
+            id_map: service_map,
+            active_mask,
+            skipped,
+        } = services::build_services(
+            &raw_calendar.unwrap_or_default(),
+            &raw_calendar_dates.unwrap_or_default(),
+            lenient,
+        )?;
+        report.skipped_total += skipped.len();
+        report.skipped_rows.extend(skipped);
 
-        let (shapes, shape_map) = gtfs
-            .shapes
+        let (shapes, shape_map) = open_optional(&mut source, "shapes.txt", lenient)?
+            .map(|mut table| {
+                let built = shapes::build_shapes(&mut table);
+                absorb(&mut report, &mut table);
+                built
+            })
             .transpose()?
-            .map(|raw_shapes| shapes::build_shapes(&raw_shapes))
             .unwrap_or_default();
 
-        let raw_trips = gtfs.trips?;
+        let raw_trips = read(
+            &mut source,
+            "trips.txt",
+            lenient,
+            &mut report,
+            records::read_trips,
+        )?
+        .ok_or(Error::MissingFile("trips.txt"))?;
         let (mut trips, trip_map) = trips::build_trips(
             &raw_trips,
             &route_map,
@@ -74,27 +165,55 @@ impl Compiler {
             &mut slice_builder,
         );
 
-        let raw_stop_times = gtfs.stop_times?;
+        let mut stop_times_table = open(&mut source, "stop_times.txt", lenient)?;
         let stop_times = stop_times::build_stop_times(
-            &raw_stop_times,
+            &mut stop_times_table,
             &mut trips,
             &trip_map,
             &stop_map,
             &mut slice_builder,
-        );
+        )?;
+        absorb(&mut report, &mut stop_times_table);
+        drop(stop_times_table);
 
         // Built even when the feed has no transfers, because the consumer indexes the lookups by
         // stop.
-        let raw_transfers = gtfs.transfers.unwrap_or(Ok(vec![]))?;
+        let raw_transfers = read(
+            &mut source,
+            "transfers.txt",
+            lenient,
+            &mut report,
+            records::read_transfers,
+        )?
+        .unwrap_or_default();
         let BuiltTransfers {
             transfers,
             outbound: stop_to_transfers_out,
             inbound_indices: transfers_in_indices,
             inbound: stop_to_transfers_in,
-        } = transfers::build_transfers(&raw_transfers, &stop_map);
+        } = transfers::build_transfers(&raw_transfers, &stop_map, &trip_map, stops.len());
+
+        let timezone = read(
+            &mut source,
+            "agency.txt",
+            lenient,
+            &mut report,
+            records::read_timezone,
+        )?
+        .flatten()
+        .unwrap_or_default();
+        let validity = read(
+            &mut source,
+            "feed_info.txt",
+            lenient,
+            &mut report,
+            records::read_feed_validity,
+        )?
+        .unwrap_or_default();
 
         let (stop_to_trips, stop_to_trips_lookup) = stops::build_stop_to_trips(&stops, &stop_times);
         let (search_stops, search_to_stops) = stops::build_stop_search(&stops);
+        let (stop_grid, grid_stops) = grid::build_stop_grid(&stops);
         let (route_to_trips, route_to_trips_lookup) = routes::build_route_to_trips(&trips, &routes);
         let trip_patterns = trip_patterns::build_trip_patterns(&trips, &stops, &stop_times);
         let (stop_id_lookup, stop_ids) = stops::build_stop_ids(&mut stops, &stop_map);
@@ -114,7 +233,7 @@ impl Compiler {
 
         let mut writer = BinaryWriter::new().with_reserved(size_of::<Header>());
 
-        let header = Header {
+        let mut header = Header {
             magic: *b"GTFS",
             version: GTFS_BIN_VERSION,
             stops: writer.write_section(&stops),
@@ -160,9 +279,59 @@ impl Compiler {
             stop_to_transfers_in: writer.write_section(&stop_to_transfers_in),
 
             strings: writer.write_section(slice_builder.into_buffer().as_bytes()),
+
+            timezone: writer.write_section(timezone.as_bytes()),
+            stop_grid: writer.write_section(&stop_grid),
+            grid_stops: writer.write_section(&grid_stops),
+
+            feed_start_date: validity.start.unwrap_or(Date::NONE),
+            feed_end_date: validity.end.unwrap_or(Date::NONE),
+            file_length: 0,
+            checksum: 0,
         };
+        header.file_length = writer.as_bytes().len() as u64;
+        header.checksum = models::checksum(&writer.as_bytes()[size_of::<Header>()..]);
         writer.overwrite(0, bytemuck::bytes_of(&header));
 
-        Ok(writer.into_bytes())
+        Ok((writer.into_bytes(), report))
     }
+}
+
+/// Moves what a table skipped into the report.
+fn absorb(report: &mut CompileReport, table: &mut Table) {
+    let (rows, total) = table.take_skipped();
+    report.skipped_total += total;
+    report.skipped_rows.extend(rows);
+}
+
+/// Reads a file with `read_records` if the feed has it.
+fn read<T>(
+    source: &mut Source,
+    name: &'static str,
+    lenient: bool,
+    report: &mut CompileReport,
+    read_records: impl FnOnce(&mut Table) -> Result<T>,
+) -> Result<Option<T>> {
+    let Some(mut table) = open_optional(source, name, lenient)? else {
+        return Ok(None);
+    };
+    let records = read_records(&mut table)?;
+    absorb(report, &mut table);
+    Ok(Some(records))
+}
+
+/// Opens a file the feed must have.
+fn open<'a>(source: &'a mut Source, name: &'static str, lenient: bool) -> Result<Table<'a>> {
+    open_optional(source, name, lenient)?.ok_or(Error::MissingFile(name))
+}
+
+fn open_optional<'a>(
+    source: &'a mut Source,
+    name: &'static str,
+    lenient: bool,
+) -> Result<Option<Table<'a>>> {
+    source
+        .read(name)?
+        .map(|input| Table::new(name, input, lenient))
+        .transpose()
 }

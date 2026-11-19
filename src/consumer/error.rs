@@ -1,4 +1,4 @@
-use std::result;
+use std::{io, result};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -14,6 +14,19 @@ pub enum Error {
     UnsupportedVersion { expected: u32, actual: u32 },
     #[error("{section} section is not valid utf-8")]
     InvalidUtf8 { section: &'static str },
+    #[error("the operating system refused the advice")]
+    Advise(#[from] io::Error),
+    #[error("file is {actual} bytes but the header says {expected}")]
+    LengthMismatch { expected: u64, actual: u64 },
+    #[error("the checksum does not match, so the file is damaged")]
+    ChecksumMismatch,
+    #[error("{table} is not in the order its lookups need")]
+    InvalidOrder { table: &'static str },
+    #[error("{field} of {table} points outside what it refers to")]
+    InvalidReference {
+        table: &'static str,
+        field: &'static str,
+    },
     #[error("{lookup} does not have one entry per item of {table}")]
     MismatchedSections {
         table: &'static str,

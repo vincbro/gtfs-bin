@@ -1,5 +1,8 @@
-use crate::models::{Distance, Optional, StopIndex, StopTimeIndex, StringSlice, Time, TripIndex};
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::{
+    BoardingRule, Distance, Optional, StopIndex, StopTimeIndex, StringSlice, Time, TripIndex,
+};
 
 /// A single GTFS ``stop_time``.
 ///
@@ -27,4 +30,11 @@ pub struct StopTime {
 
     /// Actual distance traveled along the associated shape.
     pub distance_traveled: Optional<Distance>,
+
+    pub pickup: BoardingRule,
+
+    pub drop_off: BoardingRule,
+
+    /// Always zero. Makes the layout free of implicit padding, which `Pod` requires.
+    pub padding: [u8; 2],
 }

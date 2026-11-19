@@ -1,6 +1,12 @@
 #![allow(clippy::all)]
 #![allow(clippy::pedantic, clippy::restriction)]
 
+use std::{
+    io::Write,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use gtfs_bin::{
     compiler::Compiler,
     consumer::Consumer,
@@ -12,17 +18,16 @@ use gtfs_rt::{
     trip_update::{self, StopTimeUpdate},
 };
 use memmap2::Mmap;
-use std::{
-    io::Write,
-    path::PathBuf,
-    time::{SystemTime, UNIX_EPOCH},
-};
 use tempfile::NamedTempFile;
 
 /// Helper to compile the GTFS and map it into memory.
 /// Returns the ``NamedTempFile`` alongside the Mmap so the file isn't deleted
 /// until the test finishes.
 #[must_use]
+#[allow(
+    unsafe_code,
+    reason = "mapping a file is unsafe in memmap2, and this file is not modified"
+)]
 pub fn compile_test() -> (NamedTempFile, Mmap) {
     let mut input_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     input_path.push("tests/fixtures/gtfs");

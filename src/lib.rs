@@ -1,4 +1,5 @@
-pub const GTFS_BIN_VERSION: u32 = 4;
+/// The version of the file layout. It changes whenever a table or header field does.
+pub const GTFS_BIN_VERSION: u32 = 5;
 
 pub mod models;
 
