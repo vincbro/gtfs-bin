@@ -88,7 +88,8 @@ Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M sto
 - [x] Benchmarks (`cargo bench --bench network`)
 - [x] `examples/inspect.rs` and `examples/apply_feed.rs`
 - [x] CI on the `just` recipes: format, clippy, docs, tests, features, dependencies, and a long property run on `main` (`.github/workflows/ci.yml`, not run yet: it needs pushing)
-- [x] Lints and `clippy.toml` as the shared standards assume, with `unreachable_pub` on
+- [x] The same lint policy as `wend` (clippy `all`, `pedantic`, `cargo` and chosen `restriction` lints, rustc and rustdoc lints), `clippy.toml`, `rust-version`, a `dist` profile, `CONTRIBUTING.md`
+- [x] CI also checks the commit messages of a PR and builds on `rust-version`
 - [x] Saved failing cases are committed (`tests/*.proptest-regressions`)
 - [x] `.env` is ignored (it held API keys and wasn't)
 - [-] `cargo fuzz`: the proptest suites cover the parser, the consumer and the realtime builder, and found every bug so far. A coverage-guided fuzzer needs nightly and libFuzzer for little more. Revisit if a bug turns up that proptest missed
