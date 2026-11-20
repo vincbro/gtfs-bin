@@ -1,4 +1,4 @@
-# Contributing to gtfs-bin
+# Contributing to flatnet
 
 Thanks for taking an interest. For anything bigger than a bug fix, please open an issue first, so we can check it fits before you put time into it.
 
@@ -6,11 +6,11 @@ Thanks for taking an interest. For anything bigger than a bug fix, please open a
 
 You need [rustup](https://rustup.rs), [just](https://github.com/casey/just) and `protoc` (`brew install protobuf` or `apt install protobuf-compiler`), which the `gtfs-rt` dependency needs to build.
 
-The coding rules are in the `code-standards/` submodule: clone with `--recurse-submodules`, or run `git submodule update --init` in a clone you already have. Building gtfs-bin doesn't need it, reading and reviewing code does.
+The coding rules are in the `code-standards/` submodule: clone with `--recurse-submodules`, or run `git submodule update --init` in a clone you already have. Building flatnet doesn't need it, reading and reviewing code does.
 
 ```sh
 just toolchain          # installs the pinned Rust, nightly rustfmt, the cargo tools and the git hooks
-just compile FEED       # compiles a feed (a zip or a folder) into output.gtfs
+just compile FEED       # compiles a feed (a zip or a folder) into output.flnt
 just inspect FILE       # opens a compiled file, times it, and can query it
 just check              # what CI runs: fmt, clippy, docs, tests, features, dependencies
 just check-full         # the same, with the property tests run for 40000 cases
@@ -22,14 +22,14 @@ Run `just` on its own to list every recipe.
 
 A workspace of three crates under `crates/`, all versioned together:
 
-- `gtfs-bin-core`: what reads the file.
+- `flatnet-core`: what reads the file.
   - `src/models/`: the fixed-size types the compiled file is made of, and the sentinel and index types they use.
   - `src/consumer/`: maps the file, checks all of it (`validate`) and answers queries.
   - `src/rt/`: applies GTFS-realtime feeds on top of a consumer.
-  - `tests/`: integration and property tests, and `tests/common/` for what they share, including a generated feed. They compile feeds with `gtfs-bin-compiler`, a dev-dependency.
+  - `tests/`: integration and property tests, and `tests/common/` for what they share, including a generated feed. They compile feeds with `flatnet-compiler`, a dev-dependency.
   - `benches/`: the criterion benchmarks.
-- `gtfs-bin-compiler`: reads a feed (`source`, `table`, `records`) and writes the file (one builder per table, `writer`).
-- `gtfs-bin`: the command line tool and its examples.
+- `flatnet-compiler`: reads a feed (`source`, `table`, `records`) and writes the file (one builder per table, `writer`).
+- `flatnet`: the command line tool and its examples.
 - `docs/FORMAT.md`: the layout of the file. Change it in the same commit as the layout.
 
 ## Style
@@ -38,7 +38,7 @@ The coding rules are shared by every project through the `code-standards/` submo
 
 [code-standards/rust/PERFORMANCE.md](code-standards/rust/PERFORMANCE.md) is the same for the code a router runs on every query: what may allocate, what is borrowed and what is measured, each rule with an id (`P-…`) and a reason.
 
-[STANDARDS.local.md](STANDARDS.local.md) holds what is specific to gtfs-bin: the gate, the hot paths, the performance problems that are measured and not yet fixed, and the overrides of the shared rules.
+[STANDARDS.local.md](STANDARDS.local.md) holds what is specific to flatnet: the gate, the hot paths, the performance problems that are measured and not yet fixed, and the overrides of the shared rules.
 
 To check a change against the rules tools can't enforce, ask your coding agent to run the `review` skill (`.claude/skills/review/SKILL.md`). It runs `just check`, then checks the code against both rule files, and lists what it found without changing anything. The `commit` skill does the same before it commits. Any agent that reads [AGENTS.md](AGENTS.md) finds them.
 
@@ -49,13 +49,13 @@ To check a change against the rules tools can't enforce, ask your coding agent t
 ## Tests
 
 - **Unit tests** sit at the bottom of the file they test, in `mod tests`, named for the behavior.
-- **Integration tests** in `crates/gtfs-bin-core/tests/` drive the public API: `parser.rs` reads feeds, `features.rs` the file's tables and queries, `rt_full.rs` realtime.
-- **Property tests** (`proptest`) damage files, feeds and realtime messages and check that nothing panics and that what the compiler writes the consumer reads: `fuzz.rs`, `fuzz_compiler.rs`, `fuzz_rt.rs`. A saved failing case goes in the `*.proptest-regressions` file beside the test, and is committed. Before you trust a new check, break the code on purpose once and see the test fail. `just test-full` runs them for 40000 cases.
+- **Integration tests** in `crates/flatnet-core/tests/` drive the public API: `parser.rs` reads feeds, `features.rs` the file's tables and queries, `rt_full.rs` realtime.
+- **Property tests** (`proptest`) damage files, feeds and realtime messages and check that nothing panics and that what the compiler writes the consumer reads: `fuzz.rs`, `fuzz_compiler.rs`, `fuzz_rt.rs`. `fuzz_shapes.rs` compiles random networks and checks that each trip's shapes join end to end, and `fuzz_metadata.rs` that any JSON the compiler is given comes back merged or is an error. A saved failing case goes in the `*.proptest-regressions` file beside the test, and is committed. Before you trust a new check, break the code on purpose once and see the test fail. `just test-full` runs them for 40000 cases.
 - **Real data** is tried with `just real-data FOLDER`, where the folder holds `static.zip` and any realtime `*.pb` files. The test does nothing without it, so nothing real is committed.
 
 ## Benchmarks
 
-`just bench` runs the benchmarks with [criterion](https://github.com/criterion-rs/criterion.rs). They live in `crates/gtfs-bin-core/benches/transit.rs` and time compiling, opening a file with and without its checks, scanning every stop time, looking a trip up by id, finding stops near a position, searching by name, and applying a realtime feed. Each is a group with one entry per size, over generated networks of about 12 thousand, 120 thousand and 1.2 million stop times. criterion compares each run with the previous one on the same machine. To compare against a fixed point, save a baseline:
+`just bench` runs the benchmarks with [criterion](https://github.com/criterion-rs/criterion.rs). They live in `crates/flatnet-core/benches/transit.rs` and time compiling, opening a file with and without its checks, scanning every stop time, looking a trip up by id, finding stops near a position, searching by name, and applying a realtime feed. Each is a group with one entry per size, over generated networks of about 12 thousand, 120 thousand and 1.2 million stop times. criterion compares each run with the previous one on the same machine. To compare against a fixed point, save a baseline:
 
 ```sh
 just bench --save-baseline before
@@ -114,7 +114,7 @@ return an error from `Consumer::new` instead.
 
 ## Changing the file format
 
-The compiled file has a version (`GTFS_BIN_VERSION`). Any change to a table, a header field or what a field means bumps it, updates `docs/FORMAT.md`, adds a validator in `crates/gtfs-bin-core/src/consumer/validate.rs`, and extends the property tests so that removing the validator makes one fail.
+The compiled file has a version (`FLATNET_VERSION`). Any change to a table, a header field or what a field means bumps it, updates `docs/FORMAT.md`, adds a validator in `crates/flatnet-core/src/consumer/validate.rs`, and extends the property tests so that removing the validator makes one fail.
 
 ## Releases
 
@@ -122,4 +122,4 @@ Change the version with `just bump <version>` (`cargo set-version --workspace`),
 
 ## License
 
-Unless you say otherwise, any contribution you submit for inclusion in gtfs-bin is dual-licensed as MIT OR Apache-2.0, as described in the README, with no additional terms or conditions.
+Unless you say otherwise, any contribution you submit for inclusion in flatnet is dual-licensed as MIT OR Apache-2.0, as described in the README, with no additional terms or conditions.

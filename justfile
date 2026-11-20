@@ -8,25 +8,34 @@ fmt_toolchain := "nightly-2026-10-13"
 default:
     @just --list
 
-# Compile a feed: just compile path/to/gtfs.zip [output.gtfs]
-compile feed output="output.gtfs":
-    cargo run --release -p gtfs-bin -- -i {{ quote(feed) }} -o {{ quote(output) }}
+# Compile a feed: just compile path/to/gtfs.zip [output.flnt]
+compile feed output="output.flnt":
+    cargo run --release -p flatnet-cli -- -i {{ quote(feed) }} -o {{ quote(output) }}
 
-# Open a compiled file and time it, optionally with a query: just inspect network.gtfs [near LAT LON METERS | search TEXT]
+# Open a compiled file and time it, optionally with a query: just inspect network.flnt [near LAT LON METERS | search TEXT]
 inspect file *query:
-    cargo run --release -p gtfs-bin --example inspect -- {{ quote(file) }} {{ query }}
+    cargo run --release -p flatnet-cli --example inspect -- {{ quote(file) }} {{ query }}
 
-# Apply realtime files to a compiled file and report what matched: just apply network.gtfs TripUpdates.pb [more.pb ...]
+# Open a compiled file in a window, to walk its tables and see it on a map. With no file it asks
+# for one in the system's dialog: just view [network.flnt]
+view *file:
+    cargo run --release -p flatnet-viewer -- {{ file }}
+
+# Compile the dummy feed in data/dummy into data/dummy.flnt, a small network to try the viewer on
+dummy:
+    cargo run --release -p flatnet-cli -- -i data/dummy -o data/dummy.flnt
+
+# Apply realtime files to a compiled file and report what matched: just apply network.flnt TripUpdates.pb [more.pb ...]
 apply file *feeds:
-    cargo run --release -p gtfs-bin --example apply_feed -- {{ quote(file) }} {{ feeds }}
+    cargo run --release -p flatnet-cli --example apply_feed -- {{ quote(file) }} {{ feeds }}
 
 # Build everything
 build:
     cargo build --workspace --all-targets --all-features
 
-# Build the binary we ship (fat LTO, stripped) into target/dist/gtfs-bin
+# Build the binary we ship (fat LTO, stripped) into target/dist/flatnet
 dist:
-    cargo build --profile dist -p gtfs-bin --locked
+    cargo build --profile dist -p flatnet-cli --locked
 
 # Format every Rust and TOML file, and sort Cargo.toml dependency tables
 fmt:
@@ -72,17 +81,17 @@ test-full:
 # Run the tests against a real feed: a folder with static.zip and any number of .pb realtime
 # files: just real-data path/to/folder
 real-data folder:
-    GTFS_BIN_REAL_FEED={{ quote(folder) }} cargo test --release -p gtfs-bin-core --all-features --test scale -- --nocapture
+    FLATNET_REAL_FEED={{ quote(folder) }} cargo test --release -p flatnet-core --all-features --test scale -- --nocapture
 
 # Build each crate with each feature on its own, as a user of one of them would
 features:
-    cargo build -p gtfs-bin-compiler --locked
-    for features in "" consumer consumer,rt; do cargo build -p gtfs-bin-core --no-default-features --features "$features" --locked || exit 1; done
+    cargo build -p flatnet-compiler --locked
+    for features in "" consumer consumer,rt; do cargo build -p flatnet-core --no-default-features --features "$features" --locked || exit 1; done
 
 # Time compiling, opening and querying a generated network of a million stop times.
 # Extra args go to criterion: just bench [args]
 bench *args:
-    cargo bench -p gtfs-bin-core --bench transit -- {{ args }}
+    cargo bench -p flatnet-core --bench transit -- {{ args }}
 
 # Fail on unused dependencies, or on any cargo-deny check in deny.toml:
 # advisories, licenses, sources
@@ -93,7 +102,7 @@ deps:
 # Build the docs, private items included, and open them
 docs:
     cargo doc --workspace --all-features --no-deps --document-private-items
-    open target/doc/gtfs_bin_core/index.html
+    open target/doc/flatnet_core/index.html
 
 # Set the version of every crate: just bump 0.2.0
 bump version:
@@ -135,8 +144,8 @@ commits base="origin/main":
     set -euo pipefail
     status=0
     for commit in $(git rev-list --no-merges {{ quote(base) }}..HEAD); do
-        git log -1 --format=%B "$commit" > "${TMPDIR:-/tmp}/gtfs-bin-commit-msg"
-        just commit-msg "${TMPDIR:-/tmp}/gtfs-bin-commit-msg" || { echo "  in $(git log -1 --format=%h "$commit")" >&2; status=1; }
+        git log -1 --format=%B "$commit" > "${TMPDIR:-/tmp}/flatnet-commit-msg"
+        just commit-msg "${TMPDIR:-/tmp}/flatnet-commit-msg" || { echo "  in $(git log -1 --format=%h "$commit")" >&2; status=1; }
     done
     exit $status
 

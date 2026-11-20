@@ -1,0 +1,14 @@
+#![allow(clippy::all)]
+#![allow(clippy::pedantic, clippy::restriction)]
+
+use flatnet_core::models::{BitMask, RouteType};
+
+#[test]
+fn route_types() {
+    let route_type = RouteType::TRAM.join(RouteType::BUS).join(RouteType::SUBWAY);
+    assert!(route_type.contains(RouteType::TRAM));
+    assert!(route_type.contains(RouteType::BUS));
+    assert!(route_type.contains(RouteType::SUBWAY));
+    assert!(!route_type.contains(RouteType::RAIL));
+    assert!(!route_type.contains(RouteType::TAXI));
+}

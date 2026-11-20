@@ -2,17 +2,17 @@
 
 A compiled file is a header followed by sections. Everything is little-endian on the machine that wrote it: the file is meant to be mapped, so a file moves between machines of the same byte order only.
 
-Version: `GTFS_BIN_VERSION` in `crates/gtfs-bin-core/src/lib.rs`, currently 5. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
+Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 8. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
 
 ## Header
 
-`Header` in `crates/gtfs-bin-core/src/models/header.rs`, `repr(C)`:
+`Header` in `crates/flatnet-core/src/models/header.rs`, `repr(C)`:
 
 | Field | Size | Meaning |
 |---|---|---|
-| `magic` | 4 | The bytes `GTFS` |
+| `magic` | 4 | The bytes `FLNT` |
 | `version` | 4 | The format version |
-| 35 `Section` fields | 16 each | `offset` and `count`, both `u64`, of each section below |
+| 39 `Section` fields | 16 each | `offset` and `count`, both `u64`, of each section below |
 | `feed_start_date`, `feed_end_date` | 4 each | `Date`, or `u32::MAX` when `feed_info.txt` has none |
 | `file_length` | 8 | The length of the whole file, so a truncated one is noticed on open |
 | `checksum` | 8 | `models::checksum` of every byte after the header. `Consumer::verify_checksum` checks it |
@@ -27,7 +27,9 @@ Every table is an array of fixed size `repr(C)` structs, with no pointers: they 
 |---|---|---|
 | `stops`, `routes`, `trips`, `services` | `Stop`, `Route`, `Trip`, `Service` | The GTFS entities, in file order. An item's `index` field is its position |
 | `stop_times` | `StopTime` | Sorted by trip, then by sequence. Each trip points at its run |
-| `shapes` | `Shape` | The points of every shape, back to back |
+| `shapes` | `Shape` | The path between two stops: a slice of `shape_points` and its length in meters. Each one is stored once, however many trips use it |
+| `shape_points` | `Coordinate` | The points of every `Shape`, back to back |
+| `trip_shapes` | `ShapeIndex` | For each trip, the `Shape` of every pair of stops it calls at in a row, back to back. `Trip.shape` is the slice of it for one trip |
 | `*_ids` | bytes | The GTFS ids as UTF-8, laid out in index order |
 | `*_id_lookup` | index | Indices sorted by id, for binary search |
 | `strings` | bytes | Every name, headsign and description as UTF-8, each stored once |
@@ -38,6 +40,14 @@ Every table is an array of fixed size `repr(C)` structs, with no pointers: they 
 | `search_stops`, `search_to_stops` | `SearchStop` | Named places and the stops under each |
 | `stop_grid`, `grid_stops` | `StopCell` | A grid of 0.005 degree cells, sorted, for finding stops near a position |
 | `timezone` | bytes | The agency's time zone name, such as `Europe/Stockholm`, or empty |
+| `metadata` | `Metadata` | Exactly one item, see below |
+| `metadata_json` | bytes | A JSON object as UTF-8 with what the compiler was given besides the fixed fields, or empty |
+
+## Metadata
+
+The one `Metadata` item is `repr(C)`, 88 bytes: `compiled_at` (`u64`, seconds since the unix epoch, 0 if the compiler was not told), `active_from` and `active_until` (`Date`, the first and last day any service runs, both `NONE` for a feed with no services), then nine `Optional<StringSlice>` into `strings`: `compiler_version`, `source`, `publisher_name`, `publisher_url`, `language`, `feed_version`, `contact_email`, `agency_name` and `agency_url`.
+
+The active range is what `Consumer::is_stale(today)` compares with, so a launch can check a file without reading a table. The compiler writes the JSON compact, with its keys sorted, so the same input gives the same bytes. The compiler never reads the clock: `compiled_at` and `source` are only set when the caller passes them, so the same feed gives the same bytes whether it is a folder or a zip.
 
 ## Conventions
 
@@ -49,6 +59,6 @@ Every table is an array of fixed size `repr(C)` structs, with no pointers: they 
 
 ## What `Consumer::new` guarantees
 
-It checks the header, the length, that every section is in bounds and aligned, that text is UTF-8 and slices end on characters, that every index and slice points inside the table it names, that each item's `index` is its position, that the id lookups are strictly sorted, and that each trip's stop times are its own and in sequence order. The property tests in `crates/gtfs-bin-core/tests/fuzz.rs` damage files in all of these ways, and fail if any one of the checks is removed.
+It checks the header, the length, that every section is in bounds and aligned, that text is UTF-8 and slices end on characters, that every index and slice points inside the table it names, that each item's `index` is its position, that the id lookups are strictly sorted, and that each trip's stop times are its own and in sequence order, that each shape has points and a length, and that a trip with shapes has one fewer than it has stop times. For the metadata: that it holds exactly one item, that its text slices lie inside `strings`, that the JSON is UTF-8, and that the active range has both ends or neither and doesn't run backwards. The property tests in `crates/flatnet-core/tests/fuzz.rs` damage files in the ways of the tables, and `tests/shapes.rs` and `tests/metadata.rs` damage a file once for each check of the shapes and the metadata. Each fails if its check is removed.
 
 `Consumer::new_unvalidated` skips the table checks. It never causes undefined behavior, but a damaged file can make an accessor panic.

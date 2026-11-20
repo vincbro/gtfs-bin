@@ -3,7 +3,7 @@
 !/tests/fixtures/gtfs.zip
 
 *.zip
-*.gtfs
+*.flnt
 *.pb
 
 # Local secrets, such as the Trafiklab keys.

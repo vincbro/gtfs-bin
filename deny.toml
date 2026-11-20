@@ -4,6 +4,9 @@
 
 [graph]
 all-features = true
+# The viewer is a development tool with `publish = false`. Its GUI tree brings advisories and
+# licenses the library crates don't have, so it is left out of the check.
+exclude = ["flatnet-viewer"]
 
 [advisories]
 # Vulnerable, unmaintained, unsound or yanked crates fail. To accept one, add
@@ -11,7 +14,7 @@ all-features = true
 ignore = []
 
 [licenses]
-# Permissive licenses only, so gtfs-bin stays shippable as MIT OR Apache-2.0.
+# Permissive licenses only, so flatnet stays shippable as MIT OR Apache-2.0.
 allow = [
   "Apache-2.0",
   "Apache-2.0 WITH LLVM-exception",
@@ -38,7 +41,7 @@ allow-wildcard-paths = true
 # being shown, and they live in this package.
 [[bans.deny]]
 crate = "anyhow"
-wrappers = ["gtfs-bin", "prost-derive"]
+wrappers = ["flatnet-cli", "flatnet-viewer", "prost-derive"]
 reason = "S-ERRORS: anyhow is only for the binary"
 
 [sources]

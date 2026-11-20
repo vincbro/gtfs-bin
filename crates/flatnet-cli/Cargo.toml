@@ -1,0 +1,27 @@
+[package]
+name = "flatnet-cli"
+description = "Pre compute GTFS transit networks into memory mapped binary files. Features zero copy deserialization, RAPTOR ready structures, and instant server startup."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords = ["gtfs", "transit", "mmap", "zero-copy", "raptor"]
+categories = ["data-structures", "parsing", "caching"]
+
+[[bin]]
+name = "flatnet"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+flatnet-compiler.workspace = true
+flatnet-core = { workspace = true, features = ["consumer", "rt"] }
+memmap2.workspace = true
+spinners.workspace = true
+
+[lints]
+workspace = true
