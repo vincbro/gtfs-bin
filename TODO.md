@@ -76,7 +76,8 @@ The direction, decided 2026-11-20: flatnet becomes its own transit network forma
 - [x] Stops with no parent station are searchable (they weren't)
 - [x] Property tests: arbitrary bytes, truncation, damage aimed at tables, swapped words. Each validator shown to matter
 - [x] Time arithmetic never panics
-- [ ] A spatial query for stops near a line or inside a box
+- [x] `Consumer::stops_in_box(south, west, north, east, found)` fills a buffer with the stops inside a box, in stop order, through the grid, and agrees with a scan of every stop (property test). A box over the 180th meridian is two searches
+- [ ] A spatial query for stops near a line
 - [ ] Search by stop code and by route name, and typo-tolerant search
 - [ ] `search_by_name` allocates per name. Index folded names at compile time if it is ever called in a loop
 - [ ] Decide the future of `Slice` and `Index` as 23 macro-made types. Kept for type safety. Revisit when the API next breaks

@@ -17,7 +17,7 @@ All through `just`, which `just toolchain` sets up (the pinned Rust, the pinned 
 The code a router runs per query, by name. `PERFORMANCE.md` rules about hot paths apply to these and what they call.
 
 - The `Consumer` accessors in `crates/flatnet-core/src/consumer/` that return slices (`timings_by_trip`, `pattern_stops_by_trip_pattern`, `trip_patterns_by_stop`, `footpaths_by_place`, `footpaths_by_stop`, `stops_by_place`, `place_of`, `trips_by_route`, `trips_by_route_start`, `trip_start`, `outbound_transfers_by_stop`, `trip_patterns_by_stop`) and the `*_by_id` lookups.
-- `Consumer::stops_near`, which fills a buffer it is given.
+- `Consumer::stops_near` and `Consumer::stops_in_box`, which fill a buffer they are given.
 - `Realtime` getters and `arrival_time`/`departure_time`, which a router calls per stop time.
 
 `RealtimeBuilder::apply` runs once per feed, a few seconds apart, so it is not a hot path.

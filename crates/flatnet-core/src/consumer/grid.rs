@@ -57,6 +57,59 @@ impl Consumer<'_> {
         });
     }
 
+    /// Replaces the contents of `found` with the stops inside a box, in stop order. The edges are
+    /// inside the box.
+    ///
+    /// Stops with no position are never found. A box with a bound that isn't a finite number, or
+    /// with its south edge north of its north edge or its west edge east of its east edge, finds
+    /// nothing, so a box over the 180th meridian is two searches.
+    pub fn stops_in_box(
+        &self,
+        south: f64,
+        west: f64,
+        north: f64,
+        east: f64,
+        found: &mut Vec<StopIndex>,
+    ) {
+        found.clear();
+        let is_box = [south, west, north, east]
+            .iter()
+            .all(|bound| bound.is_finite())
+            && south <= north
+            && west <= east;
+        if !is_box {
+            return;
+        }
+
+        let (first_row, first_column) = StopCell::cell_of(south, west);
+        let (last_row, last_column) = StopCell::cell_of(north, east);
+        for row in first_row..=last_row {
+            let start = self.stop_grid.partition_point(|cell| {
+                (cell.latitude_cell, cell.longitude_cell) < (row, first_column)
+            });
+            let cells = self.stop_grid[start..]
+                .iter()
+                .take_while(|cell| cell.latitude_cell == row && cell.longitude_cell <= last_column);
+            for cell in cells {
+                self.collect_in_box([south, west, north, east], cell, found);
+            }
+        }
+        found.sort_unstable();
+    }
+
+    fn collect_in_box(&self, bounds: [f64; 4], cell: &StopCell, found: &mut Vec<StopIndex>) {
+        let [south, west, north, east] = bounds;
+        for &stop_index in &self.grid_stops[cell.stops.range()] {
+            let Some(position) = self.stop(stop_index).coordinate.as_option() else {
+                continue;
+            };
+            let (latitude, longitude) = position.to_f64_pair();
+            if (south..=north).contains(&latitude) && (west..=east).contains(&longitude) {
+                found.push(stop_index);
+            }
+        }
+    }
+
     #[allow(
         clippy::cast_possible_truncation,
         reason = "meters in an f32 is exact enough to sort and show"

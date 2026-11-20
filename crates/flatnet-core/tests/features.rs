@@ -439,6 +439,73 @@ proptest! {
 }
 
 #[test]
+fn a_box_finds_the_stops_inside_it() {
+    with_consumer(&common::compile_fixture(), |consumer| {
+        let mut found = Vec::new();
+
+        // stop6 is at 48.8566, 2.3522 and stop7 is 73 meters from it.
+        consumer.stops_in_box(48.8560, 2.3515, 48.8570, 2.3530, &mut found);
+
+        let names: Vec<&str> = found
+            .iter()
+            .map(|&stop| consumer.stop_id(consumer.stop(stop).id))
+            .collect();
+        assert!(names.contains(&"stop6"), "the station is inside: {names:?}");
+    });
+}
+
+#[test]
+fn nothing_is_found_in_a_bad_box() {
+    with_consumer(&common::compile_fixture(), |consumer| {
+        let mut found = vec![StopIndex(0)];
+
+        consumer.stops_in_box(f64::NAN, 2.0, 49.0, 3.0, &mut found);
+        assert!(
+            found.is_empty(),
+            "NaN is not a bound, and the old result is cleared"
+        );
+
+        consumer.stops_in_box(49.0, 2.0, 48.0, 3.0, &mut found);
+        assert!(found.is_empty(), "south of north is required");
+
+        consumer.stops_in_box(48.0, 3.0, 49.0, 2.0, &mut found);
+        assert!(found.is_empty(), "west of east is required");
+    });
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    /// The grid must give exactly what looking at every stop gives.
+    #[test]
+    fn a_box_agrees_with_a_scan_of_every_stop(
+        south in 48.70_f64..48.95,
+        west in 2.25_f64..2.55,
+        height in 0.0_f64..0.2,
+        width in 0.0_f64..0.3,
+    ) {
+        let bytes = common::compile_fixture();
+        let (_file, mmap) = common::map(&bytes).expect("the fixture maps");
+        let consumer = Consumer::new(&mmap).expect("the fixture is valid");
+        let (north, east) = (south + height, west + width);
+
+        let mut found = Vec::new();
+        consumer.stops_in_box(south, west, north, east, &mut found);
+
+        let expected: Vec<_> = consumer
+            .stops()
+            .iter()
+            .filter_map(|stop| {
+                let (latitude, longitude) = stop.coordinate.as_option()?.to_f64_pair();
+                ((south..=north).contains(&latitude) && (west..=east).contains(&longitude))
+                    .then_some(stop.index)
+            })
+            .collect();
+        prop_assert_eq!(found, expected);
+    }
+}
+
+#[test]
 fn names_are_found_ignoring_case_and_accents() {
     let stops = "stop_id,stop_name,stop_lat,stop_lon\nA,Örebro Central,59.3,18.0\nB,Central Station,59.4,18.1\nC,Västerås,59.5,18.2\nD,Södra Central,59.6,18.3\n";
     let trips = "route_id,service_id,trip_id\nR,S,T\n";
