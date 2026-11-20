@@ -1,0 +1,10 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station
+CEN,Centralen,59.3303,18.0586,,
+HOT,Hötorget,59.3355,18.0630,,
+RAD,Rådmansgatan,59.3402,18.0590,,
+ODE,Odenplan,59.3430,18.0460,,
+SVA,Sveavägen,59.3380,18.0610,,
+KUN,Kungsholmen,59.3330,18.0350,,
+FLE,Fleminggatan,59.3350,18.0430,,
+SOF,Söder,59.3170,18.0640,,
+ISL,Islands torg,59.3200,18.0400,,

@@ -1,0 +1,4 @@
+route_id,agency_id,route_short_name,route_long_name,route_type
+R1,DUM,1,Centralen - Odenplan,3
+R2,DUM,2,Centralen - Kungsholmen,3
+R3,DUM,3,Söder - Islands torg,3

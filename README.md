@@ -1,12 +1,12 @@
-# 📦 gtfs-bin
+# 📦 flatnet
 
-[![Crates.io](https://img.shields.io/crates/v/gtfs-bin.svg)](https://crates.io/crates/gtfs-bin)
-[![Documentation](https://docs.rs/gtfs-bin/badge.svg)](https://docs.rs/gtfs-bin)
-[![License](https://img.shields.io/crates/l/gtfs-bin.svg)](LICENSE-MIT)
+[![Crates.io](https://img.shields.io/crates/v/flatnet.svg)](https://crates.io/crates/flatnet)
+[![Documentation](https://docs.rs/flatnet/badge.svg)](https://docs.rs/flatnet)
+[![License](https://img.shields.io/crates/l/flatnet.svg)](LICENSE-MIT)
 
 A GTFS feed compiled into one flat file you can memory-map.
 
-*gtfs-bin* is a tool and library. It parses a GTFS feed once and writes a single `.gtfs` file, and your application reads that file in place, with nothing to parse at startup. It is the data layer under [blaise](https://github.com/vincbro/blaise), a transit router, and it suits any fast transit application: routing engines, spatial analytics, stop search.
+*flatnet* is a tool and library. It parses a GTFS feed once and writes a single `.flatnet` file, and your application reads that file in place, with nothing to parse at startup. It is the data layer under [blaise](https://github.com/vincbro/blaise), a transit router, and it suits any fast transit application: routing engines, spatial analytics, stop search.
 
 - No parsing at startup. The network opens in the time the OS takes to set up a memory map.
 - Safe on any file. A corrupt or hostile file is an error, never undefined behavior.
@@ -14,7 +14,7 @@ A GTFS feed compiled into one flat file you can memory-map.
 
 ## How it works
 
-Working with gtfs-bin is split into two phases, **compilation** and **consumption**. The heavy lifting happens once, and the result is what you distribute.
+Working with flatnet is split into two phases, **compilation** and **consumption**. The heavy lifting happens once, and the result is what you distribute.
 
 - **Compile.** The `Compiler` reads a feed, a directory or a `.zip`, with its own parser. String ids become integer indices, so a trip points straight at its route. Text is deduplicated into one contiguous block. The flat arrays are written to one file, and the same feed always compiles to the same bytes.
 - **Consume.** The `Consumer` maps the file with `mmap` and reads it where it lies. Data is paged into RAM by the OS only when you touch it, and because the tables are flat and pointer-free, walking from a route to its trips is friendly to the CPU cache.
@@ -26,9 +26,9 @@ The layout of the file is in [docs/FORMAT.md](docs/FORMAT.md).
 ## Installation
 
 ```bash
-cargo install gtfs-bin       # the command line tool
-cargo add gtfs-bin-compiler  # write a file from your own code
-cargo add gtfs-bin-core      # read one
+cargo install flatnet       # the command line tool
+cargo add flatnet-compiler  # write a file from your own code
+cargo add flatnet-core      # read one
 cargo add memmap2
 ```
 
@@ -36,32 +36,34 @@ cargo add memmap2
 
 | Crate | What it is |
 |---|---|
-| `gtfs-bin` | the `gtfs-bin` command, which compiles a feed |
-| `gtfs-bin-compiler` | `Compiler`, which reads a feed and writes the binary file |
-| `gtfs-bin-core` | the types of the file, `Consumer`, which maps and reads it, and GTFS-realtime on top of it |
+| `flatnet` | the `flatnet` command, which compiles a feed |
+| `flatnet-compiler` | `Compiler`, which reads a feed and writes the binary file |
+| `flatnet-core` | the types of the file, `Consumer`, which maps and reads it, and GTFS-realtime on top of it |
 
-`gtfs-bin-core` has two features, both on by default: `consumer` (needs `memmap2`) and `rt` (needs `consumer`). A library that only reads files can turn `rt` off with `default-features = false, features = ["consumer"]`.
+`flatnet-core` has two features, both on by default: `consumer` (needs `memmap2`) and `rt` (needs `consumer`). A library that only reads files can turn `rt` off with `default-features = false, features = ["consumer"]`.
 
 ## Quick start
 
 Compile your feed once, with the command line:
 
 ```bash
-gtfs-bin -i path/to/gtfs.zip -o network.gtfs
+flatnet -i path/to/gtfs.zip -o network.flatnet
 ```
+
+Add your own metadata to the file with `--meta key=value` (repeat it) or `--meta-json file.json`.
 
 Or from Rust, if you are building a data pipeline:
 
 ```rust
 use std::{fs, path::Path};
 
-use gtfs_bin_compiler::Compiler;
+use flatnet_compiler::Compiler;
 
 fn main() {
     // Read from a zip file or an extracted directory.
     let compiler = Compiler::new(Path::new("path/to/gtfs.zip"));
     let bytes = compiler.compile().expect("Failed to compile GTFS");
-    fs::write("network.gtfs", &bytes).unwrap();
+    fs::write("network.flatnet", &bytes).unwrap();
 }
 ```
 
@@ -70,11 +72,11 @@ Then map the file and read it:
 ```rust
 use std::fs::File;
 
-use gtfs_bin_core::consumer::Consumer;
+use flatnet_core::consumer::Consumer;
 use memmap2::Mmap;
 
 fn main() {
-    let file = File::open("network.gtfs").expect("Failed to open binary");
+    let file = File::open("network.flatnet").expect("Failed to open binary");
     // SAFETY: the file is only read, and nothing modifies it while it is mapped.
     let mmap = unsafe { Mmap::map(&file).expect("Failed to map memory") };
     let consumer = Consumer::new(&mmap).expect("Failed to open the network");
@@ -107,7 +109,16 @@ consumer.search_by_name("centralen", &mut found);
 
 // Check the file is byte for byte what the compiler wrote (reads all of it).
 consumer.verify_checksum()?;
+
+// Is the file out of date? Two integer comparisons, so ask on every launch.
+if consumer.is_stale(today) {
+    eprintln!("no service runs after {:?}", consumer.service_range());
+}
 ```
+
+### Metadata
+
+The file says where it came from. `consumer.metadata()` holds a fixed set of fields: when it was compiled, the first and last day any service runs, the compiler version, the name of the source, and the publisher, language, version and contact from `feed_info.txt` and the agency's name and URL. `consumer.metadata_json()` gives back, as text, whatever JSON object the compiler was given with `--meta` or `--meta-json`, or `Compiler::metadata_json` and `metadata_entry`. The compiler reads neither the clock nor the path, so the compile time and the source name are only recorded when they are passed to `Compiler::compiled_at` and `Compiler::source` (the command does). That keeps one feed giving one file.
 
 ### Compiling a messy feed
 
@@ -117,10 +128,10 @@ The parser reads byte order marks, Windows line endings, quoted fields and colum
 
 ### Realtime
 
-With the `rt` feature of `gtfs-bin-core`, apply GTFS-RT `FeedMessage` updates on top of a consumer. A `Realtime` has one slot per stop time and per trip, so reading it is an array index.
+With the `rt` feature of `flatnet-core`, apply GTFS-RT `FeedMessage` updates on top of a consumer. A `Realtime` has one slot per stop time and per trip, so reading it is an array index.
 
 ```rust
-use gtfs_bin_core::{models::Date, rt::{Realtime, RealtimeBuilder}};
+use flatnet_core::{models::Date, rt::{Realtime, RealtimeBuilder}};
 
 // `feed_messages` is an Iterator of parsed gtfs_rt::FeedMessage.
 let builder = RealtimeBuilder::new(&consumer)
@@ -161,7 +172,7 @@ What is not: shapes and stops sent in a feed, trip modifications, and replaced o
 
 - Stops, including stations and entrances
 - Routes, trips and stop times
-- Shapes
+- Shapes, cut at the stops so that trips over the same road share the pieces
 - Services, from calendar and calendar dates
 - Transfers, including trip-specific ones
 - Trip patterns, the grouped stop sequences
@@ -201,7 +212,7 @@ Run `just` on its own to list every recipe, including `compile`, `inspect`, `app
 - [bytemuck](https://docs.rs/bytemuck/latest/bytemuck/)
 - [memmap2](https://docs.rs/memmap2/latest/memmap2/)
 - [mmap](https://en.wikipedia.org/wiki/Mmap)
-- [blaise](https://github.com/vincbro/blaise), a transit router built on top of gtfs-bin
+- [blaise](https://github.com/vincbro/blaise), a transit router built on top of flatnet
 
 ## License
 

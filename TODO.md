@@ -4,7 +4,37 @@ What is done, what is open, and what is deliberately left out. Update it when th
 
 Status: `[x]` done and tested, `[ ]` open, `[-]` decided against, with the reason.
 
-Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M stop times): compile 3.0 s and 480 MB peak, output 159 MB, open and validate 39 ms, checksum 34 ms, 456 of 457 realtime trip updates matched. Benchmarks on a generated network of 1M stop times are in `crates/gtfs-bin-core/benches/transit.rs`.
+Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M stop times): compile 3.8 s and 480 MB peak (not remeasured since shapes were cut at stops), output 132 MB, open and validate 39 ms, checksum 34 ms, 456 of 457 realtime trip updates matched. Benchmarks on a generated network of 1M stop times are in `crates/flatnet-core/benches/transit.rs`.
+
+## Own schema and sources
+
+The direction, decided 2026-11-20: flatnet becomes its own transit network format, built to make a network easy and fast to work with at any size. It does not aim to cover GTFS, GTFS-RT, NeTEx or SIRI. Each source is a reader behind a cargo feature, and a field is in the format because a consumer needs it, not because a source has it. Reasoning and the comparison of the four formats: `docs/OWN-SCHEMA.md`.
+
+- [ ] Go through every field of every table and write down what reads it and what it costs. Drop what nothing reads, add what a consumer needs (`blaise` first). Measure size and speed on SL and the generated feed
+- [ ] Crates instead of features (2026-11-20): one crate per source, each depending only on `flatnet-model` (static readers) or `flatnet-core` (realtime decoders), so a source's dependencies, tests and releases stay its own:
+  - `flatnet-model`: `Network`, the in-memory, source-neutral network a reader produces, and what it is checked against. Not `Pod`, not the file layout. A reader depends on this and nothing else
+  - `flatnet-gtfs`: today's parser (`source`, `table`, `records`). Owns what is GTFS: interpolating untimed stops, route and location type codes, `calendar` and `calendar_dates` into service days, repeated ids, lenient mode
+  - `flatnet-netex`, `flatnet-siri`: later. `flatnet-gtfs-rt`: the GTFS-RT decoder, which today lives in core
+  - `flatnet-compiler`: takes a `Network` and builds everything derived, then writes the file: patterns and their time tables, shapes cut at stops, the grid, walking paths, search, the id lookups, the metadata. It reads no source format
+  - `flatnet-core`: the file, the `Consumer` and `Realtime`, plus the source-neutral `Update`
+  - `flatnet-cli`: picks readers with cargo features (`gtfs` by default), since the binary is where a user chooses what to carry
+- [ ] Port the GTFS parser out of `flatnet-compiler` into the reader crate, producing a `Network`, and the compiler to consume one. A pure refactor, so the SL output is byte for byte the same. The check ends at the first deliberate format change
+- [ ] Realtime split: a source-neutral `Update` (aimed, expected and actual time and a status per call), a decoder per source, and `Realtime` applies updates without knowing the wire format
+- [ ] Schema pass, agreed 2026-11-20. On SL, `stop_times` is 100 MB of the 132 MB file (2.5M items × 40 B), `stop_to_trips` 10 MB, `trips` 8 MB. 124k trips share 3,710 patterns. In order, each measured on SL (size, open, full scan, a blaise query) before the next:
+  - [ ] Prototype times per pattern: a pattern holds its stops once, with `sequence`, boarding rules, headsign and distance per position, and a dense table of times (`trips × positions`, trips sorted by departure) in 8 bytes a cell, or 6 with a `u16` dwell. A pattern splits when those fields differ between trips, and when trips overtake. Estimated 132 MB → about 55 MB. Realtime keys become trip plus position
+  - [ ] Split hot from cold: `Stop` into routing (`index`, `coordinate`, `parent`, `location_type`) and info (`code`, `name`, `description`); `Trip` into routing (`pattern`, `service`, position) and info (`headsign`, `short_name`, `block`), with `route_index` derived from the pattern
+  - [ ] A header flag per optional section, so a compile can leave out shapes, search, names or ids. A routing-only file is about 40 MB or less on SL
+  - [ ] Drop `stop_to_trips` (10 MB): stop to patterns with the position in each, then the trips of a pattern. blaise calls `trips_by_stop` twice
+  - [ ] `Service`: a base date and the mask, without `weekday`, `start_date` and `end_date` if nothing reads them
+  - [ ] Footpaths: stop to stop walking distances in meters from the compiler, so blaise doesn't query the grid per query. Meters, so walking speed stays the caller's
+  - [ ] Trip start time, derived, and an index sorted by route, direction and start, so realtime matching has no ambiguous case. A run key is trip plus service day
+  - [ ] Ids with a namespace, and several sources in one file, for a national network
+  - [-] Until a consumer asks: a line above the route, operator apart from authority, a stop place apart from the stop point, validity per object, accessibility values
+- [ ] `frequencies.txt` and `timepoint` are decided in the schema, once, for every source (see Parser)
+- [ ] A `netex` reader for the Nordic profile only
+- [ ] A `siri` decoder, estimated timetable first
+- [x] Renamed to `flatnet` (2026-11-20: a flat network, which is the layout): crates, binary, magic `FLNT`, extension `.flatnet`, format version 8. Still open: the GitHub repo, blaise, and a crates.io check. Check crates.io first. Crates `flatnet-model`, `flatnet-core`, `flatnet-compiler`, `flatnet-cli` and one per source (`flatnet-gtfs`, `flatnet-gtfs-rt`, `flatnet-netex`, `flatnet-siri`). A rename also means the header magic, the file extension and blaise's imports and README
+- [-] Full NeTEx or SIRI coverage. Fares, vehicle scheduling, duties, facility monitoring and station navigation stay out until a consumer asks
 
 ## Parser (own GTFS reader)
 
@@ -40,7 +70,12 @@ Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M sto
 - [x] Id lookups checked strictly sorted. Each trip's stop times checked to be its own and in order
 - [x] Header holds the file length (always checked) and a checksum (`verify_checksum`)
 - [x] `Consumer::new_unvalidated` for a file the program wrote itself
-- [x] Format version 5, documented in `docs/FORMAT.md`
+- [x] Format version 8 (the rename: magic `FLNT`), documented in `docs/FORMAT.md`
+- [x] Metadata in the file: a fixed `Metadata` (compile time, active day range, compiler version, source, feed_info and agency fields) and a JSON section from `--meta` and `--meta-json`. `Consumer::is_stale(today)` is two comparisons
+- [ ] Metadata JSON is text for the caller to parse. A typed reader for a few well known keys would need a JSON dependency in core
+- [x] Shapes cut at the stops: a `Shape` is the path between two stops, stored once however many trips use it, and a trip holds one per hop. On SL 2.79M shape points became 610k, 28 MB off the file. Hops are snapped to the nearest shape vertex going forward, so a loop that passes a stop twice can snap to the wrong pass
+- [ ] Cut shapes with `shape_dist_traveled` when the feed has it, and report stops that are far from their shape (on SL 750 of 81,486 are more than 50 m away)
+- [ ] A shape and its reverse hold the same points backwards: store them once
 - [x] `advise` to tell the operating system how the file is read
 - [x] Grid index: `stops_near` fills a buffer, nearest first, and agrees with a scan of every stop (property test)
 - [x] `search_by_name` ignoring case and accents, ranked exact, prefix, word, contains
@@ -82,15 +117,17 @@ Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M sto
 
 ## Tests and tooling
 
-- [x] 147 tests: unit, integration, parser, features, realtime, scale, and four property test files
-- [x] Larger generated feed (`crates/gtfs-bin-core/tests/common/synthetic.rs`, up to 1M stop times)
-- [x] Real data test, run with `GTFS_BIN_REAL_FEED`
+- [x] 177 tests: unit, integration, parser, features, realtime, scale, and six property test files, two of which (`fuzz_shapes`, `fuzz_metadata`) compile generated feeds and check what the compiler promises, not only that nothing panics
+- [ ] The generated feed (`tests/common/synthetic.rs`) has no shapes, so the scale tests and benchmarks don't cover them
+- [x] Larger generated feed (`crates/flatnet-core/tests/common/synthetic.rs`, up to 1M stop times)
+- [x] Real data test, run with `FLATNET_REAL_FEED`
 - [x] Benchmarks (`just bench`)
-- [x] `crates/gtfs-bin/examples/inspect.rs` and `apply_feed.rs`
+- [x] `crates/flatnet-cli/examples/inspect.rs` and `apply_feed.rs`
+- [x] `crates/flatnet-viewer`: an egui app to walk a compiled file and see its stops and shapes on a map (`just view`). Left out of `cargo deny`, see `deny.toml`
 - [x] CI on the `just` recipes: format, clippy, docs, tests, features, dependencies, and a long property run on `main` (`.github/workflows/ci.yml`, not run yet: it needs pushing)
 - [x] The same lint policy as `wend` (clippy `all`, `pedantic`, `cargo` and chosen `restriction` lints, rustc and rustdoc lints), `clippy.toml`, `rust-version`, a `dist` profile, `CONTRIBUTING.md`
 - [x] CI also checks the commit messages of a PR and builds on `rust-version`
-- [x] Saved failing cases are committed (`crates/gtfs-bin-core/tests/*.proptest-regressions`)
+- [x] Saved failing cases are committed (`crates/flatnet-core/tests/*.proptest-regressions`)
 - [x] `.env` is ignored (it held API keys and wasn't)
 - [-] `cargo fuzz`: the proptest suites cover the parser, the consumer and the realtime builder, and found every bug so far. A coverage-guided fuzzer needs nightly and libFuzzer for little more. Revisit if a bug turns up that proptest missed
 - [x] `justfile`, `rustfmt.toml` (import grouping on a pinned nightly), `taplo.toml`, `deny.toml`, `rust-toolchain.toml` and a `commit-msg` hook, as `wend` has them

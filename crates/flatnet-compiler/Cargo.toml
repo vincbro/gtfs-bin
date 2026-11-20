@@ -1,0 +1,29 @@
+[package]
+name = "flatnet-compiler"
+description = "Compiles a GTFS feed, a directory or a zip, into the memory-mappable flatnet file."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords = ["gtfs", "transit", "compiler", "parser"]
+categories = ["data-structures", "parsing"]
+
+[lib]
+# Skip libtest's bench harness.
+bench = false
+
+[dependencies]
+bitvec.workspace = true
+bytemuck.workspace = true
+csv.workspace = true
+flatnet-core.workspace = true
+rayon.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+zip.workspace = true
+
+[lints]
+workspace = true

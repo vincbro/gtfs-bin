@@ -9,11 +9,11 @@ edition = "2024"
 rust-version = "1.95"
 authors = ["Vincent Brodin <vincent.brodin21@gmail.com>"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/vincbro/gtfs-bin"
+repository = "https://github.com/vincbro/flatnet"
 readme = "README.md"
 
-# Internal crates require their exact sibling version, so a published gtfs-bin never mixes with
-# another release's gtfs-bin-core. Cargo can't inherit a version here, so `just bump` rewrites
+# Internal crates require their exact sibling version, so a published flatnet never mixes with
+# another release's flatnet-core. Cargo can't inherit a version here, so `just bump` rewrites
 # these with [workspace.package]; a mismatch fails to build.
 [workspace.dependencies]
 anyhow = { version = "1.0.104" }
@@ -22,8 +22,8 @@ bytemuck = { version = "1.25.0", features = ["derive"] }
 clap = { version = "4.5.60", features = ["derive"] }
 criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
 csv = { version = "1.4" }
-gtfs-bin-compiler = { path = "crates/gtfs-bin-compiler", version = "=0.2.0" }
-gtfs-bin-core = { path = "crates/gtfs-bin-core", version = "=0.2.0", default-features = false }
+flatnet-compiler = { path = "crates/flatnet-compiler", version = "=0.2.0" }
+flatnet-core = { path = "crates/flatnet-core", version = "=0.2.0", default-features = false }
 gtfs-rt = { version = "0.5.0" }
 jiff = { version = "0.2" }
 memmap2 = { version = "0.9.10" }
@@ -31,6 +31,7 @@ proptest = { version = "1.12.0" }
 # The version gtfs-rt is built with, so its messages decode with the same trait.
 prost = { version = "0.11" }
 rayon = { version = "1.11.0" }
+serde_json = { version = "1.0" }
 spinners = { version = "4.2.0" }
 tempfile = { version = "3.26.0" }
 thiserror = { version = "2.0.18" }
