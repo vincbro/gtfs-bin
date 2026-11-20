@@ -2,11 +2,10 @@ use std::collections::{BTreeMap, HashMap};
 
 use flatnet_core::models::{
     Coordinate, LocationType, Optional, RouteType, SearchSlice, SearchStop, Sentinel, Slice,
-    SliceBuilder, Stop, StopIdSlice, StopIndex, StringSlice, TripIndex, TripSlice,
+    SliceBuilder, Stop, StopIdSlice, StopIndex, StringSlice,
 };
-use rayon::slice::ParallelSliceMut;
 
-use crate::{records::RawStop, stop_times::StopTimeRow, tables};
+use crate::{records::RawStop, tables};
 
 pub(super) fn build_stops(
     raw_stops: &[RawStop],
@@ -81,23 +80,6 @@ pub(super) fn build_stop_ids(
         stop.id = id;
     }
     (table.lookup, table.buffer)
-}
-
-pub(super) fn build_stop_to_trips(
-    stops: &[Stop],
-    stop_times: &[StopTimeRow],
-) -> (Vec<TripIndex>, Vec<TripSlice>) {
-    let mut stop_trip_pairs: Vec<(StopIndex, TripIndex)> = stop_times
-        .iter()
-        .map(|stop_time| (stop_time.stop_index, stop_time.trip_index))
-        .collect();
-
-    stop_trip_pairs.par_sort_unstable();
-    stop_trip_pairs.dedup();
-
-    let stop_to_trips = stop_trip_pairs.iter().map(|&(_, trip)| trip).collect();
-    let lookup = tables::slices_by_key(stop_trip_pairs.iter().map(|&(stop, _)| stop), stops.len());
-    (stop_to_trips, lookup)
 }
 
 /// Groups stops that share a name, so a search for the name finds every platform of a station.

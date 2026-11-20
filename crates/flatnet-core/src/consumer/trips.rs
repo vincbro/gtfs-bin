@@ -49,21 +49,20 @@ impl<'a> Consumer<'a> {
             .map(|&trip_index| self.trip(trip_index))
     }
 
-    /// # Panics
+    /// Returns the trips that call at the stop: those of each pattern that visits it, pattern by
+    /// pattern, and each trip once even if it visits the stop twice.
     ///
-    /// Panics if `index` is out of range.
-    #[must_use]
-    pub fn trips_by_stop(&self, index: StopIndex) -> &'a [TripIndex] {
-        let slice = self.stop_to_trips_lookup[index.as_usize()];
-        &self.stop_to_trips[slice.range()]
-    }
-
     /// # Panics
     ///
     /// Panics if `index` is out of range.
     pub fn iter_trips_by_stop(&self, index: StopIndex) -> impl Iterator<Item = &'a Trip> {
-        self.trips_by_stop(index)
+        let patterns = self.trip_patterns_by_stop(index);
+        // A pattern that visits the stop twice is listed twice in a row.
+        let first_visits = patterns
             .iter()
-            .map(|&trip_index| self.trip(trip_index))
+            .enumerate()
+            .filter(move |&(position, &pattern)| position == 0 || patterns[position - 1] != pattern)
+            .map(|(_, &pattern)| pattern);
+        first_visits.flat_map(|pattern| self.iter_trips_in_trip_pattern(pattern))
     }
 }

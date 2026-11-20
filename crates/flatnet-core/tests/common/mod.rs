@@ -80,7 +80,7 @@ pub(crate) fn exercise(consumer: &Consumer<'_>) {
             let _ = consumer.stop(parent);
         }
         let _ = consumer.stop_id(stop.id);
-        let _ = consumer.trips_by_stop(stop.index);
+        let _ = consumer.iter_trips_by_stop(stop.index).count();
         let _ = consumer.outbound_transfers_by_stop(stop.index);
         let _ = consumer.iter_inbound_transfers_by_stop(stop.index).count();
         let _ = consumer.iter_trip_patterns_by_stop(stop.index).count();

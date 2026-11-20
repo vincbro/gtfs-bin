@@ -121,11 +121,11 @@ fn stop(ui: &mut Ui, consumer: &Consumer<'_>, index: StopIndex, jump: &mut Optio
             link_field(ui, "parent", parent, jump);
         });
     ui.separator();
-    let trips = consumer
-        .trips_by_stop(index)
-        .iter()
-        .map(|&trip| Item::Trip(trip));
-    links(ui, "Trips", trips, consumer, jump);
+    let trips: Vec<Item> = consumer
+        .iter_trips_by_stop(index)
+        .map(|trip| Item::Trip(trip.index))
+        .collect();
+    links(ui, "Trips", trips.into_iter(), consumer, jump);
     let patterns = consumer
         .trip_patterns_by_stop(index)
         .iter()

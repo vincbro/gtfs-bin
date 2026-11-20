@@ -197,12 +197,6 @@ impl Consumer<'_> {
             (
                 "stops",
                 self.stops.len(),
-                "stop_to_trips_lookup",
-                self.stop_to_trips_lookup.len(),
-            ),
-            (
-                "stops",
-                self.stops.len(),
                 "stop_to_transfer_out",
                 self.stop_to_transfer_out.len(),
             ),
@@ -390,18 +384,6 @@ impl Consumer<'_> {
             "entry",
             self.route_to_trips_lookup.iter().copied(),
             self.route_to_trips.len(),
-        )?;
-        check_indices(
-            "stop_to_trips",
-            "entry",
-            self.stop_to_trips.iter().copied(),
-            self.trips.len(),
-        )?;
-        check_slices(
-            "stop_to_trips_lookup",
-            "entry",
-            self.stop_to_trips_lookup.iter().copied(),
-            self.stop_to_trips.len(),
         )?;
         check_positions(
             "search_stops",

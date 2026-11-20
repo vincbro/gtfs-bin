@@ -2,7 +2,7 @@
 
 A compiled file is a header followed by sections. Everything is little-endian on the machine that wrote it: the file is meant to be mapped, so a file moves between machines of the same byte order only.
 
-Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 9. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
+Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 10. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
 
 ## Header
 
@@ -12,7 +12,7 @@ Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 9. It 
 |---|---|---|
 | `magic` | 4 | The bytes `FLNT` |
 | `version` | 4 | The format version |
-| 40 `Section` fields | 16 each | `offset` and `count`, both `u64`, of each section below |
+| 38 `Section` fields | 16 each | `offset` and `count`, both `u64`, of each section below |
 | `feed_start_date`, `feed_end_date` | 4 each | `Date`, or `u32::MAX` when `feed_info.txt` has none |
 | `file_length` | 8 | The length of the whole file, so a truncated one is noticed on open |
 | `checksum` | 8 | `models::checksum` of every byte after the header. `Consumer::verify_checksum` checks it |
@@ -34,7 +34,7 @@ Every table is an array of fixed size `repr(C)` structs, with no pointers: they 
 | `*_id_lookup` | index | Indices sorted by id, for binary search |
 | `strings` | bytes | Every name, headsign and description as UTF-8, each stored once |
 | `active_mask` | bytes | One bit per service day, each service starting on a byte boundary |
-| `route_to_trips`, `stop_to_trips` | `TripIndex` | Trips grouped by route and by stop, with a `*_lookup` of slices by key |
+| `route_to_trips` | `TripIndex` | Trips grouped by route, with a `route_to_trips_lookup` of slices by route. The trips that call at a stop are those of the patterns in `stop_to_trip_pattern` |
 | `trip_patterns` and its four lookups | `TripPattern` | Trips that call at the same stops in the same order, with the same sequence numbers, boarding rules, headsigns and distances, and that never overtake each other. A pattern is the run of `trip_patterns_stop_seq` for its stops, the run of `pattern_stops` at the same positions, and its trips in the order they leave |
 | `pattern_stops` | `PatternStop` | What a pattern says at each of its stops: the sequence, boarding rules, headsign and distance traveled. Stored once for the pattern, not for every trip |
 | `transfers` and its lookups | `Transfer` | Sorted by the stop they start at, with slices by stop in both directions |

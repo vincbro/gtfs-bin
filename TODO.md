@@ -4,7 +4,7 @@ What is done, what is open, and what is deliberately left out. Update it when th
 
 Status: `[x]` done and tested, `[ ]` open, `[-]` decided against, with the reason.
 
-Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M stop times): compile 3.8 s and 364 MB peak, output 54 MB, open and validate 10 to 16 ms, checksum 12 to 17 ms, 456 of 457 realtime trip updates matched. Benchmarks on a generated network of 1M stop times are in `crates/flatnet-core/benches/transit.rs`.
+Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M stop times): compile 3.8 s and 364 MB peak, output 44 MB, open and validate 9 ms, checksum 10 ms, 456 of 457 realtime trip updates matched. Benchmarks on a generated network of 1M stop times are in `crates/flatnet-core/benches/transit.rs`.
 
 ## Own schema and sources
 
@@ -25,7 +25,7 @@ The direction, decided 2026-11-20: flatnet becomes its own transit network forma
   - [x] Times per pattern (format 9): a pattern holds its stops once, with `sequence`, boarding rules, headsign and distance per position, and a dense table of times (`trips × positions`, trips sorted by departure) in 8 bytes a cell, or 6 with a `u16` dwell. A pattern splits when those fields differ between trips, and when trips overtake. Estimated 132 MB → about 55 MB. Realtime keys become trip plus position. Done 2026-11-20: `StopTime` is gone. A trip's `Timing`s (8 B) lie pattern by pattern in `timings`, and `pattern_stops` holds what the pattern says at each stop. SL is 5,184 patterns (the prototype said 5,161: overtaking is checked on arrivals and departures both), the file 132 MB → 54.5 MB, open and validate 44 ms → 10–16 ms, checksum 34 ms → 12–17 ms, compile still 3.9 s and the peak memory 364 MB (it was 480 MB). `timings_by_trip` and `pattern_stops_by_trip_pattern` replace `stop_times_by_trip`, and `Realtime::arrival_time` and `departure_time` take the trip, the slot and the `Timing`. blaise needs the same change. A hostile feed with thousands of trips that all overtake one another makes the chain search quadratic (compile time only)
   - [ ] Split hot from cold: `Stop` into routing (`index`, `coordinate`, `parent`, `location_type`) and info (`code`, `name`, `description`); `Trip` into routing (`pattern`, `service`, position) and info (`headsign`, `short_name`, `block`), with `route_index` derived from the pattern
   - [ ] A header flag per optional section, so a compile can leave out shapes, search, names or ids. A routing-only file is about 40 MB or less on SL
-  - [ ] Drop `stop_to_trips` (10 MB): stop to patterns with the position in each, then the trips of a pattern. blaise calls `trips_by_stop` twice
+  - [x] Dropped `stop_to_trips` (10 MB, format 10): the file is 44.3 MB and opens in about 9 ms. `iter_trips_by_stop` walks the patterns that visit the stop and their trips, and `trip_patterns_by_stop` tells a router whether a stop has any trips. blaise called `trips_by_stop` twice, both as "has trips"
   - [ ] `Service`: a base date and the mask, without `weekday`, `start_date` and `end_date` if nothing reads them
   - [ ] Footpaths: stop to stop walking distances in meters from the compiler, so blaise doesn't query the grid per query. Meters, so walking speed stays the caller's
   - [ ] Trip start time, derived, and an index sorted by route, direction and start, so realtime matching has no ambiguous case. A run key is trip plus service day

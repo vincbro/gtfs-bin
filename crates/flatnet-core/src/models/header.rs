@@ -32,9 +32,6 @@ pub struct Header {
     pub service_id_lookup: Section,
     pub active_mask: Section,
 
-    pub stop_to_trips: Section,
-    pub stop_to_trips_lookup: Section,
-
     pub search_stops: Section,
     pub search_to_stops: Section,
 

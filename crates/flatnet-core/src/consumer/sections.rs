@@ -94,16 +94,6 @@ impl<'a> Consumer<'a> {
     }
 
     #[must_use]
-    pub const fn stop_to_trips(&self) -> &'a [TripIndex] {
-        self.stop_to_trips
-    }
-
-    #[must_use]
-    pub const fn stop_to_trips_lookup(&self) -> &'a [TripSlice] {
-        self.stop_to_trips_lookup
-    }
-
-    #[must_use]
     pub const fn search_stops(&self) -> &'a [SearchStop] {
         self.search_stops
     }

@@ -71,9 +71,6 @@ pub struct Consumer<'a> {
     route_to_trips: &'a [TripIndex],
     route_to_trips_lookup: &'a [TripSlice],
 
-    stop_to_trips: &'a [TripIndex],
-    stop_to_trips_lookup: &'a [TripSlice],
-
     search_stops: &'a [SearchStop],
     search_to_stops: &'a [StopIndex],
 
@@ -209,9 +206,6 @@ impl<'a> Consumer<'a> {
 
             route_to_trips: reader.cast_slice(header.route_to_trips)?,
             route_to_trips_lookup: reader.cast_slice(header.route_to_trips_lookup)?,
-
-            stop_to_trips: reader.cast_slice(header.stop_to_trips)?,
-            stop_to_trips_lookup: reader.cast_slice(header.stop_to_trips_lookup)?,
 
             search_stops: reader.cast_slice(header.search_stops)?,
             search_to_stops: reader.cast_slice(header.search_to_stops)?,

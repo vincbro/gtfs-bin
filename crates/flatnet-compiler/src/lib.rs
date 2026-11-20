@@ -286,8 +286,6 @@ impl Compiler {
             &mut slice_builder,
         )?;
 
-        let (stop_to_trips, stop_to_trips_lookup) =
-            stops::build_stop_to_trips(&stops, &stop_time_rows);
         let (search_stops, search_to_stops) = stops::build_stop_search(&stops);
         let (stop_grid, grid_stops) = grid::build_stop_grid(&stops);
         let (route_to_trips, route_to_trips_lookup) = routes::build_route_to_trips(&trips, &routes);
@@ -347,9 +345,6 @@ impl Compiler {
 
             route_to_trips: writer.write_section(&route_to_trips),
             route_to_trips_lookup: writer.write_section(&route_to_trips_lookup),
-
-            stop_to_trips: writer.write_section(&stop_to_trips),
-            stop_to_trips_lookup: writer.write_section(&stop_to_trips_lookup),
 
             search_stops: writer.write_section(&search_stops),
             search_to_stops: writer.write_section(&search_to_stops),

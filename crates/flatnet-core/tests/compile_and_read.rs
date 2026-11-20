@@ -118,7 +118,10 @@ fn stop_times_and_trip_iterations() {
 
     let stop2_trips: Vec<_> = consumer.iter_trips_by_stop(stop2.index).collect();
     assert_eq!(stop2_trips.len(), 2);
-    assert_eq!(stop2_trips[0].index, trip1.index);
+    assert!(
+        stop2_trips.iter().any(|trip| trip.index == trip1.index),
+        "trip1 calls at stop2"
+    );
 
     let stop3_trips: Vec<_> = consumer.iter_trips_by_stop(stop3.index).collect();
     assert_eq!(stop3_trips.len(), 1);
