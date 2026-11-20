@@ -44,6 +44,8 @@ pub struct Header {
 
     pub route_to_trips: Section,
     pub route_to_trips_lookup: Section,
+    /// When each trip of `route_to_trips` starts, at the same positions. Sorted within a route.
+    pub route_trip_starts: Section,
 
     /// The `Timing` of every trip at each stop of its pattern, pattern by pattern and trip by trip.
     pub timings: Section,

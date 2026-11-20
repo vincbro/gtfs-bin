@@ -2,9 +2,9 @@ use crate::{
     consumer::Consumer,
     models::{
         Coordinate, Footpath, PatternStop, Place, Route, RouteIndex, SearchStop, Service,
-        ServiceIndex, Shape, ShapeIndex, Stop, StopCell, StopIndex, StopInfo, Timing, Transfer,
-        TransferIndex, TransferSlice, Trip, TripIndex, TripInfo, TripPattern, TripPatternIndex,
-        TripPatternSlice, TripSlice,
+        ServiceIndex, Shape, ShapeIndex, Stop, StopCell, StopIndex, StopInfo, Time, Timing,
+        Transfer, TransferIndex, TransferSlice, Trip, TripIndex, TripInfo, TripPattern,
+        TripPatternIndex, TripPatternSlice, TripSlice,
     },
 };
 
@@ -102,6 +102,11 @@ impl<'a> Consumer<'a> {
     #[must_use]
     pub const fn route_to_trips_lookup(&self) -> &'a [TripSlice] {
         self.route_to_trips_lookup
+    }
+
+    #[must_use]
+    pub const fn route_trip_starts(&self) -> &'a [Time] {
+        self.route_trip_starts
     }
 
     #[must_use]

@@ -16,6 +16,7 @@ use flatnet_core::{
 };
 use footpaths::BuiltFootpaths;
 use metadata::MetadataInput;
+use routes::BuiltRouteTrips;
 use services::BuiltServices;
 use shapes::BuiltShapes;
 use transfers::BuiltTransfers;
@@ -216,9 +217,14 @@ impl Compiler {
             (Vec::new(), Vec::new())
         };
         let (stop_grid, grid_stops) = grid::build_stop_grid(&stops);
-        let (route_to_trips, route_to_trips_lookup) = routes::build_route_to_trips(&trips, &routes);
         let trip_patterns =
             trip_patterns::build_trip_patterns(&mut trips, &stops, &network.calls, &headsigns);
+        // After the patterns, because a trip's first time is in its pattern's timings.
+        let BuiltRouteTrips {
+            route_to_trips,
+            lookup: route_to_trips_lookup,
+            starts: route_trip_starts,
+        } = routes::build_route_to_trips(&trips, &routes, &trip_patterns.timings);
         // Without ids the slices stay `NONE`, which reads as an empty id, and the lookups are empty.
         let ids = parts.contains(Parts::IDS);
         let (stop_id_lookup, stop_ids) = if ids {
@@ -294,6 +300,7 @@ impl Compiler {
 
             route_to_trips: writer.write_section(&route_to_trips),
             route_to_trips_lookup: writer.write_section(&route_to_trips_lookup),
+            route_trip_starts: writer.write_section(&route_trip_starts),
 
             search_stops: writer.write_section(&search_stops),
             search_to_stops: writer.write_section(&search_to_stops),

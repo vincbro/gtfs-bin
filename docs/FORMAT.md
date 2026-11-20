@@ -2,7 +2,7 @@
 
 A compiled file is a header followed by sections. Everything is little-endian on the machine that wrote it: the file is meant to be mapped, so a file moves between machines of the same byte order only.
 
-Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 14. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
+Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 15. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
 
 ## Header
 
@@ -36,7 +36,7 @@ Every table is an array of fixed size `repr(C)` structs, with no pointers: they 
 | `*_id_lookup` | index | Indices sorted by id, for binary search |
 | `strings` | bytes | Every name, headsign and description as UTF-8, each stored once |
 | `active_mask` | bytes | One bit per service day, each service starting on a byte boundary |
-| `route_to_trips` | `TripIndex` | Trips grouped by route, with a `route_to_trips_lookup` of slices by route. The trips that call at a stop are those of the patterns in `stop_to_trip_pattern` |
+| `route_to_trips`, `route_trip_starts` | `TripIndex`, `Time` | Trips grouped by route, with a `route_to_trips_lookup` of slices by route. Within a route the trips run from the earliest start to the latest, the lower index first on a tie, and `route_trip_starts` holds each trip's start at the same position: its departure from the first stop, or its arrival there if it has none, and `Time::NONE` for a trip with no time at its first stop, which sorts last. `Consumer::trips_by_route_start` binary searches the starts of a route, so matching a realtime trip by route and start time reads no trip. `Consumer::new` checks that each start is the trip's own and that the order holds. The trips that call at a stop are those of the patterns in `stop_to_trip_pattern` |
 | `trip_patterns` and its four lookups | `TripPattern` | Trips that call at the same stops in the same order, with the same sequence numbers, boarding rules, headsigns and distances, and that never overtake each other. A pattern is the run of `trip_patterns_stop_seq` for its stops, the run of `pattern_stops` at the same positions, and its trips in the order they leave |
 | `pattern_stops` | `PatternStop` | What a pattern says at each of its stops: the sequence, boarding rules, headsign and distance traveled. Stored once for the pattern, not for every trip |
 | `footpaths`, `place_stops`, `places` | `Footpath`, `StopIndex`, `Place` | Stops grouped into places, and the walks between places. A place is the top of a stop's parent chain (`Place::root_of`, at most 8 deep): a station with the stops under it, or a stop with no parent. `places` has one `Place` for each stop, at the stop's position, and it is empty unless the stop is a place. A place's `stops` are a run of `place_stops`, the stops a passenger can board at (not stations, entrances or generic nodes), and its `footpaths` a run of `footpaths`, nearest first (the lower place index first on a tie), which `Consumer::new` checks. A `Footpath` is the place it ends at, named by its root stop, and the length in meters. Walking between the stops of one place is a given and has no footpath. A walk between two places is the straight line between their nearest stops, and the walks are not symmetric when a place's limit cut a neighbor off. Empty without the footpaths part |

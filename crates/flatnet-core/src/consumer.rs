@@ -9,7 +9,7 @@ use crate::{
     models::{
         self, Coordinate, Date, Footpath, Header, Metadata, Parts, PatternStop, Place, Route,
         RouteIndex, SearchStop, Sentinel, Service, ServiceIndex, Shape, ShapeIndex, Stop, StopCell,
-        StopIndex, StopInfo, Timing, Transfer, TransferIndex, TransferSlice, Trip, TripIndex,
+        StopIndex, StopInfo, Time, Timing, Transfer, TransferIndex, TransferSlice, Trip, TripIndex,
         TripInfo, TripPattern, TripPatternIndex, TripPatternSlice, TripSlice,
     },
 };
@@ -73,6 +73,7 @@ pub struct Consumer<'a> {
     // Mappings
     route_to_trips: &'a [TripIndex],
     route_to_trips_lookup: &'a [TripSlice],
+    route_trip_starts: &'a [Time],
 
     search_stops: &'a [SearchStop],
     search_to_stops: &'a [StopIndex],
@@ -217,6 +218,7 @@ impl<'a> Consumer<'a> {
 
             route_to_trips: reader.cast_slice(header.route_to_trips)?,
             route_to_trips_lookup: reader.cast_slice(header.route_to_trips_lookup)?,
+            route_trip_starts: reader.cast_slice(header.route_trip_starts)?,
 
             search_stops: reader.cast_slice(header.search_stops)?,
             search_to_stops: reader.cast_slice(header.search_to_stops)?,

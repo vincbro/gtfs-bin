@@ -19,6 +19,7 @@ impl Consumer<'_> {
         self.validate_services()?;
         self.validate_lookups()?;
         self.validate_patterns()?;
+        self.validate_route_trips()?;
         self.validate_footpaths()?;
         self.validate_transfers()?;
         self.validate_grid()?;
@@ -304,6 +305,12 @@ impl Consumer<'_> {
                 self.stops.len(),
                 "stop_to_transfer_in",
                 self.stop_to_transfer_in.len(),
+            ),
+            (
+                "route_to_trips",
+                self.route_to_trips.len(),
+                "route_trip_starts",
+                self.route_trip_starts.len(),
             ),
             (
                 "stops",
@@ -604,6 +611,32 @@ impl Consumer<'_> {
 }
 
 impl Consumer<'_> {
+    /// Checks that each route lists its own trips, with the start the trip really has, from the
+    /// earliest start to the latest and the lower index first on a tie.
+    fn validate_route_trips(&self) -> Result<()> {
+        for (route, slice) in self.route_to_trips_lookup.iter().enumerate() {
+            let trips = &self.route_to_trips[slice.range()];
+            let starts = &self.route_trip_starts[slice.range()];
+            let wrong = trips.iter().zip(starts).any(|(&trip, &start)| {
+                self.trip(trip).route_index.as_usize() != route
+                    || self.trip_start(trip).unwrap_or(Time::NONE) != start
+            });
+            if wrong {
+                return Err(invalid("route_to_trips", "entry"));
+            }
+            let ordered = trips
+                .windows(2)
+                .zip(starts.windows(2))
+                .all(|(pair, times)| (times[0], pair[0]) < (times[1], pair[1]));
+            if !ordered {
+                return Err(Error::InvalidOrder {
+                    table: "route_to_trips",
+                });
+            }
+        }
+        Ok(())
+    }
+
     fn validate_footpaths(&self) -> Result<()> {
         // One place for each stop, or none when the file has no footpaths part.
         let places = if self.parts.contains(Parts::FOOTPATHS) {

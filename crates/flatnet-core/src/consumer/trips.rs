@@ -1,6 +1,8 @@
 use crate::{
     consumer::Consumer,
-    models::{RouteIndex, Slice, StopIndex, Trip, TripIdSlice, TripIndex, TripInfo},
+    models::{
+        RouteIndex, Sentinel, Slice, StopIndex, Time, Trip, TripIdSlice, TripIndex, TripInfo,
+    },
 };
 
 impl<'a> Consumer<'a> {
@@ -48,6 +50,41 @@ impl<'a> Consumer<'a> {
     pub fn trips_by_route(&self, index: RouteIndex) -> &'a [TripIndex] {
         let slice = self.route_to_trips_lookup[index.as_usize()];
         &self.route_to_trips[slice.range()]
+    }
+
+    /// Returns the trips of a route that start at `start`, in index order: a run of the route's
+    /// trips, found by binary search. Several trips share a start when the route has several
+    /// directions or services, so a caller still tells them apart by direction and by service day.
+    /// `Time::NONE` finds nothing, because a trip with no time at its first stop has no start.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range.
+    #[must_use]
+    pub fn trips_by_route_start(&self, index: RouteIndex, start: Time) -> &'a [TripIndex] {
+        if start == Time::NONE {
+            return &[];
+        }
+        let slice = self.route_to_trips_lookup[index.as_usize()];
+        let starts = &self.route_trip_starts[slice.range()];
+        let first = starts.partition_point(|&time| time < start);
+        let last = starts.partition_point(|&time| time <= start);
+        &self.route_to_trips[slice.range()][first..last]
+    }
+
+    /// Returns when the trip starts: its departure from the first stop, or its arrival there if it
+    /// has no departure. `None` if the trip has no time at its first stop.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range, which includes `TripIndex::NONE`.
+    #[must_use]
+    pub fn trip_start(&self, index: TripIndex) -> Option<Time> {
+        let first = self.timings_by_trip(index).first()?;
+        first
+            .departure
+            .as_option()
+            .or_else(|| first.arrival.as_option())
     }
 
     /// # Panics

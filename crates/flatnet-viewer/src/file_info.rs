@@ -47,7 +47,7 @@ impl FileInfo {
     /// Returns the sections in the order they lie in the file.
     pub(crate) fn sections(&self) -> Vec<SectionRow> {
         let header = &self.header;
-        let named: [(&'static str, Section); 43] = named_sections!(
+        let named: [(&'static str, Section); 44] = named_sections!(
             header,
             stops,
             stop_infos,
@@ -68,6 +68,7 @@ impl FileInfo {
             search_to_stops,
             route_to_trips,
             route_to_trips_lookup,
+            route_trip_starts,
             timings,
             shapes,
             shape_points,

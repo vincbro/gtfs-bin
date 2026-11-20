@@ -475,10 +475,11 @@ impl<'a> RealtimeBuilder<'a> {
 
         let mut matches = self
             .consumer
-            .iter_trips_by_route(route.index)
+            .trips_by_route_start(route.index, start)
+            .iter()
+            .map(|&index| self.consumer.trip(index))
             .filter(|trip| {
-                self.starts_at(trip, start)
-                    && Self::runs_in_direction(trip, descriptor)
+                Self::runs_in_direction(trip, descriptor)
                     && day
                         .is_none_or(|day| self.consumer.is_service_active(trip.service_index, day))
             });
@@ -495,19 +496,6 @@ impl<'a> RealtimeBuilder<'a> {
             return true;
         };
         trip.direction.is_none() || u32::from(trip.direction.0) == wanted
-    }
-
-    fn starts_at(&self, trip: &Trip, start: Time) -> bool {
-        self.consumer
-            .timings_by_trip(trip.index)
-            .first()
-            .and_then(|first| {
-                first
-                    .departure
-                    .as_option()
-                    .or_else(|| first.arrival.as_option())
-            })
-            == Some(start)
     }
 
     /// Stores a trip the static data doesn't have, if the feed says it is a new one.

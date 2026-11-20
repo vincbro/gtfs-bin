@@ -1,6 +1,6 @@
 use flatnet_core::models::{
-    Route, RouteIdSlice, RouteIndex, Sentinel, SliceBuilder, StringSlice, Trip, TripIndex,
-    TripSlice,
+    Route, RouteIdSlice, RouteIndex, Sentinel, Slice, SliceBuilder, StringSlice, Time, Timing,
+    Trip, TripIndex, TripSlice,
 };
 use rayon::slice::ParallelSliceMut;
 
@@ -53,20 +53,45 @@ pub(super) fn build_route_ids(
     (table.lookup, table.buffer)
 }
 
+/// The trips of each route, sorted by the time they start and then by index, and the start of each,
+/// at the same positions.
+pub(super) struct BuiltRouteTrips {
+    pub route_to_trips: Vec<TripIndex>,
+    pub lookup: Vec<TripSlice>,
+    pub starts: Vec<Time>,
+}
+
+/// Groups the trips by route, and within a route by when they start, so a trip can be found by its
+/// route and start with a binary search. A trip with no time at its first stop starts at
+/// `Time::NONE` and sorts last.
 pub(super) fn build_route_to_trips(
     trips: &[Trip],
     routes: &[Route],
-) -> (Vec<TripIndex>, Vec<TripSlice>) {
-    let mut route_trip_pairs: Vec<(RouteIndex, TripIndex)> = trips
+    timings: &[Timing],
+) -> BuiltRouteTrips {
+    let mut keyed: Vec<(RouteIndex, Time, TripIndex)> = trips
         .iter()
-        .map(|trip| (trip.route_index, trip.index))
+        .map(|trip| (trip.route_index, start_of(trip, timings), trip.index))
         .collect();
-    route_trip_pairs.par_sort_unstable();
+    keyed.par_sort_unstable();
 
-    let route_to_trips = route_trip_pairs.iter().map(|&(_, trip)| trip).collect();
-    let lookup = tables::slices_by_key(
-        route_trip_pairs.iter().map(|&(route, _)| route),
-        routes.len(),
-    );
-    (route_to_trips, lookup)
+    let lookup = tables::slices_by_key(keyed.iter().map(|&(route, ..)| route), routes.len());
+    BuiltRouteTrips {
+        route_to_trips: keyed.iter().map(|&(.., trip)| trip).collect(),
+        starts: keyed.iter().map(|&(_, start, _)| start).collect(),
+        lookup,
+    }
+}
+
+/// When the trip leaves its first stop, or arrives there if it has no departure.
+fn start_of(trip: &Trip, timings: &[Timing]) -> Time {
+    timings[trip.stop_times.range()]
+        .first()
+        .and_then(|first| {
+            first
+                .departure
+                .as_option()
+                .or_else(|| first.arrival.as_option())
+        })
+        .unwrap_or(Time::NONE)
 }
