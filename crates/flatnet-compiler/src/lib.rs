@@ -111,13 +111,13 @@ impl Compiler {
         network.check()?;
         let mut slice_builder = SliceBuilder::new();
 
-        let mut stops = stops::build_stops(&network.stops, &mut slice_builder);
+        let (mut stops, stop_infos) = stops::build_stops(&network.stops, &mut slice_builder);
         let mut routes = routes::build_routes(&network.routes, &mut slice_builder);
         let BuiltServices {
             mut services,
             active_mask,
         } = services::build_services(&network.services)?;
-        let mut trips = trips::build_trips(&network.trips, &mut slice_builder);
+        let (mut trips, trip_infos) = trips::build_trips(&network.trips, &mut slice_builder);
         let headsigns: Vec<StringSlice> = network
             .headsigns
             .iter()
@@ -152,7 +152,7 @@ impl Compiler {
         let (metadata, metadata_json) =
             metadata::build_metadata(&self.metadata, &network.info, &services, &mut slice_builder)?;
 
-        let (search_stops, search_to_stops) = stops::build_stop_search(&stops);
+        let (search_stops, search_to_stops) = stops::build_stop_search(&stops, &stop_infos);
         let (stop_grid, grid_stops) = grid::build_stop_grid(&stops);
         let (route_to_trips, route_to_trips_lookup) = routes::build_route_to_trips(&trips, &routes);
         let trip_patterns =
@@ -180,6 +180,7 @@ impl Compiler {
             magic: *b"FLNT",
             version: FLATNET_VERSION,
             stops: writer.write_section(&stops),
+            stop_infos: writer.write_section(&stop_infos),
             stop_ids: writer.write_section(stop_ids.as_bytes()),
             stops_id_lookup: writer.write_section(&stop_id_lookup),
 
@@ -188,6 +189,7 @@ impl Compiler {
             route_id_lookup: writer.write_section(&route_id_lookup),
 
             trips: writer.write_section(&trips),
+            trip_infos: writer.write_section(&trip_infos),
             trip_ids: writer.write_section(trip_ids.as_bytes()),
             trip_id_lookup: writer.write_section(&trip_id_lookup),
 

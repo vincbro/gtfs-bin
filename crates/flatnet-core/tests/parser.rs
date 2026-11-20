@@ -178,7 +178,13 @@ fn quoted_fields_may_hold_commas_and_new_lines() {
     open(&bytes, |consumer| {
         let name = |id: &str| {
             let stop = consumer.stop_by_id(id).expect("the stop exists");
-            consumer.string(stop.name.as_option().expect("a name"))
+            consumer.string(
+                consumer
+                    .stop_info(stop.index)
+                    .name
+                    .as_option()
+                    .expect("a name"),
+            )
         };
         assert_eq!(name("A"), "Alpha, Central", "the comma stays in the name");
         assert_eq!(name("B"), "Beta\nPlatform 2", "so does the new line");
@@ -195,7 +201,13 @@ fn columns_may_come_in_any_order_with_extra_ones() {
     open(&bytes, |consumer| {
         let stop = consumer.stop_by_id("B").expect("the stop exists");
         assert_eq!(
-            consumer.string(stop.name.as_option().expect("a name")),
+            consumer.string(
+                consumer
+                    .stop_info(stop.index)
+                    .name
+                    .as_option()
+                    .expect("a name")
+            ),
             "Beta",
             "found by header"
         );
@@ -352,7 +364,13 @@ fn the_first_of_a_repeated_id_wins() {
         assert_eq!(consumer.stops().len(), 2, "the repeat is dropped");
         let stop = consumer.stop_by_id("A").expect("A exists");
         assert_eq!(
-            consumer.string(stop.name.as_option().expect("a name")),
+            consumer.string(
+                consumer
+                    .stop_info(stop.index)
+                    .name
+                    .as_option()
+                    .expect("a name")
+            ),
             "First",
             "the first row stays"
         );

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use flatnet_core::models::{
     Coordinate, LocationType, Optional, RouteType, SearchSlice, SearchStop, Sentinel, Slice,
-    SliceBuilder, Stop, StopIdSlice, StopIndex, StringSlice,
+    SliceBuilder, Stop, StopIdSlice, StopIndex, StopInfo, StringSlice,
 };
 
 use crate::{network::StopRecord, tables};
@@ -10,7 +10,7 @@ use crate::{network::StopRecord, tables};
 pub(super) fn build_stops(
     records: &[StopRecord],
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> Vec<Stop> {
+) -> (Vec<Stop>, Vec<StopInfo>) {
     records
         .iter()
         .enumerate()
@@ -42,18 +42,21 @@ pub(super) fn build_stops(
 
             let parent = stop.parent.map_or(StopIndex::NONE, StopIndex::from);
 
-            Stop::new(
+            let stop_row = Stop::new(
                 StopIdSlice::NONE,
                 StopIndex::from(position),
                 Optional::new(parent),
-                name,
-                description,
-                code,
                 coordinate,
                 stop.location_type,
-            )
+            );
+            let info = StopInfo {
+                code,
+                name,
+                description,
+            };
+            (stop_row, info)
         })
-        .collect()
+        .unzip()
 }
 
 pub(super) fn build_stop_ids(
@@ -69,12 +72,15 @@ pub(super) fn build_stop_ids(
 }
 
 /// Groups stops that share a name, so a search for the name finds every platform of a station.
-pub(super) fn build_stop_search(stops: &[Stop]) -> (Vec<SearchStop>, Vec<StopIndex>) {
+pub(super) fn build_stop_search(
+    stops: &[Stop],
+    infos: &[StopInfo],
+) -> (Vec<SearchStop>, Vec<StopIndex>) {
     // Ordered so the same input always gives the same bytes.
     let mut grouped_stops: BTreeMap<StringSlice, Vec<StopIndex>> = BTreeMap::new();
 
     for stop in stops {
-        if let Some(name) = search_name(stop, stops) {
+        if let Some(name) = search_name(stop, infos) {
             grouped_stops.entry(name).or_default().push(stop.index);
         }
     }
@@ -98,14 +104,14 @@ pub(super) fn build_stop_search(stops: &[Stop]) -> (Vec<SearchStop>, Vec<StopInd
 /// The name a stop is searched under: its own for a station, or for a stop that has no parent
 /// station, otherwise its parent's. An entrance or boarding area with no parent isn't a place to
 /// search for.
-fn search_name(stop: &Stop, stops: &[Stop]) -> Option<StringSlice> {
+fn search_name(stop: &Stop, infos: &[StopInfo]) -> Option<StringSlice> {
     let is_part_of_something = stop.location_type == LocationType::STATION_ENTRANCE
         || stop.location_type == LocationType::BOARDING_AREA;
     let is_named_place = stop.location_type == LocationType::STOP_AREA
         || (stop.parent_index.is_none() && !is_part_of_something);
-    if is_named_place && let Some(name) = stop.name.as_option() {
+    if is_named_place && let Some(name) = infos[stop.index.as_usize()].name.as_option() {
         return Some(name);
     }
     let parent = stop.parent_index.as_option()?;
-    stops[parent.as_usize()].name.as_option()
+    infos[parent.as_usize()].name.as_option()
 }

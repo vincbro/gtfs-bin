@@ -84,7 +84,7 @@ pub(crate) fn exercise(consumer: &Consumer<'_>) {
         let _ = consumer.outbound_transfers_by_stop(stop.index);
         let _ = consumer.iter_inbound_transfers_by_stop(stop.index).count();
         let _ = consumer.iter_trip_patterns_by_stop(stop.index).count();
-        if let Some(name) = stop.name.as_option() {
+        if let Some(name) = consumer.stop_info(stop.index).name.as_option() {
             let _ = consumer.string(name);
         }
     }

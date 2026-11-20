@@ -2,7 +2,7 @@
 
 A compiled file is a header followed by sections. Everything is little-endian on the machine that wrote it: the file is meant to be mapped, so a file moves between machines of the same byte order only.
 
-Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 10. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
+Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 11. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
 
 ## Header
 
@@ -12,7 +12,7 @@ Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 10. It
 |---|---|---|
 | `magic` | 4 | The bytes `FLNT` |
 | `version` | 4 | The format version |
-| 38 `Section` fields | 16 each | `offset` and `count`, both `u64`, of each section below |
+| 40 `Section` fields | 16 each | `offset` and `count`, both `u64`, of each section below |
 | `feed_start_date`, `feed_end_date` | 4 each | `Date`, or `u32::MAX` when `feed_info.txt` has none |
 | `file_length` | 8 | The length of the whole file, so a truncated one is noticed on open |
 | `checksum` | 8 | `models::checksum` of every byte after the header. `Consumer::verify_checksum` checks it |
@@ -25,7 +25,8 @@ Every table is an array of fixed size `repr(C)` structs, with no pointers: they 
 
 | Section | Item | Meaning |
 |---|---|---|
-| `stops`, `routes`, `trips`, `services` | `Stop`, `Route`, `Trip`, `Service` | The GTFS entities, in file order. An item's `index` field is its position |
+| `stops`, `routes`, `trips`, `services` | `Stop`, `Route`, `Trip`, `Service` | The GTFS entities, in file order. An item's `index` field is its position. A `Stop` and a `Trip` hold what routing reads, 28 and 40 bytes |
+| `stop_infos`, `trip_infos` | `StopInfo`, `TripInfo` | The text of each stop (code, name, description) and trip (headsign, short name, block), at the position of the stop or trip. Kept apart so a scan over the stops or trips doesn't read it |
 | `timings` | `Timing` | An arrival and a departure. Pattern by pattern, and within a pattern trip by trip in the order the trips leave. `Trip.stop_times` is a trip's run, one `Timing` for each stop of its pattern |
 | `shapes` | `Shape` | The path between two stops: a slice of `shape_points` and its length in meters. Each one is stored once, however many trips use it |
 | `shape_points` | `Coordinate` | The points of every `Shape`, back to back |

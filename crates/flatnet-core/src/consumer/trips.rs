@@ -1,6 +1,6 @@
 use crate::{
     consumer::Consumer,
-    models::{RouteIndex, Slice, StopIndex, Trip, TripIdSlice, TripIndex},
+    models::{RouteIndex, Slice, StopIndex, Trip, TripIdSlice, TripIndex, TripInfo},
 };
 
 impl<'a> Consumer<'a> {
@@ -10,6 +10,16 @@ impl<'a> Consumer<'a> {
     #[must_use]
     pub fn trip(&self, index: TripIndex) -> &'a Trip {
         &self.trips[index.as_usize()]
+    }
+
+    /// The text and block of a trip.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range, which includes `TripIndex::NONE`.
+    #[must_use]
+    pub fn trip_info(&self, index: TripIndex) -> &'a TripInfo {
+        &self.trip_infos[index.as_usize()]
     }
 
     #[must_use]

@@ -1,6 +1,6 @@
 use crate::{
     consumer::Consumer,
-    models::{SearchIndex, SearchStop, Slice, Stop, StopIdSlice, StopIndex},
+    models::{SearchIndex, SearchStop, Slice, Stop, StopIdSlice, StopIndex, StopInfo},
 };
 
 impl<'a> Consumer<'a> {
@@ -10,6 +10,16 @@ impl<'a> Consumer<'a> {
     #[must_use]
     pub fn stop(&self, index: StopIndex) -> &'a Stop {
         &self.stops[index.as_usize()]
+    }
+
+    /// The text of a stop.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range, which includes `StopIndex::NONE`.
+    #[must_use]
+    pub fn stop_info(&self, index: StopIndex) -> &'a StopInfo {
+        &self.stop_infos[index.as_usize()]
     }
 
     #[must_use]

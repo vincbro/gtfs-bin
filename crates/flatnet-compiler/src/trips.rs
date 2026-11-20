@@ -1,6 +1,6 @@
 use flatnet_core::models::{
     Optional, RouteIndex, Sentinel, ServiceIndex, SliceBuilder, StopTimeSlice, StringSlice, Trip,
-    TripIdSlice, TripIndex,
+    TripIdSlice, TripIndex, TripInfo,
 };
 
 use crate::{network::TripRecord, tables};
@@ -8,37 +8,42 @@ use crate::{network::TripRecord, tables};
 pub(super) fn build_trips(
     records: &[TripRecord],
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> Vec<Trip> {
+) -> (Vec<Trip>, Vec<TripInfo>) {
     records
         .iter()
         .enumerate()
-        .map(|(position, trip)| Trip {
-            id: TripIdSlice::NONE,
-            index: TripIndex::from(position),
-            // Set once the trip's stops are known, because it is cut at them.
-            shape: Optional::default(),
-            headsign: trip
-                .headsign
-                .as_ref()
-                .map(|headsign| slice_builder.add(headsign))
-                .into(),
-            route_index: RouteIndex::from(trip.route),
-            service_index: trip.service.map_or(ServiceIndex::NONE, ServiceIndex::from),
-            stop_times: StopTimeSlice::NONE,
-            block: trip
-                .block
-                .as_ref()
-                .map(|block| slice_builder.add(block))
-                .into(),
-            direction: trip.direction,
-            padding: [0; 3],
-            short_name: trip
-                .short_name
-                .as_ref()
-                .map(|name| slice_builder.add(name))
-                .into(),
+        .map(|(position, trip)| {
+            let row = Trip {
+                id: TripIdSlice::NONE,
+                index: TripIndex::from(position),
+                // Set once the trip's stops are known, because it is cut at them.
+                shape: Optional::default(),
+                route_index: RouteIndex::from(trip.route),
+                service_index: trip.service.map_or(ServiceIndex::NONE, ServiceIndex::from),
+                stop_times: StopTimeSlice::NONE,
+                direction: trip.direction,
+                padding: [0; 3],
+            };
+            let info = TripInfo {
+                headsign: trip
+                    .headsign
+                    .as_ref()
+                    .map(|headsign| slice_builder.add(headsign))
+                    .into(),
+                short_name: trip
+                    .short_name
+                    .as_ref()
+                    .map(|name| slice_builder.add(name))
+                    .into(),
+                block: trip
+                    .block
+                    .as_ref()
+                    .map(|block| slice_builder.add(block))
+                    .into(),
+            };
+            (row, info)
         })
-        .collect()
+        .unzip()
 }
 
 pub(super) fn build_trip_ids(

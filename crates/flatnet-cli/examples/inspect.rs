@@ -106,8 +106,8 @@ fn main() -> anyhow::Result<()> {
                 started.elapsed()
             );
             for &(stop, meters) in found.iter().take(10) {
-                let stop = consumer.stop(stop);
-                let name = stop
+                let name = consumer
+                    .stop_info(stop)
                     .name
                     .as_option()
                     .map_or("", |name| consumer.string(name));

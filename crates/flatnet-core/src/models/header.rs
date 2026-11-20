@@ -16,6 +16,8 @@ pub struct Header {
     pub version: u32,
 
     pub stops: Section,
+    /// The `StopInfo` of every stop, at the stop's position.
+    pub stop_infos: Section,
     pub stop_ids: Section,
     pub stops_id_lookup: Section,
 
@@ -24,6 +26,8 @@ pub struct Header {
     pub route_id_lookup: Section,
 
     pub trips: Section,
+    /// The `TripInfo` of every trip, at the trip's position.
+    pub trip_infos: Section,
     pub trip_ids: Section,
     pub trip_id_lookup: Section,
 

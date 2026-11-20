@@ -8,9 +8,9 @@ use crate::{
     consumer::reader::Reader,
     models::{
         self, Coordinate, Date, Header, Metadata, PatternStop, Route, RouteIndex, SearchStop,
-        Sentinel, Service, ServiceIndex, Shape, ShapeIndex, Stop, StopCell, StopIndex, Timing,
-        Transfer, TransferIndex, TransferSlice, Trip, TripIndex, TripPattern, TripPatternIndex,
-        TripPatternSlice, TripSlice,
+        Sentinel, Service, ServiceIndex, Shape, ShapeIndex, Stop, StopCell, StopIndex, StopInfo,
+        Timing, Transfer, TransferIndex, TransferSlice, Trip, TripIndex, TripInfo, TripPattern,
+        TripPatternIndex, TripPatternSlice, TripSlice,
     },
 };
 
@@ -48,6 +48,7 @@ pub use error::{Error, Result};
 pub struct Consumer<'a> {
     // Stops
     stops: &'a [Stop],
+    stop_infos: &'a [StopInfo],
     stops_id_lookup: &'a [StopIndex],
     stop_ids: &'a [u8],
 
@@ -58,6 +59,7 @@ pub struct Consumer<'a> {
 
     // Trips
     trips: &'a [Trip],
+    trip_infos: &'a [TripInfo],
     trips_id_lookup: &'a [TripIndex],
     trip_ids: &'a [u8],
 
@@ -182,6 +184,7 @@ impl<'a> Consumer<'a> {
 
         let consumer = Self {
             stops: reader.cast_slice(header.stops)?,
+            stop_infos: reader.cast_slice(header.stop_infos)?,
             stop_ids: reader.bytes::<u8>(header.stop_ids)?,
             stops_id_lookup: reader.cast_slice(header.stops_id_lookup)?,
 
@@ -190,6 +193,7 @@ impl<'a> Consumer<'a> {
             routes_id_lookup: reader.cast_slice(header.route_id_lookup)?,
 
             trips: reader.cast_slice(header.trips)?,
+            trip_infos: reader.cast_slice(header.trip_infos)?,
             trip_ids: reader.bytes::<u8>(header.trip_ids)?,
             trips_id_lookup: reader.cast_slice(header.trip_id_lookup)?,
 

@@ -160,7 +160,8 @@ fn strings() {
     let trip = consumer
         .trip_by_id("trip4")
         .expect("Failed to get trip4 by id");
-    let headsign = trip
+    let headsign = consumer
+        .trip_info(trip.index)
         .headsign
         .as_option()
         .expect("Failed to get trip4 headsign slice");
@@ -170,7 +171,8 @@ fn strings() {
     let trip = consumer
         .trip_by_id("trip1")
         .expect("Failed to get trip1 by id");
-    let headsign = trip
+    let headsign = consumer
+        .trip_info(trip.index)
         .headsign
         .as_option()
         .expect("Failed to get trip1 headsign slice");
@@ -180,7 +182,8 @@ fn strings() {
     let trip = consumer
         .trip_by_id("trip3")
         .expect("Failed to get trip3 by id");
-    let headsign = trip
+    let headsign = consumer
+        .trip_info(trip.index)
         .headsign
         .as_option()
         .expect("Failed to get trip3 headsign slice");

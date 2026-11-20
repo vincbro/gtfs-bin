@@ -87,26 +87,10 @@ impl Consumer<'_> {
             strings(self.service_ids),
         )?;
 
+        self.validate_info_text()?;
+
         let text = strings(self.strings);
         let optional = |slices: Vec<_>| slices.into_iter().filter_map(Optional::as_option);
-        check_text(
-            "stops",
-            "name",
-            optional(self.stops.iter().map(|stop| stop.name).collect()),
-            text,
-        )?;
-        check_text(
-            "stops",
-            "code",
-            optional(self.stops.iter().map(|stop| stop.code).collect()),
-            text,
-        )?;
-        check_text(
-            "stops",
-            "description",
-            optional(self.stops.iter().map(|stop| stop.description).collect()),
-            text,
-        )?;
         check_text(
             "routes",
             "long_name",
@@ -123,24 +107,6 @@ impl Consumer<'_> {
             "routes",
             "description",
             optional(self.routes.iter().map(|route| route.description).collect()),
-            text,
-        )?;
-        check_text(
-            "trips",
-            "headsign",
-            optional(self.trips.iter().map(|trip| trip.headsign).collect()),
-            text,
-        )?;
-        check_text(
-            "trips",
-            "block",
-            optional(self.trips.iter().map(|trip| trip.block).collect()),
-            text,
-        )?;
-        check_text(
-            "trips",
-            "short_name",
-            optional(self.trips.iter().map(|trip| trip.short_name).collect()),
             text,
         )?;
         check_text(
@@ -162,8 +128,66 @@ impl Consumer<'_> {
         )
     }
 
+    fn validate_info_text(&self) -> Result<()> {
+        let text = str::from_utf8(self.strings).unwrap_or_default();
+        let optional = |slices: Vec<_>| slices.into_iter().filter_map(Optional::as_option);
+        check_text(
+            "stops",
+            "name",
+            optional(self.stop_infos.iter().map(|stop| stop.name).collect()),
+            text,
+        )?;
+        check_text(
+            "stops",
+            "code",
+            optional(self.stop_infos.iter().map(|stop| stop.code).collect()),
+            text,
+        )?;
+        check_text(
+            "stops",
+            "description",
+            optional(
+                self.stop_infos
+                    .iter()
+                    .map(|stop| stop.description)
+                    .collect(),
+            ),
+            text,
+        )?;
+        check_text(
+            "trips",
+            "headsign",
+            optional(self.trip_infos.iter().map(|trip| trip.headsign).collect()),
+            text,
+        )?;
+        check_text(
+            "trips",
+            "block",
+            optional(self.trip_infos.iter().map(|trip| trip.block).collect()),
+            text,
+        )?;
+        check_text(
+            "trips",
+            "short_name",
+            optional(self.trip_infos.iter().map(|trip| trip.short_name).collect()),
+            text,
+        )
+    }
+
     fn validate_lengths(&self) -> Result<()> {
         let pairs = [
+            (
+                "stops",
+                self.stops.len(),
+                "stop_infos",
+                self.stop_infos.len(),
+            ),
+            (
+                "trips",
+                self.trips.len(),
+                "trip_infos",
+                self.trip_infos.len(),
+            ),
             (
                 "stops",
                 self.stops.len(),

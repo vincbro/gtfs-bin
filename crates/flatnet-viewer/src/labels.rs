@@ -17,7 +17,7 @@ pub(crate) fn text<'a>(consumer: &Consumer<'a>, slice: Optional<StringSlice>) ->
 pub(crate) fn stop(consumer: &Consumer<'_>, index: StopIndex) -> String {
     let stop = consumer.stop(index);
     let id = consumer.stop_id(stop.id);
-    match text(consumer, stop.name) {
+    match text(consumer, consumer.stop_info(index).name) {
         Some(name) => format!("{name} ({id})"),
         None => id.to_owned(),
     }
@@ -34,7 +34,7 @@ pub(crate) fn route(consumer: &Consumer<'_>, index: RouteIndex) -> String {
 pub(crate) fn trip(consumer: &Consumer<'_>, index: TripIndex) -> String {
     let trip = consumer.trip(index);
     let id = consumer.trip_id(trip.id);
-    match text(consumer, trip.headsign) {
+    match text(consumer, consumer.trip_info(index).headsign) {
         Some(headsign) => format!("{id} to {headsign}"),
         None => id.to_owned(),
     }

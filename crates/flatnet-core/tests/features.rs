@@ -69,7 +69,11 @@ fn boarding_rules_direction_and_block_are_kept() {
         );
         assert_eq!(unset.direction, Direction::NONE, "no direction is NONE");
         assert_eq!(
-            trip.block.as_option().map(|block| consumer.string(block)),
+            consumer
+                .trip_info(trip.index)
+                .block
+                .as_option()
+                .map(|block| consumer.string(block)),
             Some("B7"),
             "the block id is kept"
         );

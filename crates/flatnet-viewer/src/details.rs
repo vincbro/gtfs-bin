@@ -103,15 +103,16 @@ fn coordinate_text(coordinate: Optional<Coordinate>) -> Option<String> {
 
 fn stop(ui: &mut Ui, consumer: &Consumer<'_>, index: StopIndex, jump: &mut Option<Item>) {
     let stop = consumer.stop(index);
+    let info = consumer.stop_info(index);
     Grid::new("stop")
         .num_columns(2)
         .striped(true)
         .show(ui, |ui| {
             field(ui, "index", index.0);
             field(ui, "id", consumer.stop_id(stop.id));
-            optional_field(ui, "name", labels::text(consumer, stop.name));
-            optional_field(ui, "code", labels::text(consumer, stop.code));
-            optional_field(ui, "description", labels::text(consumer, stop.description));
+            optional_field(ui, "name", labels::text(consumer, info.name));
+            optional_field(ui, "code", labels::text(consumer, info.code));
+            optional_field(ui, "description", labels::text(consumer, info.description));
             optional_field(ui, "position", coordinate_text(stop.coordinate));
             field(ui, "location type", format!("{:?}", stop.location_type));
             let parent = stop
@@ -161,15 +162,16 @@ fn route(ui: &mut Ui, consumer: &Consumer<'_>, index: RouteIndex, jump: &mut Opt
 
 fn trip(ui: &mut Ui, consumer: &Consumer<'_>, index: TripIndex, jump: &mut Option<Item>) {
     let trip = consumer.trip(index);
+    let info = consumer.trip_info(index);
     Grid::new("trip")
         .num_columns(2)
         .striped(true)
         .show(ui, |ui| {
             field(ui, "index", index.0);
             field(ui, "id", consumer.trip_id(trip.id));
-            optional_field(ui, "headsign", labels::text(consumer, trip.headsign));
-            optional_field(ui, "short name", labels::text(consumer, trip.short_name));
-            optional_field(ui, "block", labels::text(consumer, trip.block));
+            optional_field(ui, "headsign", labels::text(consumer, info.headsign));
+            optional_field(ui, "short name", labels::text(consumer, info.short_name));
+            optional_field(ui, "block", labels::text(consumer, info.block));
             field(ui, "direction", format!("{:?}", trip.direction));
             let route = (
                 Item::Route(trip.route_index),
