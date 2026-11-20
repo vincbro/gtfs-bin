@@ -4,19 +4,22 @@
 [![Documentation](https://docs.rs/flatnet/badge.svg)](https://docs.rs/flatnet)
 [![License](https://img.shields.io/crates/l/flatnet.svg)](LICENSE-MIT)
 
-A GTFS feed compiled into one flat file you can memory-map.
+A transit network as one flat file you can memory-map.
 
-*flatnet* is a tool and library. It parses a GTFS feed once and writes a single `.flatnet` file, and your application reads that file in place, with nothing to parse at startup. It is the data layer under [blaise](https://github.com/vincbro/blaise), a transit router, and it suits any fast transit application: routing engines, spatial analytics, stop search.
+*flatnet* is a file format, a tool and a library. It reads a transit feed once and writes a single `.flnt` file, and your application reads that file in place, with nothing to parse at startup. GTFS is the first source it reads, and the format is its own: it holds what is worth having to work with a network, not everything a source can say. It is the data layer under [blaise](https://github.com/vincbro/blaise), a transit router, and it suits any fast transit application: routing engines, spatial analytics, stop search.
 
 - No parsing at startup. The network opens in the time the OS takes to set up a memory map.
 - Safe on any file. A corrupt or hostile file is an error, never undefined behavior.
+- Easy and fast at any size: SL's regional network (2.5 million stop times) opens and validates in about 40 ms.
 - Real-time delays, cancellations and skipped stops, when you have a GTFS-realtime feed.
+
+Files end in `.flnt`, and begin with the bytes `FLNT`.
 
 ## How it works
 
 Working with flatnet is split into two phases, **compilation** and **consumption**. The heavy lifting happens once, and the result is what you distribute.
 
-- **Compile.** The `Compiler` reads a feed, a directory or a `.zip`, with its own parser. String ids become integer indices, so a trip points straight at its route. Text is deduplicated into one contiguous block. The flat arrays are written to one file, and the same feed always compiles to the same bytes.
+- **Compile.** The `Compiler` reads a GTFS feed, a directory or a `.zip`, with its own parser. String ids become integer indices, so a trip points straight at its route. Text is deduplicated into one contiguous block. The flat arrays are written to one file, and the same feed always compiles to the same bytes.
 - **Consume.** The `Consumer` maps the file with `mmap` and reads it where it lies. Data is paged into RAM by the OS only when you touch it, and because the tables are flat and pointer-free, walking from a route to its trips is friendly to the CPU cache.
 - **Validated.** `Consumer::new` checks the header, every section, that all text is UTF-8, and that every index and slice points inside the table it names. The checks are covered by property tests. Opening SL's whole regional feed (159 MB, 2.5 million stop times) takes 39 ms with them. `Consumer::verify_checksum` also detects any changed byte.
 - **Live.** With the `rt` feature, GTFS-realtime updates are applied on top of a consumer, and reading a delay is an array index.
@@ -26,7 +29,7 @@ The layout of the file is in [docs/FORMAT.md](docs/FORMAT.md).
 ## Installation
 
 ```bash
-cargo install flatnet       # the command line tool
+cargo install flatnet-cli   # the `flatnet` command
 cargo add flatnet-compiler  # write a file from your own code
 cargo add flatnet-core      # read one
 cargo add memmap2
@@ -36,9 +39,10 @@ cargo add memmap2
 
 | Crate | What it is |
 |---|---|
-| `flatnet` | the `flatnet` command, which compiles a feed |
-| `flatnet-compiler` | `Compiler`, which reads a feed and writes the binary file |
+| `flatnet-cli` | the `flatnet` command, which compiles a feed |
+| `flatnet-compiler` | `Compiler`, which reads a GTFS feed and writes the binary file |
 | `flatnet-core` | the types of the file, `Consumer`, which maps and reads it, and GTFS-realtime on top of it |
+| `flatnet-viewer` | an egui app to walk a compiled file and see it on a map (`just view`). Not published |
 
 `flatnet-core` has two features, both on by default: `consumer` (needs `memmap2`) and `rt` (needs `consumer`). A library that only reads files can turn `rt` off with `default-features = false, features = ["consumer"]`.
 
@@ -47,7 +51,7 @@ cargo add memmap2
 Compile your feed once, with the command line:
 
 ```bash
-flatnet -i path/to/gtfs.zip -o network.flatnet
+flatnet -i path/to/gtfs.zip -o network.flnt
 ```
 
 Add your own metadata to the file with `--meta key=value` (repeat it) or `--meta-json file.json`.
@@ -63,7 +67,7 @@ fn main() {
     // Read from a zip file or an extracted directory.
     let compiler = Compiler::new(Path::new("path/to/gtfs.zip"));
     let bytes = compiler.compile().expect("Failed to compile GTFS");
-    fs::write("network.flatnet", &bytes).unwrap();
+    fs::write("network.flnt", &bytes).unwrap();
 }
 ```
 
@@ -76,7 +80,7 @@ use flatnet_core::consumer::Consumer;
 use memmap2::Mmap;
 
 fn main() {
-    let file = File::open("network.flatnet").expect("Failed to open binary");
+    let file = File::open("network.flnt").expect("Failed to open binary");
     // SAFETY: the file is only read, and nothing modifies it while it is mapped.
     let mmap = unsafe { Mmap::map(&file).expect("Failed to map memory") };
     let consumer = Consumer::new(&mmap).expect("Failed to open the network");
@@ -178,8 +182,17 @@ What is not: shapes and stops sent in a feed, trip modifications, and replaced o
 - Trip patterns, the grouped stop sequences
 - Pickup and drop-off rules, trip direction and block
 - The agency time zone and the feed's validity dates
+- What the file says about itself: where it came from, when it was compiled and the days any service runs, so `Consumer::is_stale` checks a file without reading a table, and room for your own JSON
 - A grid index for stops near a position, and name search that ignores case and accents
 - Coordinates, scaled to 7 decimal places for about 1.1 cm of precision
+
+## Where it is going
+
+flatnet is moving from a compiled GTFS to a format of its own, with a reader for each source. Nothing in this section exists yet. The plan and the reasons are in [TODO.md](TODO.md) and [docs/OWN-SCHEMA.md](docs/OWN-SCHEMA.md).
+
+- **A schema we own.** A field is in the file because something reads it, not because a source has it. The first change is to store times once for each trip pattern, where today every stop time repeats facts that belong to the pattern. On SL that is 100 MB of a 132 MB file.
+- **One crate for each source.** `flatnet-gtfs`, `flatnet-gtfs-rt`, `flatnet-netex` and `flatnet-siri` read their formats into a source-neutral `Network` from `flatnet-model`. `flatnet-compiler` reads no source format: it builds everything derived from a `Network` (patterns, grids, walking paths, search) and writes the file.
+- **A book on the schema,** with a chapter for each table and the reasons behind its layout.
 
 ## Development
 
@@ -202,6 +215,10 @@ Run `just` on its own to list every recipe, including `compile`, `inspect`, `app
 - [x] GTFS Realtime data ingestion and mapping
 - [x] Own GTFS parser, with no GTFS library dependency
 - [x] Validation of every table when a file is opened, with property tests
+- [x] Metadata in the file, shapes cut at stops, and a viewer
+- [ ] Times stored once for each pattern, and the rest of the schema pass
+- [ ] A reader crate for each source, over a source-neutral `Network`
+- [ ] A book on the schema
 - [ ] Expose prefetching (`madvise`) helper functions for pathfinding loops
 - [ ] Multi-threaded graph compilation API
 

@@ -1,6 +1,6 @@
 //! Opens a compiled file in a window: its header, its tables and its stops and shapes on a map.
 //!
-//! Run with `just view network.flatnet`, or `just view` to pick the file in the system's dialog.
+//! Run with `just view network.flnt`, or `just view` to pick the file in the system's dialog.
 
 use std::{env, fs::File, path::PathBuf};
 

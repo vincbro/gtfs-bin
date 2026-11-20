@@ -14,7 +14,7 @@ use rfd::FileDialog;
 pub(crate) fn pick() -> Option<PathBuf> {
     let mut dialog = FileDialog::new()
         .set_title("Open a compiled flatnet file")
-        .add_filter("flatnet", &["flatnet"]);
+        .add_filter("flnt", &["flnt"]);
     if let Ok(directory) = env::current_dir() {
         dialog = dialog.set_directory(directory);
     }

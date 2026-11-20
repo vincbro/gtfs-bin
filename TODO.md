@@ -33,7 +33,7 @@ The direction, decided 2026-11-20: flatnet becomes its own transit network forma
 - [ ] `frequencies.txt` and `timepoint` are decided in the schema, once, for every source (see Parser)
 - [ ] A `netex` reader for the Nordic profile only
 - [ ] A `siri` decoder, estimated timetable first
-- [x] Renamed to `flatnet` (2026-11-20: a flat network, which is the layout): crates, binary, magic `FLNT`, extension `.flatnet`, format version 8. Still open: the GitHub repo, blaise, and a crates.io check. Check crates.io first. Crates `flatnet-model`, `flatnet-core`, `flatnet-compiler`, `flatnet-cli` and one per source (`flatnet-gtfs`, `flatnet-gtfs-rt`, `flatnet-netex`, `flatnet-siri`). A rename also means the header magic, the file extension and blaise's imports and README
+- [x] Renamed to `flatnet` (2026-11-20: a flat network, which is the layout): crates, binary, magic `FLNT`, extension `.flnt`, format version 8. Still open: the GitHub repo, blaise, and a crates.io check. Check crates.io first. Crates `flatnet-model`, `flatnet-core`, `flatnet-compiler`, `flatnet-cli` and one per source (`flatnet-gtfs`, `flatnet-gtfs-rt`, `flatnet-netex`, `flatnet-siri`). A rename also means the header magic, the file extension and blaise's imports and README
 - [-] Full NeTEx or SIRI coverage. Fares, vehicle scheduling, duties, facility monitoring and station navigation stay out until a consumer asks
 
 ## Parser (own GTFS reader)

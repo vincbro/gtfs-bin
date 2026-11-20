@@ -10,7 +10,7 @@ The coding rules are in the `code-standards/` submodule: clone with `--recurse-s
 
 ```sh
 just toolchain          # installs the pinned Rust, nightly rustfmt, the cargo tools and the git hooks
-just compile FEED       # compiles a feed (a zip or a folder) into output.flatnet
+just compile FEED       # compiles a feed (a zip or a folder) into output.flnt
 just inspect FILE       # opens a compiled file, times it, and can query it
 just check              # what CI runs: fmt, clippy, docs, tests, features, dependencies
 just check-full         # the same, with the property tests run for 40000 cases

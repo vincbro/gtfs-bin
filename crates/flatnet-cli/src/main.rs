@@ -17,7 +17,7 @@ struct Args {
     #[arg(short, long)]
     input: PathBuf,
 
-    #[arg(short, long, default_value = "output.flatnet")]
+    #[arg(short, long, default_value = "output.flnt")]
     output: PathBuf,
 
     /// Adds a key and a text value to the file's JSON metadata, as `key=value`. Repeat it for more.

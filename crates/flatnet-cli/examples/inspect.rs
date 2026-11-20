@@ -1,6 +1,6 @@
 //! Opens a compiled file and reports what it holds and how long it took to open.
 //!
-//! Run with `cargo run --release --example inspect -- network.flatnet`.
+//! Run with `cargo run --release --example inspect -- network.flnt`.
 //!
 //! Add `near <latitude> <longitude> <meters>` to list the stops around a position, or
 //! `search <text>` to look a place up by name.

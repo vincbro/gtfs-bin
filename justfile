@@ -8,24 +8,24 @@ fmt_toolchain := "nightly-2026-10-13"
 default:
     @just --list
 
-# Compile a feed: just compile path/to/gtfs.zip [output.flatnet]
-compile feed output="output.flatnet":
+# Compile a feed: just compile path/to/gtfs.zip [output.flnt]
+compile feed output="output.flnt":
     cargo run --release -p flatnet-cli -- -i {{ quote(feed) }} -o {{ quote(output) }}
 
-# Open a compiled file and time it, optionally with a query: just inspect network.flatnet [near LAT LON METERS | search TEXT]
+# Open a compiled file and time it, optionally with a query: just inspect network.flnt [near LAT LON METERS | search TEXT]
 inspect file *query:
     cargo run --release -p flatnet-cli --example inspect -- {{ quote(file) }} {{ query }}
 
 # Open a compiled file in a window, to walk its tables and see it on a map. With no file it asks
-# for one in the system's dialog: just view [network.flatnet]
+# for one in the system's dialog: just view [network.flnt]
 view *file:
     cargo run --release -p flatnet-viewer -- {{ file }}
 
-# Compile the dummy feed in data/dummy into data/dummy.flatnet, a small network to try the viewer on
+# Compile the dummy feed in data/dummy into data/dummy.flnt, a small network to try the viewer on
 dummy:
-    cargo run --release -p flatnet-cli -- -i data/dummy -o data/dummy.flatnet
+    cargo run --release -p flatnet-cli -- -i data/dummy -o data/dummy.flnt
 
-# Apply realtime files to a compiled file and report what matched: just apply network.flatnet TripUpdates.pb [more.pb ...]
+# Apply realtime files to a compiled file and report what matched: just apply network.flnt TripUpdates.pb [more.pb ...]
 apply file *feeds:
     cargo run --release -p flatnet-cli --example apply_feed -- {{ quote(file) }} {{ feeds }}
 

@@ -1,6 +1,6 @@
 //! Applies GTFS-realtime files to a compiled file and says what matched.
 //!
-//! Run with `cargo run --release --example apply_feed -- network.flatnet TripUpdates.pb`.
+//! Run with `cargo run --release --example apply_feed -- network.flnt TripUpdates.pb`.
 
 use std::{env, fs, fs::File, time::Instant};
 
