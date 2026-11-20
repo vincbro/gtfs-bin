@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 
-use crate::models::Date;
+use crate::models::{Date, Parts};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -14,6 +14,9 @@ pub struct Section {
 pub struct Header {
     pub magic: [u8; 4],
     pub version: u32,
+
+    /// The optional parts the compiler wrote. A part left out has empty sections.
+    pub parts: Parts,
 
     pub stops: Section,
     /// The `StopInfo` of every stop, at the stop's position.

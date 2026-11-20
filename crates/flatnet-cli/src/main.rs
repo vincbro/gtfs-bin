@@ -7,8 +7,9 @@ use std::{
 };
 
 use anyhow::Context;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use flatnet_compiler::Compiler;
+use flatnet_core::models::Parts;
 use spinners::{Spinner, Spinners};
 
 #[derive(Parser, Debug)]
@@ -27,6 +28,34 @@ struct Args {
     /// A file with a JSON object to put in the file's metadata. `--meta` replaces its keys.
     #[arg(long, value_name = "FILE")]
     meta_json: Option<PathBuf>,
+
+    /// Leaves a part out of the file to make it smaller. Repeat it for more.
+    #[arg(long, value_enum, value_name = "PART")]
+    without: Vec<Part>,
+}
+
+/// An optional part of the file, as `--without` names it.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum Part {
+    /// The paths between stops.
+    Shapes,
+    /// Finding a place by name. `text` and `search` go together: without text there is nothing to search.
+    Search,
+    /// Names, codes, descriptions, headsigns and blocks.
+    Text,
+    /// The GTFS ids and the lookups by id. Realtime updates match nothing without them.
+    Ids,
+}
+
+impl Part {
+    const fn parts(self) -> Parts {
+        match self {
+            Self::Shapes => Parts::SHAPES,
+            Self::Search => Parts::SEARCH,
+            Self::Text => Parts::TEXT.with(Parts::SEARCH),
+            Self::Ids => Parts::IDS,
+        }
+    }
 }
 
 fn parse_entry(text: &str) -> Result<(String, String), String> {
@@ -48,6 +77,11 @@ fn main() -> anyhow::Result<()> {
             .with_context(|| format!("failed to read {}", path.display()))?;
         compiler = compiler.metadata_json(json);
     }
+    let parts = args
+        .without
+        .iter()
+        .fold(Parts::ALL, |parts, part| parts.without(part.parts()));
+    compiler = compiler.parts(parts);
     for (key, value) in args.meta {
         compiler = compiler.metadata_entry(key, value);
     }

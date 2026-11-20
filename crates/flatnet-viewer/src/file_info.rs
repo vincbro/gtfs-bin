@@ -159,8 +159,8 @@ mod tests {
             header: Header::zeroed(),
         };
 
-        // The magic, the version, the feed dates, the file length and the checksum are not sections.
-        let fixed = 4 + 4 + 4 + 4 + 8 + 8;
+        // The magic, the version, the parts, the feed dates, the file length and the checksum are not sections.
+        let fixed = 4 + 4 + 8 + 4 + 4 + 8 + 8;
         assert_eq!(
             size_of::<Header>(),
             fixed + info.sections().len() * size_of::<Section>(),

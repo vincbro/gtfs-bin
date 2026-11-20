@@ -2,7 +2,7 @@ use std::str;
 
 use crate::{
     consumer::{Consumer, Error, Result},
-    models::{Index, Optional, Sentinel, Slice, StopCell, Time, Timing, TripPattern},
+    models::{Index, Optional, Parts, Sentinel, Slice, StopCell, Time, Timing, TripPattern},
 };
 
 impl Consumer<'_> {
@@ -10,6 +10,7 @@ impl Consumer<'_> {
     /// later. It reads every table once.
     pub(super) fn validate(&self) -> Result<()> {
         self.validate_text()?;
+        self.validate_parts()?;
         self.validate_lengths()?;
         self.validate_stops()?;
         self.validate_routes()?;
@@ -174,6 +175,68 @@ impl Consumer<'_> {
         )
     }
 
+    /// Checks that every part the header says is left out is empty, and that search has the names
+    /// it needs.
+    fn validate_parts(&self) -> Result<()> {
+        let parts = self.parts;
+        if !Parts::ALL.contains(parts) {
+            return Err(invalid("header", "parts"));
+        }
+        if parts.contains(Parts::SEARCH) && !parts.contains(Parts::TEXT) {
+            return Err(invalid("header", "parts"));
+        }
+        let absent = |part: Parts, lengths: &[usize]| {
+            parts.contains(part) || lengths.iter().all(|&length| length == 0)
+        };
+        let shapes = [
+            self.shapes.len(),
+            self.shape_points.len(),
+            self.trip_shapes.len(),
+        ];
+        if !absent(Parts::SHAPES, &shapes) {
+            return Err(invalid("header", "shapes"));
+        }
+        let search = [self.search_stops.len(), self.search_to_stops.len()];
+        if !absent(Parts::SEARCH, &search) {
+            return Err(invalid("header", "search"));
+        }
+        let ids = [
+            self.stop_ids.len(),
+            self.route_ids.len(),
+            self.trip_ids.len(),
+            self.service_ids.len(),
+            self.stops_id_lookup.len(),
+            self.routes_id_lookup.len(),
+            self.trips_id_lookup.len(),
+            self.services_id_lookup.len(),
+        ];
+        if !absent(Parts::IDS, &ids) {
+            return Err(invalid("header", "ids"));
+        }
+        let has_text =
+            self.stop_infos.iter().any(|info| {
+                info.code.is_some() || info.name.is_some() || info.description.is_some()
+            }) || self.trip_infos.iter().any(|info| {
+                info.headsign.is_some() || info.short_name.is_some() || info.block.is_some()
+            }) || self
+                .pattern_stops
+                .iter()
+                .any(|stop| stop.headsign.is_some());
+        if has_text && !parts.contains(Parts::TEXT) {
+            return Err(invalid("header", "text"));
+        }
+        Ok(())
+    }
+
+    /// How many entries an id lookup has: one for each item, or none when the file has no ids.
+    const fn expected_ids(&self, items: usize) -> usize {
+        if self.parts.contains(Parts::IDS) {
+            items
+        } else {
+            0
+        }
+    }
+
     fn validate_lengths(&self) -> Result<()> {
         let pairs = [
             (
@@ -190,25 +253,25 @@ impl Consumer<'_> {
             ),
             (
                 "stops",
-                self.stops.len(),
+                self.expected_ids(self.stops.len()),
                 "stops_id_lookup",
                 self.stops_id_lookup.len(),
             ),
             (
                 "routes",
-                self.routes.len(),
+                self.expected_ids(self.routes.len()),
                 "routes_id_lookup",
                 self.routes_id_lookup.len(),
             ),
             (
                 "trips",
-                self.trips.len(),
+                self.expected_ids(self.trips.len()),
                 "trips_id_lookup",
                 self.trips_id_lookup.len(),
             ),
             (
                 "services",
-                self.services.len(),
+                self.expected_ids(self.services.len()),
                 "services_id_lookup",
                 self.services_id_lookup.len(),
             ),

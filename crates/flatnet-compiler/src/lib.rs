@@ -12,7 +12,7 @@ use std::path::Path;
 
 use flatnet_core::{
     FLATNET_VERSION,
-    models::{self, Date, Header, Sentinel, SliceBuilder, StringSlice},
+    models::{self, Date, Header, Parts, Sentinel, SliceBuilder, StringSlice},
 };
 use metadata::MetadataInput;
 use services::BuiltServices;
@@ -51,12 +51,22 @@ pub use network::{
 #[derive(Debug, Default)]
 pub struct Compiler {
     metadata: MetadataInput,
+    parts: Parts,
 }
 
 impl Compiler {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Chooses the optional parts of the file, all of them by default. A part left out is empty in
+    /// the file, so the file is smaller: see [`Parts`] for what each one holds and what reading a
+    /// file without it gives.
+    #[must_use]
+    pub const fn parts(mut self, parts: Parts) -> Self {
+        self.parts = parts;
+        self
     }
 
     /// Records when the file is compiled, in seconds since the unix epoch.
@@ -102,27 +112,42 @@ impl Compiler {
     ///
     /// Returns an error if the network has two things of one kind with the same id, a reference
     /// that points at nothing, a service with no days or one that runs for too long, or metadata
-    /// that is not a JSON object.
+    /// that is not a JSON object, or if search is asked for without text.
     #[allow(
         clippy::too_many_lines,
         reason = "one pass that builds each table and then lists every section in file order"
     )]
     pub fn compile(&self, mut network: Network) -> Result<Vec<u8>> {
         network.check()?;
+        let parts = self.parts;
+        if parts.contains(Parts::SEARCH) && !parts.contains(Parts::TEXT) {
+            return Err(Error::SearchWithoutText);
+        }
+        let text = parts.contains(Parts::TEXT);
+        if !text {
+            // A headsign is text, and without it two trips that differ only by headsign share a pattern.
+            for call in &mut network.calls {
+                call.headsign = None;
+            }
+        }
         let mut slice_builder = SliceBuilder::new();
 
-        let (mut stops, stop_infos) = stops::build_stops(&network.stops, &mut slice_builder);
+        let (mut stops, stop_infos) = stops::build_stops(&network.stops, &mut slice_builder, text);
         let mut routes = routes::build_routes(&network.routes, &mut slice_builder);
         let BuiltServices {
             mut services,
             active_mask,
         } = services::build_services(&network.services)?;
-        let (mut trips, trip_infos) = trips::build_trips(&network.trips, &mut slice_builder);
-        let headsigns: Vec<StringSlice> = network
-            .headsigns
-            .iter()
-            .map(|headsign| slice_builder.add(headsign))
-            .collect();
+        let (mut trips, trip_infos) = trips::build_trips(&network.trips, &mut slice_builder, text);
+        let headsigns: Vec<StringSlice> = if text {
+            network
+                .headsigns
+                .iter()
+                .map(|headsign| slice_builder.add(headsign))
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         stop_times::prepare_calls(&mut network.calls, &mut trips);
 
@@ -131,13 +156,17 @@ impl Compiler {
             shapes,
             points: shape_points,
             trip_shapes,
-        } = shapes::build_trip_shapes(
-            &mut trips,
-            &trip_lines,
-            &network.lines,
-            &stops,
-            &network.calls,
-        );
+        } = if parts.contains(Parts::SHAPES) {
+            shapes::build_trip_shapes(
+                &mut trips,
+                &trip_lines,
+                &network.lines,
+                &stops,
+                &network.calls,
+            )
+        } else {
+            BuiltShapes::default()
+        };
 
         // Built even when the network has no transfers, because the consumer indexes the lookups
         // by stop.
@@ -152,16 +181,37 @@ impl Compiler {
         let (metadata, metadata_json) =
             metadata::build_metadata(&self.metadata, &network.info, &services, &mut slice_builder)?;
 
-        let (search_stops, search_to_stops) = stops::build_stop_search(&stops, &stop_infos);
+        let (search_stops, search_to_stops) = if parts.contains(Parts::SEARCH) {
+            stops::build_stop_search(&stops, &stop_infos)
+        } else {
+            (Vec::new(), Vec::new())
+        };
         let (stop_grid, grid_stops) = grid::build_stop_grid(&stops);
         let (route_to_trips, route_to_trips_lookup) = routes::build_route_to_trips(&trips, &routes);
         let trip_patterns =
             trip_patterns::build_trip_patterns(&mut trips, &stops, &network.calls, &headsigns);
-        let (stop_id_lookup, stop_ids) = stops::build_stop_ids(&mut stops, &network.stops);
-        let (route_id_lookup, route_ids) = routes::build_route_ids(&mut routes, &network.routes);
-        let (trip_id_lookup, trip_ids) = trips::build_trip_ids(&mut trips, &network.trips);
-        let (service_id_lookup, service_ids) =
-            services::build_service_ids(&mut services, &network.services);
+        // Without ids the slices stay `NONE`, which reads as an empty id, and the lookups are empty.
+        let ids = parts.contains(Parts::IDS);
+        let (stop_id_lookup, stop_ids) = if ids {
+            stops::build_stop_ids(&mut stops, &network.stops)
+        } else {
+            (Vec::new(), String::new())
+        };
+        let (route_id_lookup, route_ids) = if ids {
+            routes::build_route_ids(&mut routes, &network.routes)
+        } else {
+            (Vec::new(), String::new())
+        };
+        let (trip_id_lookup, trip_ids) = if ids {
+            trips::build_trip_ids(&mut trips, &network.trips)
+        } else {
+            (Vec::new(), String::new())
+        };
+        let (service_id_lookup, service_ids) = if ids {
+            services::build_service_ids(&mut services, &network.services)
+        } else {
+            (Vec::new(), String::new())
+        };
 
         let TripPatterns {
             patterns,
@@ -179,6 +229,7 @@ impl Compiler {
         let mut header = Header {
             magic: *b"FLNT",
             version: FLATNET_VERSION,
+            parts,
             stops: writer.write_section(&stops),
             stop_infos: writer.write_section(&stop_infos),
             stop_ids: writer.write_section(stop_ids.as_bytes()),

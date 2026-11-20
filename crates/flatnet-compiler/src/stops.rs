@@ -10,6 +10,7 @@ use crate::{network::StopRecord, tables};
 pub(super) fn build_stops(
     records: &[StopRecord],
     slice_builder: &mut SliceBuilder<StringSlice>,
+    text: bool,
 ) -> (Vec<Stop>, Vec<StopInfo>) {
     records
         .iter()
@@ -25,18 +26,21 @@ pub(super) fn build_stops(
             let code = stop
                 .code
                 .as_ref()
+                .filter(|_| text)
                 .map(|code| slice_builder.add(code))
                 .into();
 
             let name = stop
                 .name
                 .as_ref()
+                .filter(|_| text)
                 .map(|name| slice_builder.add(name))
                 .into();
 
             let description = stop
                 .description
                 .as_ref()
+                .filter(|_| text)
                 .map(|description| slice_builder.add(description))
                 .into();
 

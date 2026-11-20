@@ -2,7 +2,7 @@
 
 A compiled file is a header followed by sections. Everything is little-endian on the machine that wrote it: the file is meant to be mapped, so a file moves between machines of the same byte order only.
 
-Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 11. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
+Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 12. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
 
 ## Header
 
@@ -12,6 +12,7 @@ Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 11. It
 |---|---|---|
 | `magic` | 4 | The bytes `FLNT` |
 | `version` | 4 | The format version |
+| `parts` | 8 | The optional parts the compiler wrote, as bits of `Parts`: shapes, search, text and ids. A part that is not set has empty sections, and the consumer rejects a file where it is not |
 | 40 `Section` fields | 16 each | `offset` and `count`, both `u64`, of each section below |
 | `feed_start_date`, `feed_end_date` | 4 each | `Date`, or `u32::MAX` when `feed_info.txt` has none |
 | `file_length` | 8 | The length of the whole file, so a truncated one is noticed on open |

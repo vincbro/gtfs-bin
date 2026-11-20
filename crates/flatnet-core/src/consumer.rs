@@ -7,10 +7,10 @@ use crate::{
     FLATNET_VERSION,
     consumer::reader::Reader,
     models::{
-        self, Coordinate, Date, Header, Metadata, PatternStop, Route, RouteIndex, SearchStop,
-        Sentinel, Service, ServiceIndex, Shape, ShapeIndex, Stop, StopCell, StopIndex, StopInfo,
-        Timing, Transfer, TransferIndex, TransferSlice, Trip, TripIndex, TripInfo, TripPattern,
-        TripPatternIndex, TripPatternSlice, TripSlice,
+        self, Coordinate, Date, Header, Metadata, Parts, PatternStop, Route, RouteIndex,
+        SearchStop, Sentinel, Service, ServiceIndex, Shape, ShapeIndex, Stop, StopCell, StopIndex,
+        StopInfo, Timing, Transfer, TransferIndex, TransferSlice, Trip, TripIndex, TripInfo,
+        TripPattern, TripPatternIndex, TripPatternSlice, TripSlice,
     },
 };
 
@@ -108,6 +108,7 @@ pub struct Consumer<'a> {
     grid_stops: &'a [StopIndex],
     feed_start_date: Date,
     feed_end_date: Date,
+    parts: Parts,
 
     /// The whole file, for `verify_checksum`.
     bytes: &'a [u8],
@@ -236,11 +237,18 @@ impl<'a> Consumer<'a> {
             grid_stops: reader.cast_slice(header.grid_stops)?,
             feed_start_date: header.feed_start_date,
             feed_end_date: header.feed_end_date,
+            parts: header.parts,
 
             bytes: mmap,
             expected_checksum: header.checksum,
         };
         Ok(consumer)
+    }
+
+    /// Returns the optional parts the compiler wrote. What was left out reads as empty.
+    #[must_use]
+    pub const fn parts(&self) -> Parts {
+        self.parts
     }
 
     /// Returns the agency's time zone, such as `Europe/Stockholm`, if the feed has one.

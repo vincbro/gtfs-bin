@@ -9,7 +9,7 @@
 //! The layout of the file is described in `docs/FORMAT.md`.
 
 /// The version of the file layout. It changes whenever a table or header field does.
-pub const FLATNET_VERSION: u32 = 11;
+pub const FLATNET_VERSION: u32 = 12;
 
 pub mod models;
 

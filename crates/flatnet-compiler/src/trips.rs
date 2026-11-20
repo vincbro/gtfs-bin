@@ -8,6 +8,7 @@ use crate::{network::TripRecord, tables};
 pub(super) fn build_trips(
     records: &[TripRecord],
     slice_builder: &mut SliceBuilder<StringSlice>,
+    text: bool,
 ) -> (Vec<Trip>, Vec<TripInfo>) {
     records
         .iter()
@@ -28,16 +29,19 @@ pub(super) fn build_trips(
                 headsign: trip
                     .headsign
                     .as_ref()
+                    .filter(|_| text)
                     .map(|headsign| slice_builder.add(headsign))
                     .into(),
                 short_name: trip
                     .short_name
                     .as_ref()
+                    .filter(|_| text)
                     .map(|name| slice_builder.add(name))
                     .into(),
                 block: trip
                     .block
                     .as_ref()
+                    .filter(|_| text)
                     .map(|block| slice_builder.add(block))
                     .into(),
             };
