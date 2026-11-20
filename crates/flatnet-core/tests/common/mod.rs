@@ -97,14 +97,16 @@ pub(crate) fn exercise(consumer: &Consumer<'_>) {
         let trip = consumer.trip(TripIndex::from(index));
         let _ = consumer.trip_id(trip.id);
         let _ = consumer.route(trip.route_index);
-        for stop_time in consumer.stop_times_by_trip(trip.index) {
-            let _ = consumer.stop(stop_time.stop_index);
-            let _ = consumer.trip(stop_time.trip_index);
-            if let Some(headsign) = stop_time.headsign.as_option() {
+        let pattern = consumer.trip_pattern_by_trip(trip.index);
+        for &stop in consumer.stop_sequence_by_trip_pattern(pattern.index) {
+            let _ = consumer.stop(stop);
+        }
+        for pattern_stop in consumer.pattern_stops_by_trip_pattern(pattern.index) {
+            if let Some(headsign) = pattern_stop.headsign.as_option() {
                 let _ = consumer.string(headsign);
             }
         }
-        let _ = consumer.trip_pattern_by_trip(trip.index);
+        let _ = consumer.timings_by_trip(trip.index);
         let _ = consumer.is_service_active(trip.service_index, date);
         for &shape in consumer.shapes_by_trip(trip.index) {
             let _ = consumer.shape_coordinates(shape);

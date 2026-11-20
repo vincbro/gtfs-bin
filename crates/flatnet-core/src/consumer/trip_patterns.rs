@@ -1,6 +1,6 @@
 use crate::{
     consumer::Consumer,
-    models::{Slice, Stop, StopIndex, Trip, TripIndex, TripPattern, TripPatternIndex},
+    models::{PatternStop, Slice, Stop, StopIndex, Trip, TripIndex, TripPattern, TripPatternIndex},
 };
 
 impl<'a> Consumer<'a> {
@@ -49,6 +49,18 @@ impl<'a> Consumer<'a> {
     pub fn stop_sequence_by_trip_pattern(&self, index: TripPatternIndex) -> &'a [StopIndex] {
         let slice = self.trip_pattern(index).stops;
         &self.trip_patterns_stop_seq[slice.range()]
+    }
+
+    /// Returns what the pattern says at each of its stops, at the positions of
+    /// `stop_sequence_by_trip_pattern`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range.
+    #[must_use]
+    pub fn pattern_stops_by_trip_pattern(&self, index: TripPatternIndex) -> &'a [PatternStop] {
+        let slice = self.trip_pattern(index).stops;
+        &self.pattern_stops[slice.range()]
     }
 
     /// # Panics

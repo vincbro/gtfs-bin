@@ -10,7 +10,7 @@ A transit network as one flat file you can memory-map.
 
 - No parsing at startup. The network opens in the time the OS takes to set up a memory map.
 - Safe on any file. A corrupt or hostile file is an error, never undefined behavior.
-- Easy and fast at any size: SL's regional network (2.5 million stop times) opens and validates in about 40 ms.
+- Easy and fast at any size: SL's regional network (2.5 million stop times) opens and validates in about 10 ms.
 - Real-time delays, cancellations and skipped stops, when you have a GTFS-realtime feed.
 
 Files end in `.flnt`, and begin with the bytes `FLNT`.
@@ -21,7 +21,7 @@ Working with flatnet is split into two phases, **compilation** and **consumption
 
 - **Compile.** The `Compiler` reads a GTFS feed, a directory or a `.zip`, with its own parser. String ids become integer indices, so a trip points straight at its route. Text is deduplicated into one contiguous block. The flat arrays are written to one file, and the same feed always compiles to the same bytes.
 - **Consume.** The `Consumer` maps the file with `mmap` and reads it where it lies. Data is paged into RAM by the OS only when you touch it, and because the tables are flat and pointer-free, walking from a route to its trips is friendly to the CPU cache.
-- **Validated.** `Consumer::new` checks the header, every section, that all text is UTF-8, and that every index and slice points inside the table it names. The checks are covered by property tests. Opening SL's whole regional feed (159 MB, 2.5 million stop times) takes 39 ms with them. `Consumer::verify_checksum` also detects any changed byte.
+- **Validated.** `Consumer::new` checks the header, every section, that all text is UTF-8, and that every index and slice points inside the table it names. The checks are covered by property tests. Opening SL's whole regional feed (54 MB, 2.5 million stop times) takes about 10 ms with them. `Consumer::verify_checksum` also detects any changed byte.
 - **Live.** With the `rt` feature, GTFS-realtime updates are applied on top of a consumer, and reading a delay is an array index.
 
 The layout of the file is in [docs/FORMAT.md](docs/FORMAT.md).
@@ -150,9 +150,10 @@ let mut today = Realtime::for_service_date(&consumer, Date::parse_gtfs("20240115
 let report = builder.apply(feed_messages, &mut today);
 println!("{report:?}"); // how many updates matched, were stale, or named unknown trips
 
-for stop_time in consumer.stop_times_by_trip(trip.index) {
+let first = trip.stop_times.start as usize;
+for (position, timing) in consumer.timings_by_trip(trip.index).iter().enumerate() {
     // The scheduled time with the live delay applied, or `None` if the stop is skipped.
-    let departure = today.departure_time(stop_time);
+    let departure = today.departure_time(trip.index, StopTimeIndex::from(first + position), *timing);
 }
 ```
 
@@ -188,9 +189,9 @@ What is not: shapes and stops sent in a feed, trip modifications, and replaced o
 
 ## Where it is going
 
-flatnet is moving from a compiled GTFS to a format of its own, with a reader for each source. Nothing in this section exists yet. The plan and the reasons are in [TODO.md](TODO.md) and [docs/OWN-SCHEMA.md](docs/OWN-SCHEMA.md).
+flatnet is moving from a compiled GTFS to a format of its own, with a reader for each source. Only the first change below exists. The plan and the reasons are in [TODO.md](TODO.md) and [docs/OWN-SCHEMA.md](docs/OWN-SCHEMA.md).
 
-- **A schema we own.** A field is in the file because something reads it, not because a source has it. The first change is to store times once for each trip pattern, where today every stop time repeats facts that belong to the pattern. On SL that is 100 MB of a 132 MB file.
+- **A schema we own.** A field is in the file because something reads it, not because a source has it. The first change is done: times are stored once for each trip pattern, which took SL's file from 132 MB to 54 MB.
 - **One crate for each source.** `flatnet-gtfs`, `flatnet-gtfs-rt`, `flatnet-netex` and `flatnet-siri` read their formats into a source-neutral `Network` from `flatnet-model`. `flatnet-compiler` reads no source format: it builds everything derived from a `Network` (patterns, grids, walking paths, search) and writes the file.
 - **A book on the schema,** with a chapter for each table and the reasons behind its layout.
 
@@ -216,7 +217,8 @@ Run `just` on its own to list every recipe, including `compile`, `inspect`, `app
 - [x] Own GTFS parser, with no GTFS library dependency
 - [x] Validation of every table when a file is opened, with property tests
 - [x] Metadata in the file, shapes cut at stops, and a viewer
-- [ ] Times stored once for each pattern, and the rest of the schema pass
+- [x] Times stored once for each pattern
+- [ ] The rest of the schema pass
 - [ ] A reader crate for each source, over a source-neutral `Network`
 - [ ] A book on the schema
 - [ ] Expose prefetching (`madvise`) helper functions for pathfinding loops

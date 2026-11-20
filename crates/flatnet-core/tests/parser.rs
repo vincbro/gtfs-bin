@@ -67,7 +67,7 @@ fn a_minimal_feed_compiles() {
         assert_eq!(consumer.trips().len(), 1, "one trip");
         assert_eq!(
             consumer
-                .stop_times_by_trip(consumer.trip_by_id("T").expect("trip T").index)
+                .timings_by_trip(consumer.trip_by_id("T").expect("trip T").index)
                 .len(),
             2,
             "both stop times"
@@ -379,7 +379,7 @@ fn rows_that_point_at_unknown_things_are_skipped() {
             "the trip on an unknown route is dropped"
         );
         assert_eq!(
-            consumer.stop_times().len(),
+            consumer.timings().len(),
             1,
             "only the fully known stop time stays"
         );
@@ -394,9 +394,9 @@ fn stop_times_without_times_are_kept() {
     let bytes = compile(&with_file(minimal(), "stop_times.txt", stop_times)).expect("a valid feed");
 
     open(&bytes, |consumer| {
-        let stop_times = consumer.stop_times();
+        let timings = consumer.timings();
         assert!(
-            stop_times[1].arrival_time.is_none(),
+            timings[1].arrival.is_none(),
             "an empty time is absent, not zero"
         );
     });

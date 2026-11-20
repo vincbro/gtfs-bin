@@ -7,9 +7,9 @@ use crate::{
     FLATNET_VERSION,
     consumer::reader::Reader,
     models::{
-        self, Coordinate, Date, Header, Metadata, Route, RouteIndex, SearchStop, Sentinel, Service,
-        ServiceIndex, Shape, ShapeIndex, Stop, StopCell, StopIndex, StopTime, Transfer,
-        TransferIndex, TransferSlice, Trip, TripIndex, TripPattern, TripPatternIndex,
+        self, Coordinate, Date, Header, Metadata, PatternStop, Route, RouteIndex, SearchStop,
+        Sentinel, Service, ServiceIndex, Shape, ShapeIndex, Stop, StopCell, StopIndex, Timing,
+        Transfer, TransferIndex, TransferSlice, Trip, TripIndex, TripPattern, TripPatternIndex,
         TripPatternSlice, TripSlice,
     },
 };
@@ -23,9 +23,9 @@ mod search;
 mod sections;
 mod services;
 mod shapes;
-mod stop_times;
 mod stops;
 mod strings;
+mod timings;
 mod transfers;
 mod trip_patterns;
 mod trips;
@@ -77,8 +77,8 @@ pub struct Consumer<'a> {
     search_stops: &'a [SearchStop],
     search_to_stops: &'a [StopIndex],
 
-    // Stop times
-    stop_times: &'a [StopTime],
+    // Timings
+    timings: &'a [Timing],
 
     // Shapes
     shapes: &'a [Shape],
@@ -88,6 +88,7 @@ pub struct Consumer<'a> {
     // Trip patterns
     trip_patterns: &'a [TripPattern],
     trip_patterns_stop_seq: &'a [StopIndex],
+    pattern_stops: &'a [PatternStop],
     trip_patterns_trips: &'a [TripIndex],
     trip_to_trip_pattern: &'a [TripPatternIndex],
     stop_to_trip_pattern: &'a [TripPatternIndex],
@@ -200,7 +201,7 @@ impl<'a> Consumer<'a> {
             services_id_lookup: reader.cast_slice(header.service_id_lookup)?,
             active_mask: reader.bytes::<u8>(header.active_mask)?,
 
-            stop_times: reader.cast_slice(header.stop_times)?,
+            timings: reader.cast_slice(header.timings)?,
 
             shapes: reader.cast_slice(header.shapes)?,
             shape_points: reader.cast_slice(header.shape_points)?,
@@ -222,6 +223,7 @@ impl<'a> Consumer<'a> {
 
             trip_patterns: reader.cast_slice(header.trip_patterns)?,
             trip_patterns_stop_seq: reader.cast_slice(header.trip_patterns_stop_seq)?,
+            pattern_stops: reader.cast_slice(header.pattern_stops)?,
             trip_patterns_trips: reader.cast_slice(header.trip_patterns_trip_seq)?,
             trip_to_trip_pattern: reader.cast_slice(header.trip_to_trip_pattern)?,
             stop_to_trip_pattern: reader.cast_slice(header.stop_to_trip_pattern)?,

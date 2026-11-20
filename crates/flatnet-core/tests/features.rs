@@ -70,19 +70,21 @@ fn boarding_rules_direction_and_block_are_kept() {
             "the block id is kept"
         );
 
-        let stop_times = consumer.stop_times_by_trip(trip.index);
+        let stops =
+            consumer.pattern_stops_by_trip_pattern(consumer.trip_pattern_by_trip(trip.index).index);
         assert_eq!(
-            stop_times[0].drop_off,
+            stops[0].drop_off,
             BoardingRule::NOT_AVAILABLE,
             "no alighting at the first stop"
         );
         assert_eq!(
-            stop_times[1].pickup,
+            stops[1].pickup,
             BoardingRule::ARRANGE_WITH_DRIVER,
             "boarding is arranged with the driver"
         );
         assert!(
-            consumer.stop_times_by_trip(unset.index)[0]
+            consumer
+                .pattern_stops_by_trip_pattern(consumer.trip_pattern_by_trip(unset.index).index)[0]
                 .pickup
                 .is_regular(),
             "an empty code is the default"
@@ -101,15 +103,9 @@ fn times_between_timed_stops_are_filled_in() {
     with_consumer(&bytes, |consumer| {
         let trip = consumer.trip_by_id("T").expect("trip T");
         let times: Vec<String> = consumer
-            .stop_times_by_trip(trip.index)
+            .timings_by_trip(trip.index)
             .iter()
-            .map(|stop_time| {
-                stop_time
-                    .arrival_time
-                    .as_option()
-                    .expect("a time")
-                    .to_string()
-            })
+            .map(|timing| timing.arrival.as_option().expect("a time").to_string())
             .collect();
         assert_eq!(
             times,
@@ -299,7 +295,7 @@ fn lenient_mode_skips_bad_rows_and_says_which() {
     with_consumer(&bytes, |consumer| {
         assert_eq!(consumer.stops().len(), 2, "stop B is left out");
         assert_eq!(
-            consumer.stop_times().len(),
+            consumer.timings().len(),
             2,
             "the stop time with a bad time is left out"
         );

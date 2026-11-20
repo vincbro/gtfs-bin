@@ -101,13 +101,14 @@ fn delays_carry_to_later_stops_unless_turned_off() {
     let (_file, mmap) = map(&bytes);
     let consumer = Consumer::new(&mmap).expect("the fixture compiles to a valid file");
     let trip = consumer.trip_by_id("trip2").expect("the fixture has trip2");
-    let stop_times = consumer.stop_times_by_trip(trip.index);
+    let pattern = consumer.trip_pattern_by_trip(trip.index);
+    let pattern_stops = consumer.pattern_stops_by_trip_pattern(pattern.index);
     assert!(
-        stop_times.len() > 1,
+        pattern_stops.len() > 1,
         "the test needs a trip with later stops"
     );
-    let first_sequence = stop_times[0].sequence;
-    let last = trip.stop_times.start as usize + stop_times.len() - 1;
+    let first_sequence = pattern_stops[0].sequence;
+    let last = trip.stop_times.start as usize + pattern_stops.len() - 1;
 
     let carried = RealtimeBuilder::new(&consumer)
         .build([delay_feed("trip2", first_sequence, 120)].into_iter());

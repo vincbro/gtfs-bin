@@ -2,7 +2,7 @@ use std::str;
 
 use crate::{
     consumer::{Consumer, Error, Result},
-    models::{Index, Optional, Sentinel, Slice, StopCell},
+    models::{Index, Optional, Sentinel, Slice, StopCell, Time, Timing, TripPattern},
 };
 
 impl Consumer<'_> {
@@ -16,7 +16,6 @@ impl Consumer<'_> {
         self.validate_trips()?;
         self.validate_shapes()?;
         self.validate_services()?;
-        self.validate_stop_times()?;
         self.validate_lookups()?;
         self.validate_patterns()?;
         self.validate_transfers()?;
@@ -145,12 +144,12 @@ impl Consumer<'_> {
             text,
         )?;
         check_text(
-            "stop_times",
+            "pattern_stops",
             "headsign",
             optional(
-                self.stop_times
+                self.pattern_stops
                     .iter()
-                    .map(|stop_time| stop_time.headsign)
+                    .map(|pattern_stop| pattern_stop.headsign)
                     .collect(),
             ),
             text,
@@ -231,6 +230,18 @@ impl Consumer<'_> {
                 "transfers_in_indices",
                 self.transfers_in_indices.len(),
             ),
+            (
+                "trip_patterns_stop_seq",
+                self.trip_patterns_stop_seq.len(),
+                "pattern_stops",
+                self.pattern_stops.len(),
+            ),
+            (
+                "trips",
+                self.trips.len(),
+                "trip_patterns_trips",
+                self.trip_patterns_trips.len(),
+            ),
         ];
         for (table, table_length, lookup, lookup_length) in pairs {
             if table_length != lookup_length {
@@ -278,7 +289,7 @@ impl Consumer<'_> {
             "trips",
             "stop_times",
             trips.iter().map(|trip| trip.stop_times),
-            self.stop_times.len(),
+            self.timings.len(),
         )?;
         check_slices(
             "trips",
@@ -341,26 +352,6 @@ impl Consumer<'_> {
             }
         }
         Ok(())
-    }
-
-    fn validate_stop_times(&self) -> Result<()> {
-        let stop_times = self.stop_times;
-        check_positions(
-            "stop_times",
-            stop_times.iter().map(|stop_time| stop_time.index),
-        )?;
-        check_indices(
-            "stop_times",
-            "stop_index",
-            stop_times.iter().map(|stop_time| stop_time.stop_index),
-            self.stops.len(),
-        )?;
-        check_indices(
-            "stop_times",
-            "trip_index",
-            stop_times.iter().map(|stop_time| stop_time.trip_index),
-            self.trips.len(),
-        )
     }
 
     fn validate_lookups(&self) -> Result<()> {
@@ -581,25 +572,64 @@ impl Consumer<'_> {
             |index| self.services[index.as_usize()].id,
         )?;
 
-        for trip in self.trips {
-            let run = &self.stop_times[trip.stop_times.range()];
-            if run
-                .iter()
-                .any(|stop_time| stop_time.trip_index != trip.index)
-            {
-                return Err(invalid("stop_times", "trip_index"));
-            }
-            if run
-                .windows(2)
-                .any(|pair| pair[0].sequence > pair[1].sequence)
-            {
-                return Err(Error::InvalidOrder {
-                    table: "stop_times",
-                });
-            }
+        // Each pattern's timings follow the last pattern's, trip after trip.
+        let mut next_timing = 0;
+        for pattern in self.trip_patterns {
+            self.validate_pattern_timings(pattern, &mut next_timing)?;
+        }
+        if next_timing != self.timings.len() {
+            return Err(invalid("timings", "trips"));
         }
         Ok(())
     }
+
+    /// Checks one pattern: its sequence numbers rise, and its trips lie back to back from
+    /// `next_timing`, own the pattern, and never overtake the trip before them.
+    fn validate_pattern_timings(
+        &self,
+        pattern: &TripPattern,
+        next_timing: &mut usize,
+    ) -> Result<()> {
+        let stops = &self.pattern_stops[pattern.stops.range()];
+        if stops
+            .windows(2)
+            .any(|pair| pair[0].sequence > pair[1].sequence)
+        {
+            return Err(Error::InvalidOrder {
+                table: "pattern_stops",
+            });
+        }
+        let mut before: Option<&[Timing]> = None;
+        for &trip_index in &self.trip_patterns_trips[pattern.trips.range()] {
+            let trip = &self.trips[trip_index.as_usize()];
+            let range = trip.stop_times.range();
+            let owned = self.trip_to_trip_pattern[trip_index.as_usize()] == pattern.index;
+            if !owned || range.start != *next_timing || range.len() != stops.len() {
+                return Err(invalid("trips", "stop_times"));
+            }
+            let times = &self.timings[range];
+            if before.is_some_and(|before| overtakes(before, times)) {
+                return Err(Error::InvalidOrder { table: "timings" });
+            }
+            before = Some(times);
+            *next_timing += stops.len();
+        }
+        Ok(())
+    }
+}
+
+/// Whether `after` is earlier than `before` at any stop where both have a time, which a trip that
+/// follows another in a pattern never is.
+fn overtakes(before: &[Timing], after: &[Timing]) -> bool {
+    let earlier = |first: Optional<Time>, second: Optional<Time>| {
+        first
+            .as_option()
+            .zip(second.as_option())
+            .is_some_and(|(first, second)| second < first)
+    };
+    before.iter().zip(after).any(|(first, second)| {
+        earlier(first.arrival, second.arrival) || earlier(first.departure, second.departure)
+    })
 }
 
 /// Checks that the ids a lookup lists are in strictly increasing order, which is what makes a

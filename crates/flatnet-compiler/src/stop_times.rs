@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use flatnet_core::models::{
-    BoardingRule, Distance, Optional, Sentinel, Slice, SliceBuilder, StopIndex, StopTime,
-    StopTimeIndex, StopTimeSlice, StringSlice, Time, Trip, TripIndex,
+    BoardingRule, Distance, Optional, Slice, SliceBuilder, StopIndex, StopTimeSlice, StringSlice,
+    Time, Trip, TripIndex,
 };
 use rayon::slice::ParallelSliceMut;
 
@@ -11,6 +11,23 @@ use crate::{
     table::{Row, Table},
     tables,
 };
+
+/// One row of `stop_times.txt` that names a trip and a stop the feed defines.
+///
+/// The file keeps the times of these, and the rest once for each pattern, so the compiler holds
+/// them like this until the patterns are known.
+#[derive(Debug, Default, Clone, Copy)]
+pub(super) struct StopTimeRow {
+    pub(super) trip_index: TripIndex,
+    pub(super) stop_index: StopIndex,
+    pub(super) sequence: u32,
+    pub(super) arrival_time: Optional<Time>,
+    pub(super) departure_time: Optional<Time>,
+    pub(super) headsign: Optional<StringSlice>,
+    pub(super) distance_traveled: Optional<Distance>,
+    pub(super) pickup: BoardingRule,
+    pub(super) drop_off: BoardingRule,
+}
 
 /// Where each column of `stop_times.txt` is.
 struct Columns {
@@ -36,7 +53,7 @@ pub(super) fn build_stop_times(
     trip_map: &HashMap<String, TripIndex>,
     stop_map: &HashMap<String, StopIndex>,
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> Result<Vec<StopTime>> {
+) -> Result<Vec<StopTimeRow>> {
     let columns = Columns {
         trip_id: table.require("trip_id")?,
         stop_id: table.require("stop_id")?,
@@ -49,7 +66,7 @@ pub(super) fn build_stop_times(
         drop_off: table.column("drop_off_type"),
     };
 
-    let mut stop_times: Vec<StopTime> = Vec::new();
+    let mut stop_times: Vec<StopTimeRow> = Vec::new();
     while let Some(row) = table.next_row()? {
         let parsed = parse_row(&row, &columns, trip_map, stop_map, slice_builder);
         if let Some(Some(stop_time)) = table.accept(parsed)? {
@@ -64,10 +81,6 @@ pub(super) fn build_stop_times(
             .then(first.sequence.cmp(&second.sequence))
             .then(first.stop_index.cmp(&second.stop_index))
     });
-
-    for (position, stop_time) in stop_times.iter_mut().enumerate() {
-        stop_time.index = StopTimeIndex::from(position);
-    }
 
     let slices: Vec<StopTimeSlice> = tables::slices_by_key(
         stop_times.iter().map(|stop_time| stop_time.trip_index),
@@ -88,7 +101,7 @@ fn parse_row(
     trip_map: &HashMap<String, TripIndex>,
     stop_map: &HashMap<String, StopIndex>,
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> Result<Option<StopTime>> {
+) -> Result<Option<StopTimeRow>> {
     let Some(&trip_index) = trip_map.get(row.required(columns.trip_id, "trip_id")?) else {
         return Ok(None);
     };
@@ -101,8 +114,7 @@ fn parse_row(
             .map_or(BoardingRule::REGULAR, BoardingRule::from))
     };
 
-    Ok(Some(StopTime {
-        index: StopTimeIndex::NONE,
+    Ok(Some(StopTimeRow {
         headsign: row
             .text(columns.headsign)
             .map(|text| slice_builder.add(text))
@@ -118,12 +130,11 @@ fn parse_row(
             .into(),
         pickup: boarding(columns.pickup, "pickup_type")?,
         drop_off: boarding(columns.drop_off, "drop_off_type")?,
-        padding: [0; 2],
     }))
 }
 
 /// Fills in the times of stops that have none, between two stops that do.
-fn interpolate_times(run: &mut [StopTime]) {
+fn interpolate_times(run: &mut [StopTimeRow]) {
     let timed: Vec<usize> = (0..run.len())
         .filter(|&position| {
             run[position].arrival_time.is_some() || run[position].departure_time.is_some()
@@ -146,14 +157,14 @@ fn share(part: usize, whole: usize) -> f64 {
 }
 
 /// Gives the stops strictly between `first` and `last` a time between theirs.
-fn fill_between(run: &mut [StopTime], first: usize, last: usize) {
-    let leaves = |stop_time: &StopTime| {
+fn fill_between(run: &mut [StopTimeRow], first: usize, last: usize) {
+    let leaves = |stop_time: &StopTimeRow| {
         stop_time
             .departure_time
             .as_option()
             .or_else(|| stop_time.arrival_time.as_option())
     };
-    let arrives = |stop_time: &StopTime| {
+    let arrives = |stop_time: &StopTimeRow| {
         stop_time
             .arrival_time
             .as_option()
@@ -193,16 +204,16 @@ mod tests {
 
     use super::*;
 
-    fn stop(arrival: Option<u32>, departure: Option<u32>, distance: Option<f32>) -> StopTime {
-        StopTime {
+    fn stop(arrival: Option<u32>, departure: Option<u32>, distance: Option<f32>) -> StopTimeRow {
+        StopTimeRow {
             arrival_time: arrival.map(Time).into(),
             departure_time: departure.map(Time).into(),
             distance_traveled: distance.map(Distance).into(),
-            ..StopTime::default()
+            ..StopTimeRow::default()
         }
     }
 
-    fn times(run: &[StopTime]) -> Vec<Option<u32>> {
+    fn times(run: &[StopTimeRow]) -> Vec<Option<u32>> {
         run.iter()
             .map(|stop_time| stop_time.departure_time.as_option().map(|time| time.0))
             .collect()

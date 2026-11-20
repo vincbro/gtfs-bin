@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 91a9ac3f89af787c0d94e3809aeb42ed558d5b4d7a3acf0fc63e309989a5599a # shrinks to runs = [Run { stops: 3, start: 203, legs: [(30, 8), (56, 67), (864, 105), (30, 0)], north: false, boards: true }, Run { stops: 3, start: 0, legs: [(30, 0), (268, 0), (30, 0), (30, 0)], north: false, boards: true }]

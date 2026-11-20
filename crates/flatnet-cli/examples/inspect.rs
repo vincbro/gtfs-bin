@@ -55,7 +55,7 @@ fn main() -> anyhow::Result<()> {
     println!("{} stops", consumer.stops().len());
     println!("{} routes", consumer.routes().len());
     println!("{} trips", consumer.trips().len());
-    println!("{} stop times", consumer.stop_times().len());
+    println!("{} stop times", consumer.timings().len());
     println!("{} trip patterns", consumer.trip_patterns().len());
     println!(
         "{} shapes ({} points), {} shapes in trips",
@@ -68,13 +68,8 @@ fn main() -> anyhow::Result<()> {
     let started = Instant::now();
     let mut seconds = 0_u64;
     for trip in consumer.trips() {
-        for stop_time in consumer.stop_times_by_trip(trip.index) {
-            seconds += u64::from(
-                stop_time
-                    .departure_time
-                    .as_option()
-                    .map_or(0, |time| time.0),
-            );
+        for timing in consumer.timings_by_trip(trip.index) {
+            seconds += u64::from(timing.departure.as_option().map_or(0, |time| time.0));
         }
     }
     println!(

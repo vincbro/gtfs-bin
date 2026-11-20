@@ -222,7 +222,7 @@ impl Compiler {
         );
 
         let mut stop_times_table = open(&mut source, "stop_times.txt", lenient)?;
-        let stop_times = stop_times::build_stop_times(
+        let stop_time_rows = stop_times::build_stop_times(
             &mut stop_times_table,
             &mut trips,
             &trip_map,
@@ -241,7 +241,7 @@ impl Compiler {
             &trip_lines,
             &shape_lines.lines,
             &stops,
-            &stop_times,
+            &stop_time_rows,
         );
 
         // Built even when the feed has no transfers, because the consumer indexes the lookups by
@@ -286,11 +286,12 @@ impl Compiler {
             &mut slice_builder,
         )?;
 
-        let (stop_to_trips, stop_to_trips_lookup) = stops::build_stop_to_trips(&stops, &stop_times);
+        let (stop_to_trips, stop_to_trips_lookup) =
+            stops::build_stop_to_trips(&stops, &stop_time_rows);
         let (search_stops, search_to_stops) = stops::build_stop_search(&stops);
         let (stop_grid, grid_stops) = grid::build_stop_grid(&stops);
         let (route_to_trips, route_to_trips_lookup) = routes::build_route_to_trips(&trips, &routes);
-        let trip_patterns = trip_patterns::build_trip_patterns(&trips, &stops, &stop_times);
+        let trip_patterns = trip_patterns::build_trip_patterns(&mut trips, &stops, &stop_time_rows);
         let (stop_id_lookup, stop_ids) = stops::build_stop_ids(&mut stops, &stop_map);
         let (route_id_lookup, route_ids) = routes::build_route_ids(&mut routes, &route_map);
         let (trip_id_lookup, trip_ids) = trips::build_trip_ids(&mut trips, &trip_map);
@@ -300,10 +301,12 @@ impl Compiler {
         let TripPatterns {
             patterns,
             stop_sequences,
+            pattern_stops,
             trips_in_patterns,
             trip_to_pattern,
             stop_to_pattern,
             stop_to_pattern_lookup,
+            timings,
         } = trip_patterns;
 
         let mut writer = BinaryWriter::new().with_reserved(size_of::<Header>());
@@ -328,7 +331,7 @@ impl Compiler {
             service_id_lookup: writer.write_section(&service_id_lookup),
             active_mask: writer.write_section(&active_mask.into_vec()),
 
-            stop_times: writer.write_section(&stop_times),
+            timings: writer.write_section(&timings),
 
             shapes: writer.write_section(&shapes),
             shape_points: writer.write_section(&shape_points),
@@ -336,6 +339,7 @@ impl Compiler {
 
             trip_patterns: writer.write_section(&patterns),
             trip_patterns_stop_seq: writer.write_section(&stop_sequences),
+            pattern_stops: writer.write_section(&pattern_stops),
             trip_patterns_trip_seq: writer.write_section(&trips_in_patterns),
             trip_to_trip_pattern: writer.write_section(&trip_to_pattern),
             stop_to_trip_pattern: writer.write_section(&stop_to_pattern),

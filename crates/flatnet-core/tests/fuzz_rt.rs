@@ -4,7 +4,7 @@ mod common;
 
 use flatnet_core::{
     consumer::Consumer,
-    models::Date,
+    models::{Date, StopTimeIndex},
     rt::{Realtime, RealtimeBuilder},
 };
 use gtfs_rt::{
@@ -210,12 +210,16 @@ proptest! {
             let _ = builder.apply([message].into_iter(), &mut realtime);
         }
 
-        prop_assert_eq!(realtime.stop_time_status().len(), consumer.stop_times().len());
+        prop_assert_eq!(realtime.stop_time_status().len(), consumer.timings().len());
         prop_assert_eq!(realtime.trip_status().len(), consumer.trips().len());
-        for stop_time in consumer.stop_times() {
-            let _ = realtime.arrival_time(stop_time);
-            let _ = realtime.departure_time(stop_time);
-            let _ = realtime.is_stop_time_skipped(stop_time);
+        for trip in consumer.trips() {
+            let first = trip.stop_times.start as usize;
+            for (position, timing) in consumer.timings_by_trip(trip.index).iter().enumerate() {
+                let index = StopTimeIndex::from(first + position);
+                let _ = realtime.arrival_time(trip.index, index, *timing);
+                let _ = realtime.departure_time(trip.index, index, *timing);
+                let _ = realtime.is_stop_time_skipped(trip.index, index);
+            }
         }
         for alert in realtime.alerts() {
             let _ = alert.is_active_at(100);

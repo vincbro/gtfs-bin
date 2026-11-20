@@ -123,9 +123,10 @@ fn realtime_builder_ingestion() {
     let trip1 = consumer
         .trip_by_id("trip1")
         .expect("Trip 'trip1' not found");
-    let stop_times = consumer.stop_times_by_trip(trip1.index);
-    let seq_index = stop_times
-        .binary_search_by_key(&1, |st| st.sequence)
+    let pattern = consumer.trip_pattern_by_trip(trip1.index);
+    let seq_index = consumer
+        .pattern_stops_by_trip_pattern(pattern.index)
+        .binary_search_by_key(&1, |stop| stop.sequence)
         .expect("Sequence not found in binary search");
 
     let global_index = trip1.stop_times.start as usize + seq_index;

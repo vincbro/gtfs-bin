@@ -4,8 +4,8 @@ use eframe::egui::{self, Grid, ScrollArea, Ui};
 use flatnet_core::{
     consumer::Consumer,
     models::{
-        Coordinate, Optional, RouteIndex, ServiceIndex, StopIndex, StopTime, Time, TripIndex,
-        TripPatternIndex,
+        Coordinate, Optional, PatternStop, RouteIndex, ServiceIndex, StopIndex, Time, Timing,
+        TripIndex, TripPatternIndex,
     },
 };
 
@@ -191,7 +191,7 @@ fn trip(ui: &mut Ui, consumer: &Consumer<'_>, index: TripIndex, jump: &mut Optio
             optional_field(ui, "shape", shape_text(consumer, index));
         });
     ui.separator();
-    stop_times(ui, consumer, consumer.stop_times_by_trip(index), jump);
+    stop_times(ui, consumer, index, jump);
 }
 
 /// Describes the shapes of a trip, or returns `None` if it has none.
@@ -207,20 +207,19 @@ fn shape_text(consumer: &Consumer<'_>, index: TripIndex) -> Option<String> {
     Some(format!("{} shapes, {meters:.0} m", shapes.len()))
 }
 
-fn stop_times(
-    ui: &mut Ui,
-    consumer: &Consumer<'_>,
-    stop_times: &[StopTime],
-    jump: &mut Option<Item>,
-) {
-    ui.label(format!("Stop times ({})", stop_times.len()));
+fn stop_times(ui: &mut Ui, consumer: &Consumer<'_>, index: TripIndex, jump: &mut Option<Item>) {
+    let pattern = consumer.trip_pattern_by_trip(index).index;
+    let stops = consumer.stop_sequence_by_trip_pattern(pattern);
+    let pattern_stops = consumer.pattern_stops_by_trip_pattern(pattern);
+    let timings = consumer.timings_by_trip(index);
+    ui.label(format!("Stop times ({})", timings.len()));
     Grid::new("stop times").striped(true).show(ui, |ui| {
         for header in ["seq", "stop", "arrives", "departs", "distance"] {
             ui.strong(header);
         }
         ui.end_row();
-        for stop_time in stop_times {
-            stop_time_row(ui, consumer, stop_time, jump);
+        for ((&stop, pattern_stop), timing) in stops.iter().zip(pattern_stops).zip(timings) {
+            stop_time_row(ui, consumer, stop, pattern_stop, *timing, jump);
         }
     });
 }
@@ -228,19 +227,16 @@ fn stop_times(
 fn stop_time_row(
     ui: &mut Ui,
     consumer: &Consumer<'_>,
-    stop_time: &StopTime,
+    stop: StopIndex,
+    pattern_stop: &PatternStop,
+    timing: Timing,
     jump: &mut Option<Item>,
 ) {
-    ui.label(stop_time.sequence.to_string());
-    link(
-        ui,
-        Item::Stop(stop_time.stop_index),
-        &labels::stop(consumer, stop_time.stop_index),
-        jump,
-    );
-    ui.label(time_text(stop_time.arrival_time));
-    ui.label(time_text(stop_time.departure_time));
-    let distance = stop_time.distance_traveled.as_option();
+    ui.label(pattern_stop.sequence.to_string());
+    link(ui, Item::Stop(stop), &labels::stop(consumer, stop), jump);
+    ui.label(time_text(timing.arrival));
+    ui.label(time_text(timing.departure));
+    let distance = pattern_stop.distance_traveled.as_option();
     ui.label(distance.map_or_else(|| "-".to_owned(), |meters| format!("{:.0} m", meters.0)));
     ui.end_row();
 }

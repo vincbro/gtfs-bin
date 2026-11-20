@@ -113,11 +113,8 @@ impl Overlay {
     }
 
     fn trip(consumer: &Consumer<'_>, index: TripIndex) -> Self {
-        let stops: Vec<StopIndex> = consumer
-            .stop_times_by_trip(index)
-            .iter()
-            .map(|stop_time| stop_time.stop_index)
-            .collect();
+        let pattern = consumer.trip_pattern_by_trip(index).index;
+        let stops = consumer.stop_sequence_by_trip_pattern(pattern).to_vec();
         Self {
             lines: vec![trip_line(consumer, index, &stops)],
             stops,

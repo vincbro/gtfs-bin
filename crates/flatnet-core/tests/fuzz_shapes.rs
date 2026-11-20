@@ -118,7 +118,7 @@ fn check(network: &Network) {
     common::exercise(&consumer);
 
     for (trip, source) in consumer.trips().iter().zip(&network.trips) {
-        let stops = consumer.stop_times_by_trip(trip.index).len();
+        let stops = consumer.timings_by_trip(trip.index).len();
         let shapes = consumer.shapes_by_trip(trip.index);
         let names_a_shape = source
             .shape

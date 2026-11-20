@@ -2,11 +2,11 @@ use std::collections::{BTreeMap, HashMap};
 
 use flatnet_core::models::{
     Coordinate, LocationType, Optional, RouteType, SearchSlice, SearchStop, Sentinel, Slice,
-    SliceBuilder, Stop, StopIdSlice, StopIndex, StopTime, StringSlice, TripIndex, TripSlice,
+    SliceBuilder, Stop, StopIdSlice, StopIndex, StringSlice, TripIndex, TripSlice,
 };
 use rayon::slice::ParallelSliceMut;
 
-use crate::{records::RawStop, tables};
+use crate::{records::RawStop, stop_times::StopTimeRow, tables};
 
 pub(super) fn build_stops(
     raw_stops: &[RawStop],
@@ -85,7 +85,7 @@ pub(super) fn build_stop_ids(
 
 pub(super) fn build_stop_to_trips(
     stops: &[Stop],
-    stop_times: &[StopTime],
+    stop_times: &[StopTimeRow],
 ) -> (Vec<TripIndex>, Vec<TripSlice>) {
     let mut stop_trip_pairs: Vec<(StopIndex, TripIndex)> = stop_times
         .iter()

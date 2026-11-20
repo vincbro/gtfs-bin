@@ -1,11 +1,11 @@
 use std::collections::{BTreeMap, HashMap};
 
 use flatnet_core::models::{
-    Coordinate, Distance, Shape, ShapeIndex, ShapePointSlice, Slice, Stop, StopIndex, StopTime,
-    Trip, TripShapeSlice,
+    Coordinate, Distance, Shape, ShapeIndex, ShapePointSlice, Slice, Stop, StopIndex, Trip,
+    TripShapeSlice,
 };
 
-use crate::{Result, table::Table};
+use crate::{Result, stop_times::StopTimeRow, table::Table};
 
 /// The shapes of `shapes.txt`, each as its points in order.
 #[derive(Debug, Default)]
@@ -70,7 +70,7 @@ pub(super) fn build_trip_shapes(
     trip_lines: &[Option<usize>],
     lines: &[Vec<Coordinate>],
     stops: &[Stop],
-    stop_times: &[StopTime],
+    stop_times: &[StopTimeRow],
 ) -> BuiltShapes {
     let mut builder = Builder::default();
     for (trip, &line) in trips.iter_mut().zip(trip_lines) {

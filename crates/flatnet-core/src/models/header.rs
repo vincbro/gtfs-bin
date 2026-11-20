@@ -41,7 +41,8 @@ pub struct Header {
     pub route_to_trips: Section,
     pub route_to_trips_lookup: Section,
 
-    pub stop_times: Section,
+    /// The `Timing` of every trip at each stop of its pattern, pattern by pattern and trip by trip.
+    pub timings: Section,
 
     /// The `Shape` of each hop between two stops.
     pub shapes: Section,
@@ -52,6 +53,8 @@ pub struct Header {
 
     pub trip_patterns: Section,
     pub trip_patterns_stop_seq: Section,
+    /// The `PatternStop` of each stop of every pattern, at the same positions as `trip_patterns_stop_seq`.
+    pub pattern_stops: Section,
     pub trip_patterns_trip_seq: Section,
     pub trip_to_trip_pattern: Section,
     pub stop_to_trip_pattern: Section,

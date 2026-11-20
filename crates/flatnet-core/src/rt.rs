@@ -7,8 +7,8 @@ use gtfs_rt::{
 use crate::{
     consumer::Consumer,
     models::{
-        Coordinate, Date, Delay, Optional, RouteIndex, Sentinel, StopIndex, StopTime, Time,
-        TripIndex,
+        Coordinate, Date, Delay, Optional, RouteIndex, Sentinel, StopIndex, StopTimeIndex, Time,
+        Timing, TripIndex,
     },
 };
 
@@ -123,7 +123,7 @@ impl Realtime {
     /// service date.
     #[must_use]
     pub fn new(consumer: &Consumer<'_>) -> Self {
-        let stop_time_count = consumer.stop_times().len();
+        let stop_time_count = consumer.timings().len();
         let trip_count = consumer.trips().len();
         Self {
             service_date: None,
@@ -237,13 +237,16 @@ impl Realtime {
 
     /// Returns whether the vehicle skips the stop, or the whole trip is canceled.
     ///
+    /// `index` is the position of the stop time in the file's timings, which is the trip's
+    /// `stop_times` slice start plus the stop's position in the trip's pattern.
+    ///
     /// # Panics
     ///
-    /// Panics if `stop_time` is not from the consumer this was built from.
+    /// Panics if `trip` or `index` is not from the consumer this was built from.
     #[must_use]
-    pub fn is_stop_time_skipped(&self, stop_time: &StopTime) -> bool {
-        self.is_trip_canceled(stop_time.trip_index)
-            || self.stop_time_status[stop_time.index.as_usize()] == StopTimeStatus::Skipped
+    pub fn is_stop_time_skipped(&self, trip: TripIndex, index: StopTimeIndex) -> bool {
+        self.is_trip_canceled(trip)
+            || self.stop_time_status[index.as_usize()] == StopTimeStatus::Skipped
     }
 
     /// Returns the arrival time with the delay applied, or `None` if the stop has no scheduled
@@ -251,11 +254,16 @@ impl Realtime {
     ///
     /// # Panics
     ///
-    /// Panics if `stop_time` is not from the consumer this was built from.
+    /// Panics if `trip` or `index` is not from the consumer this was built from.
     #[must_use]
-    pub fn arrival_time(&self, stop_time: &StopTime) -> Option<Time> {
-        let delay = self.stop_time_arrival_delays[stop_time.index.as_usize()];
-        self.delayed(stop_time, stop_time.arrival_time, delay)
+    pub fn arrival_time(
+        &self,
+        trip: TripIndex,
+        index: StopTimeIndex,
+        timing: Timing,
+    ) -> Option<Time> {
+        let delay = self.stop_time_arrival_delays[index.as_usize()];
+        self.delayed(trip, index, timing.arrival, delay)
     }
 
     /// Returns the departure time with the delay applied, or `None` if the stop has no scheduled
@@ -263,20 +271,26 @@ impl Realtime {
     ///
     /// # Panics
     ///
-    /// Panics if `stop_time` is not from the consumer this was built from.
+    /// Panics if `trip` or `index` is not from the consumer this was built from.
     #[must_use]
-    pub fn departure_time(&self, stop_time: &StopTime) -> Option<Time> {
-        let delay = self.stop_time_departure_delays[stop_time.index.as_usize()];
-        self.delayed(stop_time, stop_time.departure_time, delay)
+    pub fn departure_time(
+        &self,
+        trip: TripIndex,
+        index: StopTimeIndex,
+        timing: Timing,
+    ) -> Option<Time> {
+        let delay = self.stop_time_departure_delays[index.as_usize()];
+        self.delayed(trip, index, timing.departure, delay)
     }
 
     fn delayed(
         &self,
-        stop_time: &StopTime,
+        trip: TripIndex,
+        index: StopTimeIndex,
         scheduled: Optional<Time>,
         delay: Optional<Delay>,
     ) -> Option<Time> {
-        if self.is_stop_time_skipped(stop_time) {
+        if self.is_stop_time_skipped(trip, index) {
             return None;
         }
         let scheduled = scheduled.as_option()?;
@@ -324,7 +338,7 @@ impl Realtime {
         if !cfg!(debug_assertions) {
             return;
         }
-        let stop_times = consumer.stop_times().len();
+        let stop_times = consumer.timings().len();
         let trips = consumer.trips().len();
         assert!(
             self.stop_time_departure_delays.len() == stop_times

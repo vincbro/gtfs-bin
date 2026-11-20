@@ -16,7 +16,7 @@ All through `just`, which `just toolchain` sets up (the pinned Rust, the pinned 
 
 The code a router runs per query, by name. `PERFORMANCE.md` rules about hot paths apply to these and what they call.
 
-- The `Consumer` accessors in `crates/flatnet-core/src/consumer/` that return slices (`stop_times_by_trip`, `trips_by_stop`, `trips_by_route`, `outbound_transfers_by_stop`, `trip_patterns_by_stop`) and the `*_by_id` lookups.
+- The `Consumer` accessors in `crates/flatnet-core/src/consumer/` that return slices (`timings_by_trip`, `pattern_stops_by_trip_pattern`, `trips_by_stop`, `trips_by_route`, `outbound_transfers_by_stop`, `trip_patterns_by_stop`) and the `*_by_id` lookups.
 - `Consumer::stops_near`, which fills a buffer it is given.
 - `Realtime` getters and `arrival_time`/`departure_time`, which a router calls per stop time.
 
@@ -29,7 +29,7 @@ Measured, not yet changed. A review doesn't repeat these. It reports one only if
 | Where | What | Numbers |
 |---|---|---|
 | `Consumer::search_by_name` | Folds every name on each call, so it allocates per name | 0.9 ms over 7,000 places. Fine for a search box, not for a loop |
-| `Consumer::new` | Reads every table once to validate | 4.8 ms for 1M stop times, 39 ms for SL (2.5M). `new_unvalidated` takes 44 ns |
+| `Consumer::new` | Reads every table once to validate | 4.8 ms for 1M stop times, 10 ms for SL (2.5M). `new_unvalidated` takes 44 ns |
 | `SliceBuilder::add` | Stores each unique string twice (the buffer and the map key) | Compile time only. 3 s for SL, 480 MB peak |
 
 ## Overrides

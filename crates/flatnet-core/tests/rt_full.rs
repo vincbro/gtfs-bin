@@ -4,7 +4,7 @@ mod common;
 
 use flatnet_core::{
     consumer::Consumer,
-    models::{Date, Delay, Sentinel, TripIndex},
+    models::{Date, Delay, Sentinel, StopTimeIndex, Time, TripIndex},
     rt::{Realtime, RealtimeBuilder, StopTimeStatus, TripStatus},
 };
 use gtfs_rt::{
@@ -87,6 +87,33 @@ fn trip_index(consumer: &Consumer<'_>, trip_id: &str) -> TripIndex {
         .trip_by_id(trip_id)
         .expect("the fixture has the trip")
         .index
+}
+
+/// The index of a trip's `position`th stop time, which is where the realtime state keeps it.
+fn stop_time_index(consumer: &Consumer<'_>, trip: TripIndex, position: usize) -> StopTimeIndex {
+    StopTimeIndex::from(consumer.trip(trip).stop_times.start as usize + position)
+}
+
+/// The arrival of a trip at its `position`th stop, with the live delay.
+fn arrival_at(
+    consumer: &Consumer<'_>,
+    realtime: &Realtime,
+    trip: TripIndex,
+    position: usize,
+) -> Option<Time> {
+    let timing = consumer.timings_by_trip(trip)[position];
+    realtime.arrival_time(trip, stop_time_index(consumer, trip, position), timing)
+}
+
+/// The departure of a trip at its `position`th stop, with the live delay.
+fn departure_at(
+    consumer: &Consumer<'_>,
+    realtime: &Realtime,
+    trip: TripIndex,
+    position: usize,
+) -> Option<Time> {
+    let timing = consumer.timings_by_trip(trip)[position];
+    realtime.departure_time(trip, stop_time_index(consumer, trip, position), timing)
 }
 
 /// Runs a test body against the compiled fixture.
@@ -470,17 +497,15 @@ fn effective_times_apply_the_delay_and_hide_skipped_stops() {
             )])]
             .into_iter(),
         );
-        let stop_times = consumer.stop_times_by_trip(trip_index(consumer, "trip4"));
+        let trip = trip_index(consumer, "trip4");
 
         assert_eq!(
-            realtime
-                .departure_time(&stop_times[0])
-                .map(|time| time.to_string()),
+            departure_at(consumer, &realtime, trip, 0).map(|time| time.to_string()),
             Some("09:02:00".to_owned()),
             "scheduled 09:00 plus two minutes"
         );
         assert_eq!(
-            realtime.departure_time(&stop_times[1]),
+            departure_at(consumer, &realtime, trip, 1),
             None,
             "a skipped stop has no time"
         );
@@ -841,14 +866,12 @@ fn a_canceled_trip_has_no_effective_times() {
         trip.schedule_relationship = Some(TripRelationship::Canceled as i32);
         let realtime = RealtimeBuilder::new(consumer)
             .build([message(vec![trip_update(trip, vec![])])].into_iter());
-        let stop_times = consumer.stop_times_by_trip(trip_index(consumer, "trip4"));
-
         assert!(
             realtime.is_trip_canceled(trip_index(consumer, "trip4")),
             "the trip is canceled"
         );
         assert_eq!(
-            realtime.arrival_time(&stop_times[0]),
+            arrival_at(consumer, &realtime, trip_index(consumer, "trip4"), 0),
             None,
             "nothing arrives on a canceled trip"
         );

@@ -33,7 +33,7 @@ fn a_generated_network_compiles_validates_and_answers_queries() {
         "every trip is kept"
     );
     assert_eq!(
-        consumer.stop_times().len(),
+        consumer.timings().len(),
         Size::SMALL.trips * Size::SMALL.stops_per_trip,
         "every stop time is kept"
     );

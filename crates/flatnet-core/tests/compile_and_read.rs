@@ -105,14 +105,16 @@ fn stop_times_and_trip_iterations() {
 
     let trip1 = consumer.trip_by_id("trip1").unwrap();
 
-    let stop_times = consumer.stop_times_by_trip(trip1.index);
-    assert_eq!(stop_times.len(), 2, "trip1 should have 2 stop times");
+    let timings = consumer.timings_by_trip(trip1.index);
+    assert_eq!(timings.len(), 2, "trip1 should have 2 stop times");
 
     let stop2 = consumer.stop_by_id("stop2").unwrap();
     let stop3 = consumer.stop_by_id("stop3").unwrap();
 
-    assert_eq!(stop_times[0].stop_index, stop2.index);
-    assert_eq!(stop_times[1].stop_index, stop3.index);
+    let pattern = consumer.trip_pattern_by_trip(trip1.index);
+    let stops = consumer.stop_sequence_by_trip_pattern(pattern.index);
+    assert_eq!(stops[0], stop2.index);
+    assert_eq!(stops[1], stop3.index);
 
     let stop2_trips: Vec<_> = consumer.iter_trips_by_stop(stop2.index).collect();
     assert_eq!(stop2_trips.len(), 2);
@@ -201,12 +203,12 @@ fn shapes() {
     let trip = consumer
         .trip_by_id("trip5")
         .expect("Failed to get trip5 by id");
-    let stop_times = consumer.stop_times_by_trip(trip.index);
+    let timings = consumer.timings_by_trip(trip.index);
     let shapes = consumer.shapes_by_trip(trip.index);
 
     assert_eq!(
         shapes.len(),
-        stop_times.len() - 1,
+        timings.len() - 1,
         "one shape for each pair of stops"
     );
     for &shape in shapes {

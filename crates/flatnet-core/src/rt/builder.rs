@@ -11,7 +11,8 @@ use jiff::{Timestamp, civil, tz::TimeZone};
 use crate::{
     consumer::Consumer,
     models::{
-        Coordinate, Date, Delay, Optional, RouteType, Sentinel, StopTime, Time, Trip, TripIndex,
+        Coordinate, Date, Delay, Optional, RouteType, Sentinel, Time, Timing, Trip, TripIndex,
+        TripPatternIndex,
     },
     rt::{
         ActivePeriod, AddedStopTime, AddedTrip, Alert, ApplyReport, Error, InformedEntity,
@@ -120,7 +121,7 @@ impl<'a> RealtimeBuilder<'a> {
         I: Iterator<Item = FeedMessage>,
     {
         assert!(
-            realtime.stop_time_status.len() == self.consumer.stop_times().len()
+            realtime.stop_time_status.len() == self.consumer.timings().len()
                 && realtime.trip_status.len() == self.consumer.trips().len(),
             "realtime must be built from the consumer it is applied with"
         );
@@ -288,14 +289,15 @@ impl<'a> RealtimeBuilder<'a> {
         realtime: &mut Realtime,
     ) -> ApplyReport {
         let mut report = ApplyReport::default();
-        let stop_times = self.consumer.stop_times_by_trip(trip);
+        let timings = self.consumer.timings_by_trip(trip);
+        let pattern = self.consumer.trip_pattern_by_trip(trip).index;
         let first_slot = self.consumer.trip(trip).stop_times.start as usize;
 
         // Updates come in trip order, so each search starts after the last match. That is what
         // tells apart a stop a trip visits twice.
         let mut from = 0;
         for stop_update in &update.stop_time_update {
-            let Some(found) = self.find_stop_time(stop_times, stop_update, from) else {
+            let Some(found) = self.find_stop_time(pattern, stop_update, from) else {
                 report.stop_time_updates_unmatched += 1;
                 continue;
             };
@@ -303,14 +305,14 @@ impl<'a> RealtimeBuilder<'a> {
             self.apply_stop_time_update(
                 stop_update,
                 first_slot + found,
-                &stop_times[found],
+                timings[found],
                 day,
                 realtime,
             );
             report.stop_time_updates += 1;
         }
 
-        let slots = first_slot..first_slot + stop_times.len();
+        let slots = first_slot..first_slot + timings.len();
         if update.stop_time_update.is_empty() {
             spread_trip_delay(slots, trip, realtime);
         } else if self.cascade_delays {
@@ -322,31 +324,34 @@ impl<'a> RealtimeBuilder<'a> {
     /// Finds the stop time an update is about, by sequence if it has one and by stop otherwise.
     fn find_stop_time(
         &self,
-        stop_times: &[StopTime],
+        pattern: TripPatternIndex,
         update: &StopTimeUpdate,
         from: usize,
     ) -> Option<usize> {
+        let pattern_stops = self.consumer.pattern_stops_by_trip_pattern(pattern);
         if let Some(sequence) = update.stop_sequence
-            && let Ok(position) = stop_times.binary_search_by_key(&sequence, |stop| stop.sequence)
+            && let Ok(position) =
+                pattern_stops.binary_search_by_key(&sequence, |stop| stop.sequence)
         {
             return Some(position);
         }
 
         let stop = self.consumer.stop_by_id(update.stop_id.as_deref()?)?.index;
+        let stops = self.consumer.stop_sequence_by_trip_pattern(pattern);
         let visits = |range: Range<usize>| {
-            stop_times[range.clone()]
+            stops[range.clone()]
                 .iter()
-                .position(|stop_time| stop_time.stop_index == stop)
+                .position(|&visited| visited == stop)
                 .map(|position| range.start + position)
         };
-        visits(from..stop_times.len()).or_else(|| visits(0..stop_times.len()))
+        visits(from..stops.len()).or_else(|| visits(0..stops.len()))
     }
 
     fn apply_stop_time_update(
         &self,
         update: &StopTimeUpdate,
         slot: usize,
-        stop_time: &StopTime,
+        timing: Timing,
         day: Option<Date>,
         realtime: &mut Realtime,
     ) {
@@ -356,9 +361,8 @@ impl<'a> RealtimeBuilder<'a> {
             return;
         }
 
-        let arrival = self.event_delay(update.arrival.as_ref(), stop_time.arrival_time, day);
-        let mut departure =
-            self.event_delay(update.departure.as_ref(), stop_time.departure_time, day);
+        let arrival = self.event_delay(update.arrival.as_ref(), timing.arrival, day);
+        let mut departure = self.event_delay(update.departure.as_ref(), timing.departure, day);
         // A vehicle that arrives late leaves late, unless the feed says otherwise.
         if update.departure.is_none() {
             departure = arrival;
@@ -495,13 +499,13 @@ impl<'a> RealtimeBuilder<'a> {
 
     fn starts_at(&self, trip: &Trip, start: Time) -> bool {
         self.consumer
-            .stop_times_by_trip(trip.index)
+            .timings_by_trip(trip.index)
             .first()
             .and_then(|first| {
                 first
-                    .departure_time
+                    .departure
                     .as_option()
-                    .or_else(|| first.arrival_time.as_option())
+                    .or_else(|| first.arrival.as_option())
             })
             == Some(start)
     }
