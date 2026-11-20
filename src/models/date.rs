@@ -1,13 +1,12 @@
-use chrono::NaiveDate;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 use crate::models::Sentinel;
 
+/// Days since the unix epoch.
 #[repr(transparent)]
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::Pod, bytemuck::Zeroable,
 )]
-/// Days since unix epoch
 pub struct Date(pub u32);
 
 impl Sentinel for Date {
@@ -20,40 +19,12 @@ impl From<u32> for Date {
     }
 }
 
-impl From<NaiveDate> for Date {
-    fn from(value: NaiveDate) -> Self {
-        Self(value.to_epoch_days() as u32)
-    }
-}
-
 impl Display for Date {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Shift the epoch from 1970-01-01 to 0000-03-01
-        // Because input is u32, z will never be negative.
-        let z = self.0 + 719_468;
-
-        // Calculate the "era" (a 400-year block)
-        // We can safely use standard division and modulo now.
-        let era = z / 146097;
-        let doe = z % 146097; // Day of the era: [0, 146096]
-
-        // Calculate the year of the era [0, 399]
-        let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-
-        // Extract the year and the day of the year
-        let mut y = yoe + era * 400;
-        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
-
-        // Calculate the month and day using the shifted calendar
-        let mp = (5 * doy + 2) / 153; // [0, 11]
-        let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
-
-        // Adjust the month and year back to the standard civil calendar
-        let m = if mp < 10 { mp + 3 } else { mp - 9 };
-        if m <= 2 {
-            y += 1;
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.to_year_month_day() {
+            Some((year, month, day)) => write!(f, "{year:04}-{month:02}-{day:02}"),
+            None => f.write_str("none"),
         }
-        write!(f, "{y:04}-{m:02}-{d:02}")
     }
 }
 
@@ -64,94 +35,160 @@ impl Default for Date {
 }
 
 impl Date {
-    /// Returns the day of the week 0, 6
-    pub fn get_day_of_week(&self) -> u8 {
-        ((self.0 + 3) % 7) as u8
+    /// Builds a date from a calendar day. Returns `None` for an impossible day, a year before
+    /// 1970 or a year after 9999.
+    #[must_use]
+    pub fn from_year_month_day(year: u32, month: u32, day: u32) -> Option<Self> {
+        if !(1970..=9999).contains(&year) || !(1..=12).contains(&month) || day < 1 {
+            return None;
+        }
+        let is_leap =
+            year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
+        let days_in_month = match month {
+            2 if is_leap => 29,
+            2 => 28,
+            4 | 6 | 9 | 11 => 30,
+            _ => 31,
+        };
+        if day > days_in_month {
+            return None;
+        }
+
+        // Count from March so the leap day is the last day of the year.
+        let shifted_year = if month <= 2 { year - 1 } else { year };
+        let era = shifted_year / 400;
+        let year_of_era = shifted_year % 400;
+        let day_of_year = (153 * ((month + 9) % 12) + 2) / 5 + day - 1;
+        let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+        // The year is at least 1970, so this can't underflow.
+        Some(Self(era * 146_097 + day_of_era - 719_468))
+    }
+
+    /// Returns the calendar day as year, month and day, or `None` for a date too large to have
+    /// one, which includes the sentinel.
+    #[must_use]
+    pub fn to_year_month_day(self) -> Option<(u32, u32, u32)> {
+        // Shift the epoch from 1970-01-01 to 0000-03-01.
+        let epoch = self.0.checked_add(719_468)?;
+
+        // Calculate the "era" (a 400-year block) and the day within it.
+        let era = epoch / 146_097;
+        let day_of_era = epoch % 146_097;
+
+        // The year of the era [0, 399], then the year and the day of the year.
+        let year_of_era =
+            (day_of_era - day_of_era / 1460 + day_of_era / 36524 - day_of_era / 146_096) / 365;
+        let year = year_of_era + era * 400;
+        let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+
+        // The month and day in the calendar that starts in March.
+        let shifted_month = (5 * day_of_year + 2) / 153;
+        let day = day_of_year - (153 * shifted_month + 2) / 5 + 1;
+
+        // Back to the calendar that starts in January.
+        let month = if shifted_month < 10 {
+            shifted_month + 3
+        } else {
+            shifted_month - 9
+        };
+        let year = if month <= 2 { year + 1 } else { year };
+        Some((year, month, day))
+    }
+
+    /// Parses a GTFS date, which is exactly 8 digits as `YYYYMMDD`.
+    #[must_use]
+    pub fn parse_gtfs(text: &str) -> Option<Self> {
+        if text.len() != 8 || !text.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        let year = text[..4].parse().ok()?;
+        let month = text[4..6].parse().ok()?;
+        let day = text[6..].parse().ok()?;
+        Self::from_year_month_day(year, month, day)
+    }
+
+    /// Returns the day of the week, with Monday as 0 and Sunday as 6.
+    #[must_use]
+    pub const fn day_of_week(self) -> u8 {
+        // 1970-01-01 was a Thursday. Reducing before adding keeps the sentinel from overflowing.
+        ((self.0 % 7 + 3) % 7) as u8
     }
 }
 
-#[repr(transparent)]
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct WeekdaySet(pub u8);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl WeekdaySet {
-    pub fn new() -> Self {
-        Default::default()
+    #[test]
+    fn unix_epoch_is_a_thursday() {
+        assert_eq!(
+            Date(0).day_of_week(),
+            3,
+            "1970-01-01 was a Thursday, Monday being 0"
+        );
     }
 
-    pub fn set_day(&mut self, idx: u8, value: bool) {
-        assert!(idx < 7, "The day index is out of bounds, max value 6");
-        self.0 = set_bit(self.0, idx, value)
+    #[test]
+    fn sentinel_does_not_overflow() {
+        assert_eq!(
+            Date::NONE.to_string(),
+            "none",
+            "the sentinel has no calendar date"
+        );
+        assert!(
+            Date::NONE.day_of_week() < 7,
+            "the sentinel still maps to a weekday"
+        );
     }
 
-    pub fn get_day(&self, idx: u8) -> bool {
-        assert!(idx < 7, "The day index is out of bounds, max value 6");
-        is_bit_flipped(self.0, idx)
+    #[test]
+    fn parses_gtfs_dates() {
+        assert_eq!(Date::parse_gtfs("19700101"), Some(Date(0)), "the epoch");
+        assert_eq!(
+            Date::parse_gtfs("20000229"),
+            Some(Date(11_016)),
+            "a leap day"
+        );
+        assert_eq!(
+            Date::parse_gtfs("20170101"),
+            Some(Date(17_167)),
+            "a date in the fixture"
+        );
     }
 
-    pub fn monday(&self) -> bool {
-        is_bit_flipped(self.0, 0)
+    #[test]
+    fn rejects_impossible_dates() {
+        for text in [
+            "20230229",
+            "20231301",
+            "20230100",
+            "19691231",
+            "2023011",
+            "2023-01-01",
+            "",
+        ] {
+            assert_eq!(Date::parse_gtfs(text), None, "{text:?} is not a date");
+        }
     }
 
-    pub fn tuesday(&self) -> bool {
-        is_bit_flipped(self.0, 1)
+    #[test]
+    fn parsing_and_formatting_round_trip() {
+        for text in ["19700101", "20240229", "20991231", "99991231"] {
+            let date = Date::parse_gtfs(text).expect("a valid date");
+            assert_eq!(
+                date.to_string().replace('-', ""),
+                text,
+                "round trip of {text}"
+            );
+        }
     }
 
-    pub fn wednesday(&self) -> bool {
-        is_bit_flipped(self.0, 2)
+    #[test]
+    fn formats_a_leap_day() {
+        assert_eq!(
+            Date(11_016).to_string(),
+            "2000-02-29",
+            "2000 was a leap year"
+        );
     }
-
-    pub fn thursday(&self) -> bool {
-        is_bit_flipped(self.0, 3)
-    }
-
-    pub fn friday(&self) -> bool {
-        is_bit_flipped(self.0, 4)
-    }
-
-    pub fn saturday(&self) -> bool {
-        is_bit_flipped(self.0, 5)
-    }
-
-    pub fn sunday(&self) -> bool {
-        is_bit_flipped(self.0, 6)
-    }
-
-    pub fn with_monday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 0, value))
-    }
-
-    pub fn with_tuesday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 1, value))
-    }
-
-    pub fn with_wednesday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 2, value))
-    }
-
-    pub fn with_thursday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 3, value))
-    }
-
-    pub fn with_friday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 4, value))
-    }
-
-    pub fn with_saturday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 5, value))
-    }
-
-    pub fn with_sunday(self, value: bool) -> Self {
-        Self(set_bit(self.0, 6, value))
-    }
-}
-fn is_bit_flipped(byte: u8, n: u8) -> bool {
-    assert!(n < 8, "Bit index out of bounds for u8");
-    (byte & (1 << n)) != 0
-}
-
-fn set_bit(byte: u8, n: u8, value: bool) -> u8 {
-    assert!(n < 8, "Bit index out of bounds for u8");
-    let mask = 1 << n;
-    if value { byte | mask } else { byte & !mask }
 }

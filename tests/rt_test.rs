@@ -1,3 +1,12 @@
+#![allow(clippy::all)]
+#![allow(clippy::pedantic, clippy::restriction)]
+
+use std::{
+    io::Write,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use gtfs_bin::{
     compiler::Compiler,
     consumer::Consumer,
@@ -9,21 +18,21 @@ use gtfs_rt::{
     trip_update::{self, StopTimeUpdate},
 };
 use memmap2::Mmap;
-use std::{
-    io::Write,
-    path::PathBuf,
-    time::{SystemTime, UNIX_EPOCH},
-};
 use tempfile::NamedTempFile;
 
-// Helper to compile the GTFS and map it into memory.
-// Returns the NamedTempFile alongside the Mmap so the file isn't deleted
-// until the test finishes.
+/// Helper to compile the GTFS and map it into memory.
+/// Returns the ``NamedTempFile`` alongside the Mmap so the file isn't deleted
+/// until the test finishes.
+#[must_use]
+#[allow(
+    unsafe_code,
+    reason = "mapping a file is unsafe in memmap2, and this file is not modified"
+)]
 pub fn compile_test() -> (NamedTempFile, Mmap) {
     let mut input_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     input_path.push("tests/fixtures/gtfs");
 
-    let compiled_bytes = Compiler::new(input_path)
+    let compiled_bytes = Compiler::new(&input_path)
         .compile()
         .expect("Failed to compile GTFS");
 
@@ -34,10 +43,11 @@ pub fn compile_test() -> (NamedTempFile, Mmap) {
     (temp_file, mmap)
 }
 
+#[must_use]
 pub fn create_fake_feed_message() -> FeedMessage {
     let current_timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("Failed to get duration since epoch")
         .as_secs();
 
     FeedMessage {
@@ -92,7 +102,7 @@ pub fn create_fake_feed_message() -> FeedMessage {
 }
 
 #[test]
-fn test_realtime_builder_ingestion() {
+fn realtime_builder_ingestion() {
     let (_file, mmap) = compile_test();
     let consumer = Consumer::new(&mmap).expect("Failed to load graph");
 
@@ -105,34 +115,34 @@ fn test_realtime_builder_ingestion() {
         .trip_by_id("trip4")
         .expect("Trip 'trip4' not found");
     assert_eq!(
-        realtime.trip_status[trip4.idx.as_usize()],
-        TripStatus::Cancled,
+        realtime.trip_status()[trip4.index.as_usize()],
+        TripStatus::Canceled,
         "Trip 4 should be marked as canceled"
     );
 
     let trip1 = consumer
         .trip_by_id("trip1")
         .expect("Trip 'trip1' not found");
-    let stop_times = consumer.stop_times_by_trip(trip1.idx);
-    let seq_idx = stop_times
+    let stop_times = consumer.stop_times_by_trip(trip1.index);
+    let seq_index = stop_times
         .binary_search_by_key(&1, |st| st.sequence)
         .expect("Sequence not found in binary search");
 
-    let global_idx = trip1.stop_times.start as usize + seq_idx;
+    let global_index = trip1.stop_times.start as usize + seq_index;
 
-    let arrival_delay = realtime.stop_time_arrival_delays[global_idx];
+    let arrival_delay = realtime.stop_time_arrival_delays()[global_index];
     assert!(arrival_delay.is_some(), "Expected an arrival delay");
-    assert_eq!(arrival_delay.get().unwrap(), Delay(120));
+    assert_eq!(arrival_delay.as_option().unwrap(), Delay(120));
 
-    let departure_delay = realtime.stop_time_departure_delays[global_idx];
+    let departure_delay = realtime.stop_time_departure_delays()[global_index];
     assert!(departure_delay.is_some(), "Expected a departure delay");
-    assert_eq!(departure_delay.get().unwrap(), Delay(120));
+    assert_eq!(departure_delay.as_option().unwrap(), Delay(120));
 
     let trip3 = consumer
         .trip_by_id("trip3")
         .expect("Trip 'trip3' not found");
     assert_eq!(
-        realtime.trip_status[trip3.idx.as_usize()],
+        realtime.trip_status()[trip3.index.as_usize()],
         TripStatus::Unchanged,
         "Trip 3 was not in the feed and should be unchanged"
     );

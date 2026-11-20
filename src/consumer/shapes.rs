@@ -4,8 +4,11 @@ use crate::{
 };
 
 impl<'a> Consumer<'a> {
-    #[inline]
-    pub fn shapes(&self, slice: ShapeSlice) -> &'a [Shape] {
+    /// # Panics
+    ///
+    /// Panics if the slice is out of range.
+    #[must_use]
+    pub fn shapes_in(&self, slice: ShapeSlice) -> &'a [Shape] {
         &self.shapes[slice.range()]
     }
 }

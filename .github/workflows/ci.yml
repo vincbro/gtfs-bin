@@ -1,0 +1,162 @@
+name: CI
+
+# `just check`, one step per check so a failure names what failed. Pushes to main also run the
+# property tests for many more cases than a normal run.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just,cargo-sort,taplo
+
+      # gtfs-rt's build script compiles its .proto files, which needs protoc.
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      # The toolchain pinned in rust-toolchain.toml, plus the nightly rustfmt pinned in the
+      # justfile, as on a laptop.
+      - name: Set up Rust
+        run: just toolchain
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          # A PR's first push often fails; its fix shouldn't start cold again.
+          cache-on-failure: true
+
+      - name: Format
+        run: just fmt-check
+
+      - name: Clippy
+        run: just clippy
+
+      - name: Docs
+        run: just doc
+
+      - name: Test
+        run: just test
+
+      - name: Features
+        run: just features
+
+  # Separate from check: a new advisory can fail this without the PR touching anything.
+  deps:
+    name: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just,cargo-machete,cargo-deny
+
+      - name: Check dependencies
+        run: just deps
+
+  # code-standards/COMMITS.md S-COMMITS for every commit the PR adds, the same check as the
+  # commit-msg hook from `just hooks`.
+  commits:
+    name: commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - name: Commit messages
+        run: just commits ${{ github.event.pull_request.base.sha }}
+
+  # The oldest Rust we claim to build on: rust-version in Cargo.toml.
+  msrv:
+    name: msrv
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      # rust-version from the manifest, overriding rust-toolchain.toml.
+      - name: Set up Rust
+        run: |
+          msrv=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)
+          rustup toolchain install "$msrv" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$msrv" >> "$GITHUB_ENV"
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv
+
+      - name: Build
+        run: cargo build --all-targets --all-features --locked
+
+  # The property tests with many more cases, on main only.
+  full:
+    name: property tests
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      # gtfs-rt's build script compiles its .proto files, which needs protoc.
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Set up Rust
+        run: just toolchain
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: just test-full

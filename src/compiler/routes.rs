@@ -1,104 +1,80 @@
-use crate::models::{
-    Route, RouteIdSlice, RouteIdx, Sentinel, Slice, SliceBuilder, StringSlice, Trip, TripIdx,
-    TripSlice,
-};
-use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
 
-pub(crate) fn build_routes(
-    raw_routes: &[gtfs_structures::Route],
+use rayon::slice::ParallelSliceMut;
+
+use crate::{
+    compiler::{records::RawRoute, tables},
+    models::{
+        Route, RouteIdSlice, RouteIndex, Sentinel, SliceBuilder, StringSlice, Trip, TripIndex,
+        TripSlice,
+    },
+};
+
+pub(super) fn build_routes(
+    raw_routes: &[RawRoute],
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> Result<(Vec<Route>, HashMap<String, RouteIdx>), gtfs_structures::Error> {
-    let mut id_map: HashMap<String, RouteIdx> = HashMap::new();
+) -> (Vec<Route>, HashMap<String, RouteIndex>) {
+    let mut id_map: HashMap<String, RouteIndex> = HashMap::with_capacity(raw_routes.len());
 
     let routes: Vec<_> = raw_routes
         .iter()
         .enumerate()
-        .map(|(i, route)| {
-            let idx = RouteIdx(i as u32);
-            id_map.insert(route.id.clone(), idx);
-            Route {
-                id: RouteIdSlice::NONE,
-                long_name: route
-                    .long_name
-                    .as_ref()
-                    .map(|ln| slice_builder.add(ln))
-                    .into(),
-                short_name: route
-                    .short_name
-                    .as_ref()
-                    .map(|sn| slice_builder.add(sn))
-                    .into(),
-                description: route
-                    .desc
-                    .as_ref()
-                    .map(|desc| slice_builder.add(desc))
-                    .into(),
-                idx,
-                rtype: 0,
-            }
+        .map(|(position, route)| {
+            let index = RouteIndex::from(position);
+            id_map.insert(route.id.clone(), index);
+            let long_name = route
+                .long_name
+                .as_ref()
+                .map(|name| slice_builder.add(name))
+                .into();
+            let short_name = route
+                .short_name
+                .as_ref()
+                .map(|name| slice_builder.add(name))
+                .into();
+            let description = route
+                .description
+                .as_ref()
+                .map(|description| slice_builder.add(description))
+                .into();
+            Route::new(
+                RouteIdSlice::NONE,
+                index,
+                long_name,
+                short_name,
+                description,
+                route.route_type,
+            )
         })
         .collect();
-    Ok((routes, id_map))
+    (routes, id_map)
 }
 
-pub(crate) fn build_route_ids(
+pub(super) fn build_route_ids(
     routes: &mut [Route],
-    route_map: &HashMap<String, RouteIdx>,
-) -> (Vec<RouteIdx>, String) {
-    let mut id_builder = SliceBuilder::with_capacity(36 * routes.len());
-    for (id, idx) in route_map.iter() {
-        routes[idx.as_usize()].id = id_builder.add(id.as_str());
+    route_map: &HashMap<String, RouteIndex>,
+) -> (Vec<RouteIndex>, String) {
+    let table = tables::build_id_table::<RouteIdSlice, _>(route_map, routes.len());
+    for (route, id) in routes.iter_mut().zip(table.slices) {
+        route.id = id;
     }
-
-    let route_ids = id_builder.take();
-
-    // Build binary search friendly id lookup
-    let mut route_id_lookup: Vec<_> = (0..routes.len()).map(|i| RouteIdx(i as u32)).collect();
-    route_id_lookup.par_sort_unstable_by(|a, b| {
-        let id_a = &route_ids[routes[a.as_usize()].id.range()];
-        let id_b = &route_ids[routes[b.as_usize()].id.range()];
-        id_a.cmp(id_b)
-    });
-
-    (route_id_lookup, route_ids)
+    (table.lookup, table.buffer)
 }
 
-pub(crate) fn build_route_to_trips(
+pub(super) fn build_route_to_trips(
     trips: &[Trip],
     routes: &[Route],
-) -> (Vec<TripIdx>, Vec<TripSlice>) {
-    let mut route_trip_pairs: Vec<(RouteIdx, TripIdx)> = trips
+) -> (Vec<TripIndex>, Vec<TripSlice>) {
+    let mut route_trip_pairs: Vec<(RouteIndex, TripIndex)> = trips
         .iter()
-        .map(|trip| (trip.route_idx, trip.idx))
+        .map(|trip| (trip.route_index, trip.index))
         .collect();
-
     route_trip_pairs.par_sort_unstable();
 
-    // Swapped the variable names here:
-    let mut route_to_trips = Vec::with_capacity(route_trip_pairs.len());
-    let mut route_to_trips_lookup = vec![TripSlice::NONE; routes.len()];
-
-    let mut current_route = RouteIdx::NONE;
-    let mut start = 0;
-    let mut count = 0;
-
-    for (i, &(route_idx, trip_idx)) in route_trip_pairs.iter().enumerate() {
-        if route_idx != current_route {
-            if current_route != RouteIdx::NONE {
-                route_to_trips_lookup[current_route.as_usize()] = TripSlice { start, count };
-            }
-            start = i as u32;
-            count = 0;
-            current_route = route_idx;
-        }
-        route_to_trips.push(trip_idx);
-        count += 1;
-    }
-
-    if current_route != RouteIdx::NONE {
-        route_to_trips_lookup[current_route.as_usize()] = TripSlice { start, count };
-    }
-
-    (route_to_trips, route_to_trips_lookup)
+    let route_to_trips = route_trip_pairs.iter().map(|&(_, trip)| trip).collect();
+    let lookup = tables::slices_by_key(
+        route_trip_pairs.iter().map(|&(route, _)| route),
+        routes.len(),
+    );
+    (route_to_trips, lookup)
 }

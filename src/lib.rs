@@ -1,4 +1,16 @@
-pub const GTFS_BIN_VERSION: u32 = 3;
+//! Compiles GTFS transit feeds into one memory-mappable file, and reads that file back without
+//! copying anything.
+//!
+//! - [`compiler`] reads a feed, a directory or a zip, and writes the file.
+//! - [`consumer`] maps the file and answers queries from it: trips by stop, stops near a position,
+//!   places by name.
+//! - [`rt`] applies GTFS-realtime feeds on top of a consumer.
+//! - [`models`] holds the fixed-size types the file is made of.
+//!
+//! The layout of the file is described in `docs/FORMAT.md`.
+
+/// The version of the file layout. It changes whenever a table or header field does.
+pub const GTFS_BIN_VERSION: u32 = 5;
 
 pub mod models;
 
@@ -8,15 +20,3 @@ pub mod compiler;
 pub mod consumer;
 #[cfg(feature = "rt")]
 pub mod rt;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("File is too small to contain a valid header")]
-    FileTooSmall,
-    #[error("Section out of bounds")]
-    SectionOutOfBound,
-    #[error("Invalid magic number: Not a compiled GTFS file")]
-    InvalidMagic,
-    #[error("Unsupported GTFS binary version: expected {expected}, got {actual}")]
-    UnsupportedVersion { expected: u32, actual: u32 },
-}

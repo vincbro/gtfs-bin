@@ -1,7 +1,11 @@
-use std::{fs::File, io::Write, path::PathBuf, time::Instant};
+//! The `gtfs-bin` command: compiles a GTFS feed into a file `gtfs_bin::consumer::Consumer` can map.
 
+use std::{fs, path::PathBuf, time::Instant};
+
+use anyhow::Context;
 use clap::Parser;
 use gtfs_bin::compiler::Compiler;
+use spinners::{Spinner, Spinners};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -13,19 +17,25 @@ struct Args {
     output: PathBuf,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let now = Instant::now();
-    let bytes = Compiler::new(args.input)
+    let started = Instant::now();
+    let mut spinner = Spinner::new(Spinners::Dots, "Compiling data".to_owned());
+    let bytes = Compiler::new(&args.input)
         .compile()
-        .expect("Failed to build");
-    println!("Loading and compiling gtfs took {:?}", now.elapsed());
-    let mut file = File::options()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(args.output)
-        .expect("Failed to open file");
-    file.write_all(&bytes)
-        .expect("Failed to write binary to file");
+        .with_context(|| format!("failed to compile {}", args.input.display()))?;
+    spinner.stop_with_message(format!(
+        "Loading and compiling gtfs took {:?}",
+        started.elapsed()
+    ));
+
+    let started = Instant::now();
+    let mut spinner = Spinner::new(Spinners::Dots, "Writing output to disk".to_owned());
+    fs::write(&args.output, &bytes)
+        .with_context(|| format!("failed to write {}", args.output.display()))?;
+    spinner.stop_with_message(format!(
+        "Writing binary to file took {:?}",
+        started.elapsed()
+    ));
+    Ok(())
 }

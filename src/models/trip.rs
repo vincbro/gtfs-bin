@@ -1,41 +1,41 @@
-use crate::models::{
-    Opt, RouteIdx, ServiceIdx, ShapeSlice, StopTimeSlice, StringSlice, TripIdSlice, TripIdx,
-};
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::{
+    Direction, Optional, RouteIndex, ServiceIndex, ShapeSlice, StopTimeSlice, StringSlice,
+    TripIdSlice, TripIndex,
+};
 
 /// A single GTFS trip.
 ///
-/// Based on the GTFS standard: https://gtfs.org/documentation/schedule/reference/#tripstxt
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#tripstxt>.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Trip {
-    // ------------------------------------------------------------------------
-    // 1. LARGEST FIELDS FIRST (8 to 16 bytes)
-    // ------------------------------------------------------------------------
-    /// The string ID from the original GTFS file (e.g., "TRIP_123").
+    /// The string ID from the original GTFS file (e.g., `TRIP_123`).
     pub id: TripIdSlice,
 
     /// Text that appears on signage identifying the trip's destination to riders.
-    pub headsign: Opt<StringSlice>,
+    pub headsign: Optional<StringSlice>,
 
     /// The public facing name of the trip.
-    pub short_name: Opt<StringSlice>,
+    pub short_name: Optional<StringSlice>,
 
-    /// Stop time slice
     pub stop_times: StopTimeSlice,
 
     /// Identifies a geospatial shape describing the vehicle travel path for a trip.
-    pub shape: Opt<ShapeSlice>,
+    pub shape: Optional<ShapeSlice>,
 
-    // ------------------------------------------------------------------------
-    // 2. SMALLER FIELDS LAST (4 bytes)
-    // ------------------------------------------------------------------------
-    /// The internal array index of this trip in the file.
-    pub idx: TripIdx,
+    /// The id trips of the same vehicle block share, so a vehicle can continue as the next trip.
+    pub block: Optional<StringSlice>,
 
-    /// The internal array index of the route in the file.
-    pub route_idx: RouteIdx,
+    pub index: TripIndex,
 
-    /// The internal array index of the service in the file.
-    pub service_idx: ServiceIdx,
+    pub route_index: RouteIndex,
+
+    pub service_index: ServiceIndex,
+
+    pub direction: Direction,
+
+    /// Always zero. Makes the layout free of implicit padding, which `Pod` requires.
+    pub padding: [u8; 3],
 }

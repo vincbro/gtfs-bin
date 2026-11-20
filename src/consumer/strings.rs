@@ -4,8 +4,11 @@ use crate::{
 };
 
 impl<'a> Consumer<'a> {
-    #[inline]
+    /// # Panics
+    ///
+    /// Panics if the slice is out of range.
+    #[must_use]
     pub fn string(&self, slice: StringSlice) -> &'a str {
-        unsafe { str::from_utf8_unchecked(&self.strings[slice.range()]) }
+        super::text(&self.strings[slice.range()])
     }
 }

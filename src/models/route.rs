@@ -1,33 +1,50 @@
-use crate::models::{Opt, RouteIdSlice, RouteIdx, StringSlice};
 use bytemuck::{Pod, Zeroable};
+
+use crate::models::{Optional, RouteIdSlice, RouteIndex, RouteType, StringSlice};
 
 /// A single GTFS route.
 ///
-/// Based on the GTFS standard: https://gtfs.org/documentation/schedule/reference/#routestxt
+/// Based on the GTFS standard: <https://gtfs.org/documentation/schedule/reference/#routestxt>.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct Route {
-    // ------------------------------------------------------------------------
-    // 1. LARGEST FIELDS FIRST (8 to 16 bytes)
-    // ------------------------------------------------------------------------
-    /// The string ID from the original GTFS file (e.g., "STOP_123").
+    /// The string ID from the original GTFS file (e.g., `ROUTE_123`).
     pub id: RouteIdSlice,
 
     /// Full name of a route.
-    pub long_name: Opt<StringSlice>,
+    pub long_name: Optional<StringSlice>,
 
     /// Short name of a route.
-    pub short_name: Opt<StringSlice>,
+    pub short_name: Optional<StringSlice>,
 
     /// Description of a route that provides useful, quality information.
-    pub description: Opt<StringSlice>,
+    pub description: Optional<StringSlice>,
 
-    // ------------------------------------------------------------------------
-    // 2. SMALLER FIELDS LAST (4 bytes)
-    // ------------------------------------------------------------------------
-    /// The internal array index of this route in the file.
-    pub idx: RouteIdx,
+    pub index: RouteIndex,
 
-    ///Indicates the type of transportation used on a route
-    pub rtype: u32,
+    pub route_type: RouteType,
+    /// Always zero. Makes the layout free of implicit padding, which `Pod` requires.
+    pub padding: [u8; 2],
+}
+
+impl Route {
+    #[must_use]
+    pub const fn new(
+        id: RouteIdSlice,
+        index: RouteIndex,
+        long_name: Optional<StringSlice>,
+        short_name: Optional<StringSlice>,
+        description: Optional<StringSlice>,
+        route_type: RouteType,
+    ) -> Self {
+        Self {
+            id,
+            long_name,
+            short_name,
+            description,
+            index,
+            route_type,
+            padding: [0_u8; 2],
+        }
+    }
 }

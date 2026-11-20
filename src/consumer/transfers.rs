@@ -1,28 +1,50 @@
 use crate::{
     consumer::Consumer,
-    models::{Slice, StopIdx, Transfer, TransferIdx},
+    models::{Slice, StopIndex, Transfer, TransferIndex},
 };
 
 impl<'a> Consumer<'a> {
-    pub fn transfer(&self, idx: TransferIdx) -> &'a Transfer {
-        &self.transfers[idx.as_usize()]
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range.
+    #[must_use]
+    pub fn transfer(&self, index: TransferIndex) -> &'a Transfer {
+        &self.transfers[index.as_usize()]
     }
 
-    /// Transfers from A-B by A idx
-    pub fn outbound_transfers_by_stop(&self, idx: StopIdx) -> &'a [Transfer] {
-        let slice = self.stop_to_transfer_out[idx.as_usize()];
+    /// Returns the transfers that start at the stop.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range, which includes `StopIndex::NONE`.
+    #[must_use]
+    pub fn outbound_transfers_by_stop(&self, index: StopIndex) -> &'a [Transfer] {
+        let slice = self.stop_to_transfer_out[index.as_usize()];
         &self.transfers[slice.range()]
     }
 
-    /// Transfers from A-B by B idx
+    /// Returns the indices of the transfers that end at the stop.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range, which includes `StopIndex::NONE`.
+    #[must_use]
+    pub fn inbound_transfers_by_stop(&self, index: StopIndex) -> &'a [TransferIndex] {
+        let slice = self.stop_to_transfer_in[index.as_usize()];
+        &self.transfers_in_indices[slice.range()]
+    }
+
+    /// Returns the transfers that end at the stop.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of range, which includes `StopIndex::NONE`.
     pub fn iter_inbound_transfers_by_stop(
         &self,
-        idx: StopIdx,
+        index: StopIndex,
     ) -> impl Iterator<Item = &'a Transfer> {
-        let slice = self.stop_to_transfer_in[idx.as_usize()];
-        self.transfers_in_indencies[slice.range()]
+        self.inbound_transfers_by_stop(index)
             .iter()
-            .copied()
-            .map(|idx| self.transfer(idx))
+            .map(|&transfer_index| self.transfer(transfer_index))
     }
 }
