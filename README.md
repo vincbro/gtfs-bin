@@ -1,46 +1,36 @@
-# gtfs-bin
+# 📦 gtfs-bin
 
-*gtfs-bin* is a tool and library for compiling standard GTFS data into highly optimized, memory-mappable binary files. 
+[![Crates.io](https://img.shields.io/crates/v/gtfs-bin.svg)](https://crates.io/crates/gtfs-bin)
+[![Documentation](https://docs.rs/gtfs-bin/badge.svg)](https://docs.rs/gtfs-bin)
+[![License](https://img.shields.io/crates/l/gtfs-bin.svg)](LICENSE-MIT)
 
-It provides the data structures and interfaces needed to build fast transit applications, such as routing engines or spatial analytics tools, with virtually instant startup times and low memory overhead.
+A GTFS feed compiled into one flat file you can memory-map.
 
-## The Architecture
+*gtfs-bin* is a tool and library. It parses a GTFS feed once and writes a single `.gtfs` file, and your application reads that file in place, with nothing to parse at startup. It is the data layer under [blaise](https://github.com/vincbro/blaise), a transit router, and it suits any fast transit application: routing engines, spatial analytics, stop search.
 
-Working with `gtfs-bin` is split into two distinct phases: **Compilation** and **Consumption**. This separation of concerns allows you to do the heavy lifting of parsing data once, and distribute a highly optimized artifact to your actual applications.
+- No parsing at startup. The network opens in the time the OS takes to set up a memory map.
+- Safe on any file. A corrupt or hostile file is an error, never undefined behavior.
+- Real-time delays, cancellations and skipped stops, when you have a GTFS-realtime feed.
 
-### 1. The Builder API (Compilation)
-During the build phase, the `Compiler` ingests raw GTFS text files (from a directory or `.zip`). It performs several optimization passes:
-- Reads the feed with its own parser: a directory or a `.zip` (also one that holds a folder), byte order marks, Windows line endings, quoted fields and columns in any order. A bad value is an error that names the file, line and column. Rows that point at an unknown route, trip or stop are skipped, and the first of a repeated id wins. Stops with no times between two that have them get times spread evenly, by distance along the shape when the feed has it. `Compiler::lenient()` skips rows with a bad value instead of failing, and `compile_with_report` says which.
-- Resolves all string-based IDs into integer indices to establish direct, pointer-free relationships (e.g., linking a `Trip` to its `Route`).
-- Deduplicates and packs all textual data (like stop names and headsigns) into a single contiguous string block.
-- Writes the finalized, flat relational arrays into a single `.gtfs` binary artifact. The same feed always compiles to the same bytes.
+## How it works
 
-### 2. The Consumer API (Consumption)
-In your actual transit application, you use the `Consumer` to read the data. Instead of parsing files into memory, the application uses the operating system's `mmap` to map the compiled `.gtfs` file directly into virtual memory. 
+Working with gtfs-bin is split into two phases, **compilation** and **consumption**. The heavy lifting happens once, and the result is what you distribute.
 
-**What you can expect:**
-- **Instant Startup:** The network loads in the time it takes the OS to set up a memory map (microseconds), bypassing traditional I/O and deserialization bottlenecks.
-- **Low Memory Footprint:** Data is lazily paged into physical RAM by the OS only when you actively query it.
-- **Safe on any file:** `Consumer::new` checks the header, every section, that all text is UTF-8, and that every index and slice in every table points inside the table it names. A corrupt or hostile file is an error, never undefined behavior, and the checks are covered by property tests. Opening SL's whole regional feed (159 MB, 2.5 million stop times) takes 39 ms with the checks. `Consumer::verify_checksum` also detects any changed byte.
-- **Cache Locality:** Because the data is strictly flat and pointer-free, traversing relationships (like iterating over all trips on a route) is highly predictable for CPU caches.
+- **Compile.** The `Compiler` reads a feed, a directory or a `.zip`, with its own parser. String ids become integer indices, so a trip points straight at its route. Text is deduplicated into one contiguous block. The flat arrays are written to one file, and the same feed always compiles to the same bytes.
+- **Consume.** The `Consumer` maps the file with `mmap` and reads it where it lies. Data is paged into RAM by the OS only when you touch it, and because the tables are flat and pointer-free, walking from a route to its trips is friendly to the CPU cache.
+- **Validated.** `Consumer::new` checks the header, every section, that all text is UTF-8, and that every index and slice points inside the table it names. The checks are covered by property tests. Opening SL's whole regional feed (159 MB, 2.5 million stop times) takes 39 ms with them. `Consumer::verify_checksum` also detects any changed byte.
+- **Live.** With the `rt` feature, GTFS-realtime updates are applied on top of a consumer, and reading a delay is an array index.
 
-## Supported Data Models
+The layout of the file is in [docs/FORMAT.md](docs/FORMAT.md).
 
-The compiled binary graph currently supports the following GTFS entities:
-- Stops (including stations and entrances)
-- Routes
-- Trips
-- StopTimes
-- Shapes
-- Services (Calendar & Calendar Dates)
-- Transfers
-- Trip Patterns (Grouped stop sequences)
-- Pickup and drop-off rules, trip direction and block, trip-specific transfers
-- The agency time zone and the feed's validity dates
-- A grid index for stops near a position, and name search that ignores case and accents
-- Coordinates (Scaled to 7 decimal places for ~1.1cm precision)
+## Installation
 
-## Cargo features
+```bash
+cargo add gtfs-bin
+cargo add memmap2
+```
+
+### Cargo features
 
 | Feature | Adds |
 |---|---|
@@ -51,72 +41,49 @@ The compiled binary graph currently supports the following GTFS entities:
 
 All four are on by default. Libraries that only read files can use `default-features = false, features = ["consumer"]`.
 
-## Usage
+## Quick start
 
-`gtfs-bin` can be used as a standalone CLI tool to compile data, or integrated directly into your Rust project as a library.
-
-### As a CLI Tool
-
-You can compile a standard GTFS zip file or directory into a `.gtfs` binary using the included executable:
+Compile your feed once, with the command line:
 
 ```bash
-cargo run --release -- -i path/to/gtfs.zip -o output.gtfs
+gtfs-bin -i path/to/gtfs.zip -o network.gtfs
 ```
 
-### As a Library
-
-Add `gtfs-bin` to your `Cargo.toml`:
-
-```toml
-[dependencies]
-gtfs-bin = "0.2"
-memmap2 = "0.9"
-```
-
-#### Phase 1: Compiling Data
-
-If you are building a data pipeline, use the `Compiler` to generate the `.gtfs` binary format.
+Or from Rust, if you are building a data pipeline:
 
 ```rust
-use gtfs_bin::compiler::Compiler;
 use std::{fs, path::Path};
 
-fn main() {
-    // Read from a zip file or an extracted directory
-    let compiler = Compiler::new(Path::new("path/to/gtfs.zip"));
-    
-    // Parse the data and generate the binary byte array
-    let bytes = compiler.compile().expect("Failed to compile GTFS");
+use gtfs_bin::compiler::Compiler;
 
-    // Save the artifact to disk
+fn main() {
+    // Read from a zip file or an extracted directory.
+    let compiler = Compiler::new(Path::new("path/to/gtfs.zip"));
+    let bytes = compiler.compile().expect("Failed to compile GTFS");
     fs::write("network.gtfs", &bytes).unwrap();
 }
 ```
 
-#### Phase 2: Consuming Data
-
-In your routing engine or API, map the compiled file and pass it to the `Consumer`.
+Then map the file and read it:
 
 ```rust
-use gtfs_bin::consumer::Consumer;
-use memmap2::MmapOptions;
 use std::fs::File;
+
+use gtfs_bin::consumer::Consumer;
+use memmap2::Mmap;
 
 fn main() {
     let file = File::open("network.gtfs").expect("Failed to open binary");
-    
-    // Memory-map the file
-    let mmap = unsafe { MmapOptions::new().map(&file).expect("Failed to map memory") };
-    
-    // Instantly load the entire transit network
-    let consumer = Consumer::new(&mmap).expect("Failed to parse binary header");
+    // SAFETY: the file is only read, and nothing modifies it while it is mapped.
+    let mmap = unsafe { Mmap::map(&file).expect("Failed to map memory") };
+    let consumer = Consumer::new(&mmap).expect("Failed to open the network");
 
-    // Example: Look up a route by its original GTFS text ID
+    // Look up a route by its original GTFS id.
     if let Some(route) = consumer.route_by_id("route_1") {
         let route_name = consumer.string(route.short_name.as_option().unwrap());
-        println!("Found route: {}", route_name);
-        
-        // Iterate over all trips belonging to this route
+        println!("Found route: {route_name}");
+
+        // Iterate over all trips belonging to this route.
         for trip in consumer.iter_trips_by_route(route.index) {
             println!("Trip ID: {}", consumer.trip_id(trip.id));
         }
@@ -124,7 +91,9 @@ fn main() {
 }
 ```
 
-Finding stops by position or by name:
+### Finding stops
+
+By position or by name:
 
 ```rust
 // Fills a buffer you keep between calls, nearest first, with the distance in meters.
@@ -139,9 +108,15 @@ consumer.search_by_name("centralen", &mut found);
 consumer.verify_checksum()?;
 ```
 
-#### Phase 3: GTFS Realtime (Optional)
+### Compiling a messy feed
 
-If you enable the `rt` feature, you can apply GTFS-RT `FeedMessage` updates on top of your static consumer graph. A `Realtime` has one slot per stop time and per trip of its consumer, so reading it is an array index.
+The parser reads byte order marks, Windows line endings, quoted fields and columns in any order, and a `.zip` that holds a folder. A bad value is an error that names the file, line and column. Rows that point at an unknown route, trip or stop are skipped, and the first of a repeated id wins. Stops with no times between two that have them get times spread evenly, by distance along the shape when the feed has it.
+
+`Compiler::lenient()` skips rows with a bad value instead of failing, and `compile_with_report` says which.
+
+### Realtime
+
+Enable the `rt` feature to apply GTFS-RT `FeedMessage` updates on top of a consumer. A `Realtime` has one slot per stop time and per trip, so reading it is an array index.
 
 ```rust
 use gtfs_bin::{models::Date, rt::{Realtime, RealtimeBuilder}};
@@ -165,7 +140,10 @@ for stop_time in consumer.stop_times_by_trip(trip.index) {
 }
 ```
 
+`rt::decode_feed` decodes the bytes a publisher serves, so you don't need a protobuf crate of your own. A `Realtime` is plain data and is `Send + Sync`: to read it from many threads while a feed is applied, apply to a second copy and swap an `Arc`.
+
 What is supported:
+
 - **Trip updates**, matched by `trip_id`, or by route, start time and date when there is no id. A start time that fits two trips is reported as ambiguous and applied to neither.
 - **Stop time updates**, matched by `stop_sequence` or by `stop_id`, with delays from `delay` or computed from `time`. `Skipped` and `NoData` follow the spec, and each trip update replaces what the trip had before.
 - **Trip status:** canceled, deleted, added and unscheduled, and the trip-level delay.
@@ -176,41 +154,59 @@ What is supported:
 
 Delays computed from a timestamp use the agency time zone stored in the file, so they stay exact on the days the clocks change.
 
-`rt::decode_feed` decodes the bytes a publisher serves, so you don't need a protobuf crate of your own. A `Realtime` is plain data and is `Send + Sync`: to read it from many threads while a feed is applied, apply to a second copy and swap an `Arc`.
-
 What is not: shapes and stops sent in a feed, trip modifications, and replaced or duplicated trips. They are counted as `unsupported` in the report. See [TODO.md](TODO.md).
+
+## What is in the file
+
+- Stops, including stations and entrances
+- Routes, trips and stop times
+- Shapes
+- Services, from calendar and calendar dates
+- Transfers, including trip-specific ones
+- Trip patterns, the grouped stop sequences
+- Pickup and drop-off rules, trip direction and block
+- The agency time zone and the feed's validity dates
+- A grid index for stops near a position, and name search that ignores case and accents
+- Coordinates, scaled to 7 decimal places for about 1.1 cm of precision
 
 ## Development
 
-The `rt` feature needs `protoc` installed, because `gtfs-rt` compiles its protobuf files when it builds (`brew install protobuf` or `apt install protobuf-compiler`).
+You need [rustup](https://rustup.rs) and [just](https://github.com/casey/just). The coding rules are in the `code-standards/` submodule, so clone with `--recurse-submodules`. The `rt` feature also needs `protoc`, because `gtfs-rt` compiles its protobuf files when it builds (`brew install protobuf` or `apt install protobuf-compiler`).
 
-Everything runs through [`just`](https://github.com/casey/just). `just toolchain` installs the pinned Rust, the nightly `rustfmt`, the cargo tools and the git hooks, and `just check` is the same gate CI runs. `just --list` shows the rest: `compile`, `inspect`, `apply`, `bench`, `real-data` and `check-full`.
+```sh
+just toolchain   # the pinned Rust, nightly rustfmt, the cargo tools and the git hooks
+just check       # what CI runs: fmt, clippy, docs, tests, features, dependencies
+just check-full  # the same, with the property tests run for more cases
+just bench       # the compiler and the consumer, timed
+```
+
+Run `just` on its own to list every recipe, including `compile`, `inspect`, `apply` and `real-data`. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and commits, and [STANDARDS.local.md](STANDARDS.local.md) holds what is specific to this project: the hot paths and the measured performance problems.
 
 ## Roadmap
 
-  - [x] Flat, relational array data structures
-  - [x] Compiler API for building GTFS feeds
-  - [x] Consumer API for memory-mapped reading
-  - [x] GTFS Realtime data ingestion and mapping
-  - [x] Own GTFS parser, with no GTFS library dependency
-  - [x] Validation of every table when a file is opened, with property tests
-  - [ ] Expose prefetching (`madvise`) helper functions for pathfinding loops
-  - [ ] Multi-threaded graph compilation API
+- [x] Flat, relational array data structures
+- [x] Compiler API for building GTFS feeds
+- [x] Consumer API for memory-mapped reading
+- [x] GTFS Realtime data ingestion and mapping
+- [x] Own GTFS parser, with no GTFS library dependency
+- [x] Validation of every table when a file is opened, with property tests
+- [ ] Expose prefetching (`madvise`) helper functions for pathfinding loops
+- [ ] Multi-threaded graph compilation API
 
 ## References
 
-  - [GTFS Specification](https://gtfs.org/documentation/schedule/reference/)
-  - [GTFS Realtime Specification](https://gtfs.org/documentation/realtime/reference/)
-  - [bytemuck](https://docs.rs/bytemuck/latest/bytemuck/)
-  - [memmap2](https://docs.rs/memmap2/latest/memmap2/)
-  - [mmap](https://en.wikipedia.org/wiki/Mmap)
-  - [blaise](https://github.com/vincbro/blaise) - A high-performance transit routing engine (soon to be) built on top of `gtfs-bin`.
+- [GTFS Specification](https://gtfs.org/documentation/schedule/reference/)
+- [GTFS Realtime Specification](https://gtfs.org/documentation/realtime/reference/)
+- [bytemuck](https://docs.rs/bytemuck/latest/bytemuck/)
+- [memmap2](https://docs.rs/memmap2/latest/memmap2/)
+- [mmap](https://en.wikipedia.org/wiki/Mmap)
+- [blaise](https://github.com/vincbro/blaise), a transit router built on top of gtfs-bin
 
 ## License
 
 Licensed under either of
 
-  - Apache License, Version 2.0 ([LICENSE-APACHE](https://www.google.com/search?q=LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-  - MIT license ([LICENSE-MIT](https://www.google.com/search?q=LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
