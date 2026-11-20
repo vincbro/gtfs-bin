@@ -14,11 +14,24 @@ pub(crate) struct Size {
 }
 
 impl Size {
+    /// How many stop times a network of this size has.
+    pub(crate) const fn stop_times(self) -> usize {
+        self.trips * self.stops_per_trip
+    }
+
     /// A few hundred trips, which compiles in milliseconds.
     pub(crate) const SMALL: Self = Self {
         stops: 300,
         routes: 30,
         trips: 600,
+        stops_per_trip: 20,
+    };
+
+    /// About a hundred thousand stop times.
+    pub(crate) const MEDIUM: Self = Self {
+        stops: 1_500,
+        routes: 120,
+        trips: 6_000,
         stops_per_trip: 20,
     };
 

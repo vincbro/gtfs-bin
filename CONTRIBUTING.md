@@ -52,7 +52,7 @@ To check a change against the rules tools can't enforce, ask your coding agent t
 
 ## Benchmarks
 
-`just bench` runs the benchmarks with [criterion](https://github.com/criterion-rs/criterion.rs). They live in `benches/network.rs` and time compiling, opening and validating a file, scanning every stop time, finding stops near a position, looking a trip up by id, and applying a realtime feed, on a generated network of a million stop times. criterion compares each run with the previous one on the same machine. To compare against a fixed point, save a baseline:
+`just bench` runs the benchmarks with [criterion](https://github.com/criterion-rs/criterion.rs). They live in `benches/transit.rs` and time compiling, opening a file with and without its checks, scanning every stop time, looking a trip up by id, finding stops near a position, searching by name, and applying a realtime feed. Each is a group with one entry per size, over generated networks of about 12 thousand, 120 thousand and 1.2 million stop times. criterion compares each run with the previous one on the same machine. To compare against a fixed point, save a baseline:
 
 ```sh
 just bench --save-baseline before

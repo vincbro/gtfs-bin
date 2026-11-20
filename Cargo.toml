@@ -29,6 +29,10 @@ exclude = [
   "taplo.toml",
 ]
 
+[lib]
+# Skip libtest's bench harness, the benches use criterion.
+bench = false
+
 [[bin]]
 name = "gtfs-bin"
 path = "src/main.rs"
@@ -76,8 +80,10 @@ required-features = ["consumer", "cli"]
 name = "apply_feed"
 required-features = ["consumer", "rt", "cli"]
 
+# How fast a feed compiles, a file opens and queries answer, over networks of growing size:
+# `just bench`.
 [[bench]]
-name = "network"
+name = "transit"
 harness = false
 required-features = ["consumer", "compiler", "rt"]
 
