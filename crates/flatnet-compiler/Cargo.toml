@@ -1,6 +1,6 @@
 [package]
 name = "flatnet-compiler"
-description = "Compiles a GTFS feed, a directory or a zip, into the memory-mappable flatnet file."
+description = "Compiles a transit network, read from GTFS or built by a reader, into the memory-mappable flatnet file."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,15 +15,20 @@ categories = ["data-structures", "parsing"]
 # Skip libtest's bench harness.
 bench = false
 
+[features]
+default = ["gtfs"]
+# Reads a GTFS feed, a directory or a zip, into a `Network`.
+gtfs = ["dep:csv", "dep:zip"]
+
 [dependencies]
 bitvec.workspace = true
 bytemuck.workspace = true
-csv.workspace = true
+csv = { workspace = true, optional = true }
 flatnet-core.workspace = true
 rayon.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-zip.workspace = true
+zip = { workspace = true, optional = true }
 
 [lints]
 workspace = true

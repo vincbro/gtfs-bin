@@ -97,7 +97,7 @@ fn compile_damaged(damage: &[(usize, Vec<Edit>)]) {
         fs::write(&path, text).expect("the temp directory is writable");
     }
 
-    let Ok(bytes) = Compiler::new(directory.path()).compile() else {
+    let Ok(bytes) = Compiler::new().compile_gtfs(directory.path()) else {
         return;
     };
     let (_file, mmap) = common::map(&bytes).expect("a compiled file is never empty");
@@ -125,7 +125,7 @@ proptest! {
 fn a_missing_required_file_is_an_error() {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
 
-    let result = Compiler::new(directory.path()).compile();
+    let result = Compiler::new().compile_gtfs(directory.path());
 
     assert!(result.is_err(), "an empty directory is not a feed");
 }

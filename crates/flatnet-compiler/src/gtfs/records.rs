@@ -2,10 +2,8 @@ use std::collections::HashSet;
 
 use flatnet_core::models::{Date, Direction, LocationType, RouteType, Sentinel};
 
-use crate::{
-    Result,
-    table::{Row, Table},
-};
+use super::table::{Row, Table};
+use crate::Result;
 
 pub(super) struct RawStop {
     pub id: String,

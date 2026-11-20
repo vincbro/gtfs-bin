@@ -34,14 +34,14 @@ fn json_object() -> impl Strategy<Value = Map<String, Value>> {
 }
 
 fn compile(json: Option<String>, entries: &BTreeMap<String, String>) -> Result<Vec<u8>, Error> {
-    let mut compiler = Compiler::new(&common::fixture_path());
+    let mut compiler = Compiler::new();
     if let Some(json) = json {
         compiler = compiler.metadata_json(json);
     }
     for (key, value) in entries {
         compiler = compiler.metadata_entry(key.clone(), value.clone());
     }
-    compiler.compile()
+    compiler.compile_gtfs(&common::fixture_path())
 }
 
 /// Opens the file and returns the metadata JSON it holds, parsed, or null if it holds none.

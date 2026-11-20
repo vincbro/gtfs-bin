@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
 use flatnet_core::models::{
-    PatternStop, Sentinel, Slice, Stop, StopIndex, StopSlice, StopTimeSlice, Timing, Trip,
-    TripIndex, TripPattern, TripPatternIndex, TripPatternSlice, TripSlice,
+    PatternStop, Sentinel, Slice, Stop, StopIndex, StopSlice, StopTimeSlice, StringSlice, Timing,
+    Trip, TripIndex, TripPattern, TripPatternIndex, TripPatternSlice, TripSlice,
 };
 
-use crate::stop_times::StopTimeRow;
+use crate::network::Call;
 
 pub(super) struct TripPatterns {
     pub patterns: Vec<TripPattern>,
@@ -26,19 +26,20 @@ pub(super) struct TripPatterns {
 }
 
 /// What a pattern says at one stop, as numbers that sort, so trips that agree are grouped: the
-/// stop, the sequence, pickup, drop off, the headsign's start and length, and the distance's bits.
+/// stop, the sequence, pickup, drop off, the headsign's start and length in the strings, and the
+/// distance's bits.
 type Position = [u32; 7];
 
-fn position_of(row: &StopTimeRow) -> Position {
-    let headsign = row.headsign.as_option();
+fn position_of(call: &Call, headsigns: &[StringSlice]) -> Position {
+    let headsign = call.headsign.map(|headsign| headsigns[headsign as usize]);
     [
-        row.stop_index.0,
-        row.sequence,
-        u32::from(row.pickup.0),
-        u32::from(row.drop_off.0),
+        u32::try_from(call.stop).unwrap_or(u32::MAX),
+        call.sequence,
+        u32::from(call.pickup.0),
+        u32::from(call.drop_off.0),
         headsign.map_or(u32::MAX, |slice| slice.start),
         headsign.map_or(0, |slice| slice.count),
-        row.distance_traveled
+        call.distance
             .as_option()
             .map_or(u32::MAX, |distance| distance.0.to_bits()),
     ]
@@ -51,32 +52,33 @@ fn position_of(row: &StopTimeRow) -> Position {
 pub(super) fn build_trip_patterns(
     trips: &mut [Trip],
     stops: &[Stop],
-    rows: &[StopTimeRow],
+    calls: &[Call],
+    headsigns: &[StringSlice],
 ) -> TripPatterns {
     // Ordered maps so the same input always gives the same bytes.
     let mut trips_by_position: BTreeMap<Vec<Position>, Vec<TripIndex>> = BTreeMap::new();
     for trip in trips.iter() {
-        let key = rows[trip.stop_times.range()]
+        let key = calls[trip.stop_times.range()]
             .iter()
-            .map(position_of)
+            .map(|call| position_of(call, headsigns))
             .collect();
         trips_by_position.entry(key).or_default().push(trip.index);
     }
 
     let mut built = TripPatterns {
         patterns: Vec::new(),
-        stop_sequences: Vec::with_capacity(rows.len()),
-        pattern_stops: Vec::with_capacity(rows.len()),
+        stop_sequences: Vec::with_capacity(calls.len()),
+        pattern_stops: Vec::with_capacity(calls.len()),
         trips_in_patterns: Vec::with_capacity(trips.len()),
         trip_to_pattern: vec![TripPatternIndex::NONE; trips.len()],
         stop_to_pattern: Vec::new(),
         stop_to_pattern_lookup: vec![TripPatternSlice::NONE; stops.len()],
-        timings: Vec::with_capacity(rows.len()),
+        timings: Vec::with_capacity(calls.len()),
     };
     let mut patterns_by_stop: BTreeMap<StopIndex, Vec<TripPatternIndex>> = BTreeMap::new();
 
     for group in trips_by_position.into_values() {
-        for chain in chains(&group, trips, rows) {
+        for chain in chains(&group, trips, calls) {
             let index = TripPatternIndex::from(built.patterns.len());
             add_pattern(
                 &mut built,
@@ -84,7 +86,8 @@ pub(super) fn build_trip_patterns(
                 index,
                 &chain,
                 trips,
-                rows,
+                calls,
+                headsigns,
             );
         }
     }
@@ -106,37 +109,41 @@ fn add_pattern(
     index: TripPatternIndex,
     chain: &[TripIndex],
     trips: &mut [Trip],
-    rows: &[StopTimeRow],
+    calls: &[Call],
+    headsigns: &[StringSlice],
 ) {
-    let first_rows = &rows[trips[chain[0].as_usize()].stop_times.range()];
+    let first_calls = &calls[trips[chain[0].as_usize()].stop_times.range()];
     built.patterns.push(TripPattern {
-        stops: StopSlice::from_usize(built.stop_sequences.len(), first_rows.len()),
+        stops: StopSlice::from_usize(built.stop_sequences.len(), first_calls.len()),
         trips: TripSlice::from_usize(built.trips_in_patterns.len(), chain.len()),
         index,
     });
-    for row in first_rows {
-        built.stop_sequences.push(row.stop_index);
+    for call in first_calls {
+        built.stop_sequences.push(StopIndex::from(call.stop));
         built.pattern_stops.push(PatternStop {
-            headsign: row.headsign,
-            sequence: row.sequence,
-            distance_traveled: row.distance_traveled,
-            pickup: row.pickup,
-            drop_off: row.drop_off,
+            headsign: call
+                .headsign
+                .map(|headsign| headsigns[headsign as usize])
+                .into(),
+            sequence: call.sequence,
+            distance_traveled: call.distance,
+            pickup: call.pickup,
+            drop_off: call.drop_off,
             padding: [0; 2],
         });
         patterns_by_stop
-            .entry(row.stop_index)
+            .entry(StopIndex::from(call.stop))
             .or_default()
             .push(index);
     }
 
     for &trip_index in chain {
         let trip = &mut trips[trip_index.as_usize()];
-        let trip_rows = &rows[trip.stop_times.range()];
-        trip.stop_times = StopTimeSlice::from_usize(built.timings.len(), trip_rows.len());
-        built.timings.extend(trip_rows.iter().map(|row| Timing {
-            arrival: row.arrival_time,
-            departure: row.departure_time,
+        let trip_calls = &calls[trip.stop_times.range()];
+        trip.stop_times = StopTimeSlice::from_usize(built.timings.len(), trip_calls.len());
+        built.timings.extend(trip_calls.iter().map(|call| Timing {
+            arrival: call.arrival,
+            departure: call.departure,
         }));
         built.trip_to_pattern[trip_index.as_usize()] = index;
         built.trips_in_patterns.push(trip_index);
@@ -147,15 +154,15 @@ fn add_pattern(
 /// overtakes the one before it, each in the order the trips leave.
 ///
 /// A trip joins the first run it fits after, so a group with no overtaking is one run.
-fn chains(group: &[TripIndex], trips: &[Trip], rows: &[StopTimeRow]) -> Vec<Vec<TripIndex>> {
-    let run_of = |trip: TripIndex| &rows[trips[trip.as_usize()].stop_times.range()];
+fn chains(group: &[TripIndex], trips: &[Trip], calls: &[Call]) -> Vec<Vec<TripIndex>> {
+    let run_of = |trip: TripIndex| &calls[trips[trip.as_usize()].stop_times.range()];
     let first_time = |trip: TripIndex| {
         run_of(trip)
             .first()
-            .and_then(|row| {
-                row.departure_time
+            .and_then(|call| {
+                call.departure
                     .as_option()
-                    .or_else(|| row.arrival_time.as_option())
+                    .or_else(|| call.arrival.as_option())
             })
             .map_or(u32::MAX, |time| time.0)
     };
@@ -177,7 +184,7 @@ fn chains(group: &[TripIndex], trips: &[Trip], rows: &[StopTimeRow]) -> Vec<Vec<
 }
 
 /// Whether `after` is earlier than `before` at any stop where both have a time.
-fn overtakes(before: &[StopTimeRow], after: &[StopTimeRow]) -> bool {
+fn overtakes(before: &[Call], after: &[Call]) -> bool {
     before.iter().zip(after).any(|(first, second)| {
         let earlier = |first: Option<u32>, second: Option<u32>| {
             first
@@ -185,11 +192,11 @@ fn overtakes(before: &[StopTimeRow], after: &[StopTimeRow]) -> bool {
                 .is_some_and(|(first, second)| second < first)
         };
         earlier(
-            first.arrival_time.as_option().map(|time| time.0),
-            second.arrival_time.as_option().map(|time| time.0),
+            first.arrival.as_option().map(|time| time.0),
+            second.arrival.as_option().map(|time| time.0),
         ) || earlier(
-            first.departure_time.as_option().map(|time| time.0),
-            second.departure_time.as_option().map(|time| time.0),
+            first.departure.as_option().map(|time| time.0),
+            second.departure.as_option().map(|time| time.0),
         )
     })
 }

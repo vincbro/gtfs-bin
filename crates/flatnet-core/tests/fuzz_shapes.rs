@@ -108,8 +108,8 @@ fn write_network(directory: &Path, network: &Network) {
 fn check(network: &Network) {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write_network(directory.path(), network);
-    let bytes = Compiler::new(directory.path())
-        .compile()
+    let bytes = Compiler::new()
+        .compile_gtfs(directory.path())
         .expect("a well formed feed compiles");
     let (_file, mmap) = common::map(&bytes).expect("a compiled file is never empty");
     let consumer = Consumer::new(&mmap)

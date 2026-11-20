@@ -59,7 +59,7 @@ fn new_feed() -> (tempfile::TempDir, PathBuf) {
 /// Compiles the feed after `configure` has set the compiler up.
 fn compile(configure: impl FnOnce(Compiler) -> Compiler) -> Result<Vec<u8>, Error> {
     let (_parent, directory) = new_feed();
-    configure(Compiler::new(&directory)).compile()
+    configure(Compiler::new()).compile_gtfs(&directory)
 }
 
 fn with_consumer(bytes: &[u8], check: impl FnOnce(&Consumer<'_>)) {

@@ -33,8 +33,8 @@ pub(crate) fn fixture_path() -> PathBuf {
 }
 
 pub(crate) fn compile_fixture() -> Vec<u8> {
-    Compiler::new(&fixture_path())
-        .compile()
+    Compiler::new()
+        .compile_gtfs(&fixture_path())
         .expect("the fixture is valid")
 }
 

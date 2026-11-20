@@ -28,7 +28,7 @@ A workspace of three crates under `crates/`, all versioned together:
   - `src/rt/`: applies GTFS-realtime feeds on top of a consumer.
   - `tests/`: integration and property tests, and `tests/common/` for what they share, including a generated feed. They compile feeds with `flatnet-compiler`, a dev-dependency.
   - `benches/`: the criterion benchmarks.
-- `flatnet-compiler`: reads a feed (`source`, `table`, `records`) and writes the file (one builder per table, `writer`).
+- `flatnet-compiler`: turns a `Network` (`network.rs`) into the file (one builder per table, `writer`), and with the `gtfs` feature reads a GTFS feed into one (`gtfs.rs` and `gtfs/`: `source`, `table`, `records`).
 - `flatnet`: the command line tool and its examples.
 - `docs/FORMAT.md`: the layout of the file. Change it in the same commit as the layout.
 

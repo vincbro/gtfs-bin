@@ -60,8 +60,8 @@ fn write_feed(directory: &Path) {
 fn compile() -> Vec<u8> {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write_feed(directory.path());
-    Compiler::new(directory.path())
-        .compile()
+    Compiler::new()
+        .compile_gtfs(directory.path())
         .expect("the feed compiles")
 }
 

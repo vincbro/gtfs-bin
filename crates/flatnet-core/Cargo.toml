@@ -16,11 +16,12 @@ categories = ["data-structures", "parsing", "caching"]
 bench = false
 
 [features]
-default = ["consumer", "rt"]
+default = ["consumer", "gtfs-rt"]
 
 consumer = ["dep:memmap2"]
 
-rt = ["consumer", "dep:gtfs-rt", "dep:jiff", "dep:prost"]
+# Applies GTFS-realtime feeds on top of a consumer.
+gtfs-rt = ["consumer", "dep:gtfs-rt", "dep:jiff", "dep:prost"]
 
 [dependencies]
 bytemuck.workspace = true
@@ -49,4 +50,4 @@ workspace = true
 [[bench]]
 name = "transit"
 harness = false
-required-features = ["consumer", "rt"]
+required-features = ["consumer", "gtfs-rt"]

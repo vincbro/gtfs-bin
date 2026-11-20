@@ -16,8 +16,8 @@ fn a_generated_network_compiles_validates_and_answers_queries() {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     synthetic::write_feed(directory.path(), Size::SMALL);
 
-    let bytes = Compiler::new(directory.path())
-        .compile()
+    let bytes = Compiler::new()
+        .compile_gtfs(directory.path())
         .expect("a valid feed");
 
     let (_file, mmap) = common::map(&bytes).expect("the file maps");
@@ -58,11 +58,11 @@ fn compiling_a_generated_network_twice_gives_the_same_bytes() {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     synthetic::write_feed(directory.path(), Size::SMALL);
 
-    let first = Compiler::new(directory.path())
-        .compile()
+    let first = Compiler::new()
+        .compile_gtfs(directory.path())
         .expect("a valid feed");
-    let second = Compiler::new(directory.path())
-        .compile()
+    let second = Compiler::new()
+        .compile_gtfs(directory.path())
         .expect("a valid feed");
 
     assert_eq!(first, second, "output must not depend on hash map order");
@@ -77,8 +77,8 @@ fn real_data_compiles_and_matches_its_realtime_feeds() {
         return;
     };
 
-    let bytes = Compiler::new(&folder.join("static.zip"))
-        .compile()
+    let bytes = Compiler::new()
+        .compile_gtfs(&folder.join("static.zip"))
         .expect("the real feed compiles");
     let (_file, mmap) = common::map(&bytes).expect("the file maps");
     let consumer = Consumer::new(&mmap).expect("the compiler wrote a valid file");

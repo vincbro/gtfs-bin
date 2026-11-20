@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let started = Instant::now();
     let mut spinner = Spinner::new(Spinners::Dots, "Compiling data".to_owned());
-    let mut compiler = Compiler::new(&args.input).compiled_at(unix_seconds());
+    let mut compiler = Compiler::new().compiled_at(unix_seconds());
     if let Some(name) = args.input.file_name() {
         compiler = compiler.source(name.to_string_lossy().into_owned());
     }
@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
         compiler = compiler.metadata_entry(key, value);
     }
     let bytes = compiler
-        .compile()
+        .compile_gtfs(&args.input)
         .with_context(|| format!("failed to compile {}", args.input.display()))?;
     spinner.stop_with_message(format!(
         "Loading and compiling gtfs took {:?}",

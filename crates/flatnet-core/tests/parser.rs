@@ -40,7 +40,7 @@ fn minimal() -> Vec<(&'static str, &'static str)> {
 fn compile(files: &[(&str, &str)]) -> Result<Vec<u8>, Error> {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write_feed(directory.path(), files);
-    Compiler::new(directory.path()).compile()
+    Compiler::new().compile_gtfs(directory.path())
 }
 
 fn with_file<'a>(
@@ -94,8 +94,8 @@ fn a_zip_gives_the_same_bytes_as_its_directory() {
     }
     archive.finish().expect("the zip can finish");
 
-    let from_zip = Compiler::new(&archive_path)
-        .compile()
+    let from_zip = Compiler::new()
+        .compile_gtfs(&archive_path)
         .expect("the zip is a feed");
 
     assert_eq!(
@@ -120,7 +120,7 @@ fn files_inside_a_folder_of_the_zip_are_found() {
     }
     archive.finish().expect("the zip can finish");
 
-    let result = Compiler::new(&archive_path).compile();
+    let result = Compiler::new().compile_gtfs(&archive_path);
 
     assert!(
         result.is_ok(),
@@ -135,7 +135,7 @@ fn a_file_that_is_not_a_zip_is_an_error() {
     fs::write(&path, b"not a zip").expect("the temp directory is writable");
 
     assert!(
-        matches!(Compiler::new(&path).compile(), Err(Error::Zip(_))),
+        matches!(Compiler::new().compile_gtfs(&path), Err(Error::Zip(_))),
         "the archive is rejected"
     );
 }
@@ -144,7 +144,7 @@ fn a_file_that_is_not_a_zip_is_an_error() {
 fn a_missing_path_is_an_error() {
     assert!(
         matches!(
-            Compiler::new(Path::new("/definitely/not/here.zip")).compile(),
+            Compiler::new().compile_gtfs(Path::new("/definitely/not/here.zip")),
             Err(Error::Io { .. })
         ),
         "there is nothing to read"

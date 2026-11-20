@@ -1,25 +1,19 @@
-use std::collections::HashMap;
-
 use flatnet_core::models::{
     Route, RouteIdSlice, RouteIndex, Sentinel, SliceBuilder, StringSlice, Trip, TripIndex,
     TripSlice,
 };
 use rayon::slice::ParallelSliceMut;
 
-use crate::{records::RawRoute, tables};
+use crate::{network::RouteRecord, tables};
 
 pub(super) fn build_routes(
-    raw_routes: &[RawRoute],
+    records: &[RouteRecord],
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> (Vec<Route>, HashMap<String, RouteIndex>) {
-    let mut id_map: HashMap<String, RouteIndex> = HashMap::with_capacity(raw_routes.len());
-
-    let routes: Vec<_> = raw_routes
+) -> Vec<Route> {
+    records
         .iter()
         .enumerate()
         .map(|(position, route)| {
-            let index = RouteIndex::from(position);
-            id_map.insert(route.id.clone(), index);
             let long_name = route
                 .long_name
                 .as_ref()
@@ -37,22 +31,22 @@ pub(super) fn build_routes(
                 .into();
             Route::new(
                 RouteIdSlice::NONE,
-                index,
+                RouteIndex::from(position),
                 long_name,
                 short_name,
                 description,
                 route.route_type,
             )
         })
-        .collect();
-    (routes, id_map)
+        .collect()
 }
 
 pub(super) fn build_route_ids(
     routes: &mut [Route],
-    route_map: &HashMap<String, RouteIndex>,
+    records: &[RouteRecord],
 ) -> (Vec<RouteIndex>, String) {
-    let table = tables::build_id_table::<RouteIdSlice, _>(route_map, routes.len());
+    let ids: Vec<&str> = records.iter().map(|route| route.id.as_str()).collect();
+    let table = tables::build_id_table::<RouteIdSlice, _>(&ids);
     for (route, id) in routes.iter_mut().zip(table.slices) {
         route.id = id;
     }

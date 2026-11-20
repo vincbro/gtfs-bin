@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
 use flatnet_core::models::{
     Duration, Optional, StopIndex, Transfer, TransferIndex, TransferSlice, TripIndex,
 };
 use rayon::slice::ParallelSliceMut;
 
-use crate::{records::RawTransfer, tables};
+use crate::{network::TransferRecord, tables};
 
 /// The transfers and the two lookups from a stop to its transfers.
 pub(super) struct BuiltTransfers {
@@ -19,30 +17,23 @@ pub(super) struct BuiltTransfers {
     pub inbound: Vec<TransferSlice>,
 }
 
-pub(super) fn build_transfers(
-    raw_transfers: &[RawTransfer],
-    stop_map: &HashMap<String, StopIndex>,
-    trip_map: &HashMap<String, TripIndex>,
-    stop_count: usize,
-) -> BuiltTransfers {
-    let mut transfers: Vec<_> = raw_transfers
+pub(super) fn build_transfers(records: &[TransferRecord], stop_count: usize) -> BuiltTransfers {
+    let trip = |position: Option<usize>| {
+        position
+            .map(TripIndex::from)
+            .map_or_else(Optional::default, Optional::new)
+    };
+    let mut transfers: Vec<_> = records
         .iter()
-        .filter_map(|transfer| {
-            let from_stop_index = stop_map.get(&transfer.from_stop_id).copied()?;
-            let to_stop_index = stop_map.get(&transfer.to_stop_id).copied()?;
-            // A transfer that names a trip the feed doesn't have can never apply.
-            let trip = |id: &Option<String>| match id {
-                Some(id) => trip_map.get(id).map(|&index| Optional::new(index)),
-                None => Some(Optional::default()),
-            };
-            Some(Transfer::new(
-                from_stop_index,
-                to_stop_index,
-                trip(&transfer.from_trip_id)?,
-                trip(&transfer.to_trip_id)?,
+        .map(|transfer| {
+            Transfer::new(
+                StopIndex::from(transfer.from_stop),
+                StopIndex::from(transfer.to_stop),
+                trip(transfer.from_trip),
+                trip(transfer.to_trip),
                 transfer.min_transfer_time.map(Duration).into(),
                 transfer.transfer_type,
-            ))
+            )
         })
         .collect();
 

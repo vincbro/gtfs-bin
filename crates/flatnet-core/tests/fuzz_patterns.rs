@@ -111,8 +111,8 @@ fn check(runs: &[Run]) -> Result<(), TestCaseError> {
     let fail = |what: &str| TestCaseError::fail(what.to_owned());
     let directory = tempfile::tempdir().map_err(|_| fail("a temp directory can be created"))?;
     write_feed(directory.path(), runs);
-    let bytes = Compiler::new(directory.path())
-        .compile()
+    let bytes = Compiler::new()
+        .compile_gtfs(directory.path())
         .map_err(|error| TestCaseError::fail(format!("the feed compiles: {error}")))?;
     let (_file, mmap) = common::map(&bytes).ok_or_else(|| fail("the file maps"))?;
     let consumer = Consumer::new(&mmap).map_err(|error| {

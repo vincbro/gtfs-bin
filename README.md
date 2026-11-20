@@ -22,7 +22,7 @@ Working with flatnet is split into two phases, **compilation** and **consumption
 - **Compile.** The `Compiler` reads a GTFS feed, a directory or a `.zip`, with its own parser. String ids become integer indices, so a trip points straight at its route. Text is deduplicated into one contiguous block. The flat arrays are written to one file, and the same feed always compiles to the same bytes.
 - **Consume.** The `Consumer` maps the file with `mmap` and reads it where it lies. Data is paged into RAM by the OS only when you touch it, and because the tables are flat and pointer-free, walking from a route to its trips is friendly to the CPU cache.
 - **Validated.** `Consumer::new` checks the header, every section, that all text is UTF-8, and that every index and slice points inside the table it names. The checks are covered by property tests. Opening SL's whole regional feed (54 MB, 2.5 million stop times) takes about 10 ms with them. `Consumer::verify_checksum` also detects any changed byte.
-- **Live.** With the `rt` feature, GTFS-realtime updates are applied on top of a consumer, and reading a delay is an array index.
+- **Live.** With the `gtfs-rt` feature, GTFS-realtime updates are applied on top of a consumer, and reading a delay is an array index.
 
 The layout of the file is in [docs/FORMAT.md](docs/FORMAT.md).
 
@@ -40,11 +40,13 @@ cargo add memmap2
 | Crate | What it is |
 |---|---|
 | `flatnet-cli` | the `flatnet` command, which compiles a feed |
-| `flatnet-compiler` | `Compiler`, which reads a GTFS feed and writes the binary file |
+| `flatnet-compiler` | `Compiler`, which turns a `Network` into the binary file, and with the `gtfs` feature `gtfs::Reader`, which reads a GTFS feed into one |
 | `flatnet-core` | the types of the file, `Consumer`, which maps and reads it, and GTFS-realtime on top of it |
 | `flatnet-viewer` | an egui app to walk a compiled file and see it on a map (`just view`). Not published |
 
-`flatnet-core` has two features, both on by default: `consumer` (needs `memmap2`) and `rt` (needs `consumer`). A library that only reads files can turn `rt` off with `default-features = false, features = ["consumer"]`.
+`flatnet-core` has two features, both on by default: `consumer` (needs `memmap2`) and `gtfs-rt` (needs `consumer`). A library that only reads files can turn `gtfs-rt` off with `default-features = false, features = ["consumer"]`.
+
+`flatnet-compiler` has one, `gtfs`, on by default: it adds `gtfs::Reader`, which reads a GTFS feed into a `Network`. Without it the compiler has no source of its own and takes a `Network` that you build, which also leaves out the `csv` and `zip` dependencies.
 
 ## Quick start
 
@@ -65,8 +67,9 @@ use flatnet_compiler::Compiler;
 
 fn main() {
     // Read from a zip file or an extracted directory.
-    let compiler = Compiler::new(Path::new("path/to/gtfs.zip"));
-    let bytes = compiler.compile().expect("Failed to compile GTFS");
+    let bytes = Compiler::new()
+        .compile_gtfs(Path::new("path/to/gtfs.zip"))
+        .expect("Failed to compile GTFS");
     fs::write("network.flnt", &bytes).unwrap();
 }
 ```
@@ -128,11 +131,11 @@ The file says where it came from. `consumer.metadata()` holds a fixed set of fie
 
 The parser reads byte order marks, Windows line endings, quoted fields and columns in any order, and a `.zip` that holds a folder. A bad value is an error that names the file, line and column. Rows that point at an unknown route, trip or stop are skipped, and the first of a repeated id wins. Stops with no times between two that have them get times spread evenly, by distance along the shape when the feed has it.
 
-`Compiler::lenient()` skips rows with a bad value instead of failing, and `compile_with_report` says which.
+`gtfs::Reader::lenient()` skips rows with a bad value instead of failing, and `read_with_report` says which. Compile what it read with `Compiler::compile`.
 
 ### Realtime
 
-With the `rt` feature of `flatnet-core`, apply GTFS-RT `FeedMessage` updates on top of a consumer. A `Realtime` has one slot per stop time and per trip, so reading it is an array index.
+With the `gtfs-rt` feature of `flatnet-core`, apply GTFS-RT `FeedMessage` updates on top of a consumer. A `Realtime` has one slot per stop time and per trip, so reading it is an array index.
 
 ```rust
 use flatnet_core::{models::Date, rt::{Realtime, RealtimeBuilder}};
@@ -189,15 +192,15 @@ What is not: shapes and stops sent in a feed, trip modifications, and replaced o
 
 ## Where it is going
 
-flatnet is moving from a compiled GTFS to a format of its own, with a reader for each source. Only the first change below exists. The plan and the reasons are in [TODO.md](TODO.md) and [docs/OWN-SCHEMA.md](docs/OWN-SCHEMA.md).
+flatnet is moving from a compiled GTFS to a format of its own, with a reader for each source. The first two changes below exist. The plan and the reasons are in [TODO.md](TODO.md) and [docs/OWN-SCHEMA.md](docs/OWN-SCHEMA.md).
 
 - **A schema we own.** A field is in the file because something reads it, not because a source has it. The first change is done: times are stored once for each trip pattern, which took SL's file from 132 MB to 54 MB.
-- **One crate for each source.** `flatnet-gtfs`, `flatnet-gtfs-rt`, `flatnet-netex` and `flatnet-siri` read their formats into a source-neutral `Network` from `flatnet-model`. `flatnet-compiler` reads no source format: it builds everything derived from a `Network` (patterns, grids, walking paths, search) and writes the file.
+- **One feature for each source.** The compiler already takes a source-neutral `Network`, and GTFS is a reader behind the `gtfs` feature. A NeTEx reader would be a `netex` feature beside it, and the realtime side gets a `siri` feature next to `gtfs-rt`. The compiler builds everything derived from a `Network` (patterns, grids, walking paths, search) and writes the file.
 - **A book on the schema,** with a chapter for each table and the reasons behind its layout.
 
 ## Development
 
-You need [rustup](https://rustup.rs) and [just](https://github.com/casey/just). The coding rules are in the `code-standards/` submodule, so clone with `--recurse-submodules`. The `rt` feature also needs `protoc`, because `gtfs-rt` compiles its protobuf files when it builds (`brew install protobuf` or `apt install protobuf-compiler`).
+You need [rustup](https://rustup.rs) and [just](https://github.com/casey/just). The coding rules are in the `code-standards/` submodule, so clone with `--recurse-submodules`. The `gtfs-rt` feature also needs `protoc`, because `gtfs-rt` compiles its protobuf files when it builds (`brew install protobuf` or `apt install protobuf-compiler`).
 
 ```sh
 just toolchain   # the pinned Rust, nightly rustfmt, the cargo tools and the git hooks

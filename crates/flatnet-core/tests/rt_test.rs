@@ -32,8 +32,8 @@ pub fn compile_test() -> (NamedTempFile, Mmap) {
     let mut input_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     input_path.push("tests/fixtures/gtfs");
 
-    let compiled_bytes = Compiler::new(&input_path)
-        .compile()
+    let compiled_bytes = Compiler::new()
+        .compile_gtfs(&input_path)
         .expect("Failed to compile GTFS");
 
     let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");

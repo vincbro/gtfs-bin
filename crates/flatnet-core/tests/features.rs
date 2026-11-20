@@ -5,7 +5,10 @@ mod common;
 
 use std::{fs, path::Path};
 
-use flatnet_compiler::{CompileReport, Compiler, Error};
+use flatnet_compiler::{
+    Compiler, Error,
+    gtfs::{self, ReadReport},
+};
 use flatnet_core::{
     consumer::{self, Consumer},
     models::{BoardingRule, Coordinate, Date, Direction, SearchIndex, Sentinel, StopIndex},
@@ -20,10 +23,11 @@ const CALENDAR: &str = "service_id,monday,tuesday,wednesday,thursday,friday,satu
     S,1,1,1,1,1,0,0,20240101,20240131\n";
 
 #[allow(clippy::unwrap_in_result, reason = "a test helper that fails the test")]
-fn compile_with(files: &[(&str, &str)]) -> Result<(Vec<u8>, CompileReport), Error> {
+fn compile_with(files: &[(&str, &str)]) -> Result<(Vec<u8>, ReadReport), Error> {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write(directory.path(), files);
-    Compiler::new(directory.path()).compile_with_report()
+    let (network, report) = gtfs::Reader::new(directory.path()).read_with_report()?;
+    Ok((Compiler::new().compile(network)?, report))
 }
 
 fn write(directory: &Path, files: &[(&str, &str)]) {
@@ -277,10 +281,13 @@ fn lenient_mode_skips_bad_rows_and_says_which() {
     let strict = compile_with(&files);
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write(directory.path(), &files);
-    let (bytes, report) = Compiler::new(directory.path())
+    let (network, report) = gtfs::Reader::new(directory.path())
         .lenient()
-        .compile_with_report()
+        .read_with_report()
         .expect("lenient mode gets through");
+    let bytes = Compiler::new()
+        .compile(network)
+        .expect("what was read compiles");
 
     assert!(strict.is_err(), "strict mode refuses the feed");
     assert_eq!(report.skipped_total, 2, "one stop and one stop time");
@@ -311,7 +318,7 @@ fn lenient_mode_still_fails_for_a_missing_column() {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write(directory.path(), &files);
 
-    let result = Compiler::new(directory.path()).lenient().compile();
+    let result = gtfs::Reader::new(directory.path()).lenient().read();
 
     assert!(
         matches!(result, Err(Error::MissingColumn { .. })),
@@ -329,10 +336,13 @@ fn lenient_mode_drops_a_reversed_service() {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write(directory.path(), &files);
 
-    let (bytes, report) = Compiler::new(directory.path())
+    let (network, report) = gtfs::Reader::new(directory.path())
         .lenient()
-        .compile_with_report()
+        .read_with_report()
         .expect("lenient mode gets through");
+    let bytes = Compiler::new()
+        .compile(network)
+        .expect("what was read compiles");
 
     assert_eq!(report.skipped_total, 1, "the reversed service");
     with_consumer(&bytes, |consumer| {

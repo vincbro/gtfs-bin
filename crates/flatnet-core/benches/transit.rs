@@ -53,8 +53,8 @@ struct Compiled {
 )]
 fn compiled(size: Size) -> Compiled {
     let feed = feed(size);
-    let bytes = Compiler::new(feed.path())
-        .compile()
+    let bytes = Compiler::new()
+        .compile_gtfs(feed.path())
         .expect("a generated feed is valid");
     let mut file = NamedTempFile::new().expect("a temp file can be created");
     file.write_all(&bytes).expect("the temp file is writable");
@@ -88,7 +88,7 @@ fn compile(criterion: &mut Criterion) {
 
     for size in SIZES {
         let feed = feed(size);
-        let compiler = Compiler::new(feed.path());
+        let compiler = Compiler::new();
 
         group.throughput(Throughput::Elements(size.stop_times() as u64));
 
@@ -96,7 +96,11 @@ fn compile(criterion: &mut Criterion) {
             BenchmarkId::from_parameter(size.stop_times()),
             &compiler,
             |bencher, compiler| {
-                bencher.iter_with_large_drop(|| compiler.compile().expect("a generated feed"));
+                bencher.iter_with_large_drop(|| {
+                    compiler
+                        .compile_gtfs(feed.path())
+                        .expect("a generated feed")
+                });
             },
         );
     }

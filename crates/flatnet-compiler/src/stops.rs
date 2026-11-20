@@ -1,19 +1,17 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use flatnet_core::models::{
     Coordinate, LocationType, Optional, RouteType, SearchSlice, SearchStop, Sentinel, Slice,
     SliceBuilder, Stop, StopIdSlice, StopIndex, StringSlice,
 };
 
-use crate::{records::RawStop, tables};
+use crate::{network::StopRecord, tables};
 
 pub(super) fn build_stops(
-    raw_stops: &[RawStop],
+    records: &[StopRecord],
     slice_builder: &mut SliceBuilder<StringSlice>,
-) -> (Vec<Stop>, HashMap<String, StopIndex>) {
-    let mut id_map: HashMap<String, StopIndex> = HashMap::with_capacity(raw_stops.len());
-
-    let mut stops: Vec<_> = raw_stops
+) -> Vec<Stop> {
+    records
         .iter()
         .enumerate()
         .map(|(position, stop)| {
@@ -23,9 +21,6 @@ pub(super) fn build_stops(
                 }
                 _ => Optional::new(Coordinate::NONE),
             };
-            let index = StopIndex::from(position);
-
-            id_map.insert(stop.id.clone(), index);
 
             let code = stop
                 .code
@@ -45,10 +40,12 @@ pub(super) fn build_stops(
                 .map(|description| slice_builder.add(description))
                 .into();
 
+            let parent = stop.parent.map_or(StopIndex::NONE, StopIndex::from);
+
             Stop::new(
                 StopIdSlice::NONE,
-                index,
-                Optional::new(StopIndex::NONE),
+                StopIndex::from(position),
+                Optional::new(parent),
                 name,
                 description,
                 code,
@@ -56,26 +53,15 @@ pub(super) fn build_stops(
                 stop.location_type,
             )
         })
-        .collect();
-
-    for (stop, raw_stop) in stops.iter_mut().zip(raw_stops) {
-        let parent = raw_stop
-            .parent_station
-            .as_ref()
-            .and_then(|parent_id| id_map.get(parent_id).copied());
-        if let Some(parent_index) = parent {
-            stop.parent_index = Optional::new(parent_index);
-        }
-    }
-
-    (stops, id_map)
+        .collect()
 }
 
 pub(super) fn build_stop_ids(
     stops: &mut [Stop],
-    stop_map: &HashMap<String, StopIndex>,
+    records: &[StopRecord],
 ) -> (Vec<StopIndex>, String) {
-    let table = tables::build_id_table::<StopIdSlice, _>(stop_map, stops.len());
+    let ids: Vec<&str> = records.iter().map(|stop| stop.id.as_str()).collect();
+    let table = tables::build_id_table::<StopIdSlice, _>(&ids);
     for (stop, id) in stops.iter_mut().zip(table.slices) {
         stop.id = id;
     }

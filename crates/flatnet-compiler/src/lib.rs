@@ -1,83 +1,62 @@
-//! Compiles a GTFS feed, a directory or a zip, into the one file `flatnet-core` maps and reads.
+//! Compiles a transit network into the one file `flatnet-core` maps and reads.
 //!
-//! [`Compiler`] reads the feed with its own parser, turns every string id into an index, and
-//! writes the tables in the layout `docs/FORMAT.md` describes. The same feed always compiles to
-//! the same bytes.
+//! A reader turns a source into a [`Network`], and [`Compiler`] turns a `Network` into the file:
+//! it turns every id into an index, groups the trips into patterns, builds the lookups and the
+//! indexes, and writes the tables in the layout `docs/FORMAT.md` describes. The same network always
+//! compiles to the same bytes.
+//!
+//! The `gtfs` feature, on by default, adds [`gtfs::Reader`], which reads a GTFS feed.
 
-use std::path::{Path, PathBuf};
+#[cfg(feature = "gtfs")]
+use std::path::Path;
 
 use flatnet_core::{
     FLATNET_VERSION,
-    models::{self, Date, Header, Sentinel, SliceBuilder},
+    models::{self, Date, Header, Sentinel, SliceBuilder, StringSlice},
 };
 use metadata::MetadataInput;
 use services::BuiltServices;
 use shapes::BuiltShapes;
-use source::Source;
-use table::Table;
 use transfers::BuiltTransfers;
 use trip_patterns::TripPatterns;
-use trips::BuiltTrips;
 use writer::BinaryWriter;
 
 mod error;
 mod grid;
 mod metadata;
-mod records;
+mod network;
 mod routes;
 mod services;
 mod shapes;
-mod source;
 mod stop_times;
 mod stops;
-mod table;
 mod tables;
 mod transfers;
 mod trip_patterns;
 mod trips;
 mod writer;
 
+#[cfg(feature = "gtfs")]
+pub mod gtfs;
+
 pub use error::{Error, Result};
-pub use table::SkippedRow;
+pub use network::{
+    Call, Network, NetworkInfo, RouteRecord, ServiceRecord, StopRecord, TransferRecord, TripRecord,
+    Weekly,
+};
 
-/// What `Compiler::compile_with_report` has to say about a feed.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct CompileReport {
-    /// The first rows that were left out, which is only ever non-empty in lenient mode.
-    pub skipped_rows: Vec<SkippedRow>,
-    /// How many rows were left out in all.
-    pub skipped_total: usize,
-}
-
-/// Compiles a GTFS feed into the binary format `Consumer` reads.
+/// Compiles a [`Network`] into the binary format `Consumer` reads.
 ///
-/// The same feed always compiles to the same bytes.
+/// The same network always compiles to the same bytes.
 #[derive(Debug, Default)]
 pub struct Compiler {
-    path: PathBuf,
-    lenient: bool,
     metadata: MetadataInput,
 }
 
 impl Compiler {
-    /// Creates a compiler for a feed that is a directory of text files or a zip archive of them.
     #[must_use]
-    pub fn new(path: &Path) -> Self {
-        Self {
-            path: path.to_path_buf(),
-            lenient: false,
-            metadata: MetadataInput::default(),
-        }
-    }
-
-    /// Leaves out a row with a bad value instead of failing the whole feed.
-    ///
-    /// Use `compile_with_report` to see what was left out. A missing file or column, or a file that
-    /// isn't csv, is still an error.
-    #[must_use]
-    pub const fn lenient(mut self) -> Self {
-        self.lenient = true;
-        self
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Records when the file is compiled, in seconds since the unix epoch.
@@ -117,121 +96,37 @@ impl Compiler {
         self
     }
 
-    /// Reads the feed and returns the compiled file.
+    /// Compiles the network into the file.
     ///
     /// # Errors
     ///
-    /// Returns an error if the feed can't be read, a required file or column is missing, or a value
-    /// is malformed. Rows that point at an unknown route, trip or stop are skipped.
-    pub fn compile(&self) -> Result<Vec<u8>> {
-        self.compile_with_report().map(|(bytes, _)| bytes)
-    }
-
-    /// Like `compile`, and also says which rows were left out.
-    ///
-    /// # Errors
-    ///
-    /// Returns the same errors as `compile`.
+    /// Returns an error if the network has two things of one kind with the same id, a reference
+    /// that points at nothing, a service with no days or one that runs for too long, or metadata
+    /// that is not a JSON object.
     #[allow(
         clippy::too_many_lines,
-        reason = "one pass that reads each table and then lists every section in file order"
+        reason = "one pass that builds each table and then lists every section in file order"
     )]
-    pub fn compile_with_report(&self) -> Result<(Vec<u8>, CompileReport)> {
-        let mut source = Source::open(&self.path)?;
-        let mut report = CompileReport::default();
+    pub fn compile(&self, mut network: Network) -> Result<Vec<u8>> {
+        network.check()?;
         let mut slice_builder = SliceBuilder::new();
-        let lenient = self.lenient;
 
-        let raw_stops = read(
-            &mut source,
-            "stops.txt",
-            lenient,
-            &mut report,
-            records::read_stops,
-        )?
-        .ok_or(Error::MissingFile("stops.txt"))?;
-        let (mut stops, stop_map) = stops::build_stops(&raw_stops, &mut slice_builder);
-
-        let raw_routes = read(
-            &mut source,
-            "routes.txt",
-            lenient,
-            &mut report,
-            records::read_routes,
-        )?
-        .ok_or(Error::MissingFile("routes.txt"))?;
-        let (mut routes, route_map) = routes::build_routes(&raw_routes, &mut slice_builder);
-
-        let raw_calendar = read(
-            &mut source,
-            "calendar.txt",
-            lenient,
-            &mut report,
-            records::read_calendar,
-        )?;
-        let raw_calendar_dates = read(
-            &mut source,
-            "calendar_dates.txt",
-            lenient,
-            &mut report,
-            records::read_calendar_dates,
-        )?;
-        if raw_calendar.is_none() && raw_calendar_dates.is_none() {
-            return Err(Error::MissingFile("calendar.txt or calendar_dates.txt"));
-        }
+        let mut stops = stops::build_stops(&network.stops, &mut slice_builder);
+        let mut routes = routes::build_routes(&network.routes, &mut slice_builder);
         let BuiltServices {
             mut services,
-            id_map: service_map,
             active_mask,
-            skipped,
-        } = services::build_services(
-            &raw_calendar.unwrap_or_default(),
-            &raw_calendar_dates.unwrap_or_default(),
-            lenient,
-        )?;
-        report.skipped_total += skipped.len();
-        report.skipped_rows.extend(skipped);
+        } = services::build_services(&network.services)?;
+        let mut trips = trips::build_trips(&network.trips, &mut slice_builder);
+        let headsigns: Vec<StringSlice> = network
+            .headsigns
+            .iter()
+            .map(|headsign| slice_builder.add(headsign))
+            .collect();
 
-        let shape_lines = open_optional(&mut source, "shapes.txt", lenient)?
-            .map(|mut table| {
-                let built = shapes::read_shape_lines(&mut table);
-                absorb(&mut report, &mut table);
-                built
-            })
-            .transpose()?
-            .unwrap_or_default();
+        stop_times::prepare_calls(&mut network.calls, &mut trips);
 
-        let raw_trips = read(
-            &mut source,
-            "trips.txt",
-            lenient,
-            &mut report,
-            records::read_trips,
-        )?
-        .ok_or(Error::MissingFile("trips.txt"))?;
-        let BuiltTrips {
-            mut trips,
-            id_map: trip_map,
-            lines: trip_lines,
-        } = trips::build_trips(
-            &raw_trips,
-            &route_map,
-            &service_map,
-            &shape_lines.by_id,
-            &mut slice_builder,
-        );
-
-        let mut stop_times_table = open(&mut source, "stop_times.txt", lenient)?;
-        let stop_time_rows = stop_times::build_stop_times(
-            &mut stop_times_table,
-            &mut trips,
-            &trip_map,
-            &stop_map,
-            &mut slice_builder,
-        )?;
-        absorb(&mut report, &mut stop_times_table);
-        drop(stop_times_table);
-
+        let trip_lines: Vec<Option<usize>> = network.trips.iter().map(|trip| trip.line).collect();
         let BuiltShapes {
             shapes,
             points: shape_points,
@@ -239,62 +134,34 @@ impl Compiler {
         } = shapes::build_trip_shapes(
             &mut trips,
             &trip_lines,
-            &shape_lines.lines,
+            &network.lines,
             &stops,
-            &stop_time_rows,
+            &network.calls,
         );
 
-        // Built even when the feed has no transfers, because the consumer indexes the lookups by
-        // stop.
-        let raw_transfers = read(
-            &mut source,
-            "transfers.txt",
-            lenient,
-            &mut report,
-            records::read_transfers,
-        )?
-        .unwrap_or_default();
+        // Built even when the network has no transfers, because the consumer indexes the lookups
+        // by stop.
         let BuiltTransfers {
             transfers,
             outbound: stop_to_transfers_out,
             inbound_indices: transfers_in_indices,
             inbound: stop_to_transfers_in,
-        } = transfers::build_transfers(&raw_transfers, &stop_map, &trip_map, stops.len());
+        } = transfers::build_transfers(&network.transfers, stops.len());
 
-        let agency = read(
-            &mut source,
-            "agency.txt",
-            lenient,
-            &mut report,
-            records::read_agency,
-        )?
-        .unwrap_or_default();
-        let timezone = agency.timezone.clone().unwrap_or_default();
-        let feed_info = read(
-            &mut source,
-            "feed_info.txt",
-            lenient,
-            &mut report,
-            records::read_feed_info,
-        )?
-        .unwrap_or_default();
-        let (metadata, metadata_json) = metadata::build_metadata(
-            &self.metadata,
-            &agency,
-            &feed_info,
-            &services,
-            &mut slice_builder,
-        )?;
+        let timezone = network.info.timezone.clone().unwrap_or_default();
+        let (metadata, metadata_json) =
+            metadata::build_metadata(&self.metadata, &network.info, &services, &mut slice_builder)?;
 
         let (search_stops, search_to_stops) = stops::build_stop_search(&stops);
         let (stop_grid, grid_stops) = grid::build_stop_grid(&stops);
         let (route_to_trips, route_to_trips_lookup) = routes::build_route_to_trips(&trips, &routes);
-        let trip_patterns = trip_patterns::build_trip_patterns(&mut trips, &stops, &stop_time_rows);
-        let (stop_id_lookup, stop_ids) = stops::build_stop_ids(&mut stops, &stop_map);
-        let (route_id_lookup, route_ids) = routes::build_route_ids(&mut routes, &route_map);
-        let (trip_id_lookup, trip_ids) = trips::build_trip_ids(&mut trips, &trip_map);
+        let trip_patterns =
+            trip_patterns::build_trip_patterns(&mut trips, &stops, &network.calls, &headsigns);
+        let (stop_id_lookup, stop_ids) = stops::build_stop_ids(&mut stops, &network.stops);
+        let (route_id_lookup, route_ids) = routes::build_route_ids(&mut routes, &network.routes);
+        let (trip_id_lookup, trip_ids) = trips::build_trip_ids(&mut trips, &network.trips);
         let (service_id_lookup, service_ids) =
-            services::build_service_ids(&mut services, &service_map);
+            services::build_service_ids(&mut services, &network.services);
 
         let TripPatterns {
             patterns,
@@ -363,8 +230,8 @@ impl Compiler {
             metadata: writer.write_section(&[metadata]),
             metadata_json: writer.write_section(metadata_json.as_bytes()),
 
-            feed_start_date: feed_info.start.unwrap_or(Date::NONE),
-            feed_end_date: feed_info.end.unwrap_or(Date::NONE),
+            feed_start_date: network.info.valid_from.unwrap_or(Date::NONE),
+            feed_end_date: network.info.valid_until.unwrap_or(Date::NONE),
             file_length: 0,
             checksum: 0,
         };
@@ -372,45 +239,16 @@ impl Compiler {
         header.checksum = models::checksum(&writer.as_bytes()[size_of::<Header>()..]);
         writer.overwrite(0, bytemuck::bytes_of(&header));
 
-        Ok((writer.into_bytes(), report))
+        Ok(writer.into_bytes())
     }
-}
 
-/// Moves what a table skipped into the report.
-fn absorb(report: &mut CompileReport, table: &mut Table<'_>) {
-    let (rows, total) = table.take_skipped();
-    report.skipped_total += total;
-    report.skipped_rows.extend(rows);
-}
-
-/// Reads a file with `read_records` if the feed has it.
-fn read<T>(
-    source: &mut Source,
-    name: &'static str,
-    lenient: bool,
-    report: &mut CompileReport,
-    read_records: impl FnOnce(&mut Table<'_>) -> Result<T>,
-) -> Result<Option<T>> {
-    let Some(mut table) = open_optional(source, name, lenient)? else {
-        return Ok(None);
-    };
-    let records = read_records(&mut table)?;
-    absorb(report, &mut table);
-    Ok(Some(records))
-}
-
-/// Opens a file the feed must have.
-fn open<'a>(source: &'a mut Source, name: &'static str, lenient: bool) -> Result<Table<'a>> {
-    open_optional(source, name, lenient)?.ok_or(Error::MissingFile(name))
-}
-
-fn open_optional<'a>(
-    source: &'a mut Source,
-    name: &'static str,
-    lenient: bool,
-) -> Result<Option<Table<'a>>> {
-    source
-        .read(name)?
-        .map(|input| Table::new(name, input, lenient))
-        .transpose()
+    /// Reads the GTFS feed at `path`, a directory or a zip, and compiles it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the errors of [`gtfs::Reader::read`] and of [`Compiler::compile`].
+    #[cfg(feature = "gtfs")]
+    pub fn compile_gtfs(&self, path: &Path) -> Result<Vec<u8>> {
+        self.compile(gtfs::Reader::new(path).read()?)
+    }
 }

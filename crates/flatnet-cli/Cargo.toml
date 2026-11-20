@@ -19,7 +19,7 @@ path = "src/main.rs"
 anyhow.workspace = true
 clap.workspace = true
 flatnet-compiler.workspace = true
-flatnet-core = { workspace = true, features = ["consumer", "rt"] }
+flatnet-core = { workspace = true, features = ["consumer", "gtfs-rt"] }
 memmap2.workspace = true
 spinners.workspace = true
 

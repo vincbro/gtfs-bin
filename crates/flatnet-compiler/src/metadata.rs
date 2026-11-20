@@ -3,10 +3,7 @@ use std::collections::BTreeMap;
 use flatnet_core::models::{Date, Metadata, Sentinel, Service, SliceBuilder, StringSlice};
 use serde_json::{Map, Value};
 
-use crate::{
-    Error, Result,
-    records::{AgencyInfo, FeedInfo},
-};
+use crate::{Error, Result, network::NetworkInfo};
 
 /// What the caller gave the compiler to put in the file.
 #[derive(Debug, Default, Clone)]
@@ -20,8 +17,7 @@ pub(super) struct MetadataInput {
 /// Builds the fixed fields, with their text added to `strings`, and the JSON section.
 pub(super) fn build_metadata(
     input: &MetadataInput,
-    agency: &AgencyInfo,
-    feed: &FeedInfo,
+    info: &NetworkInfo,
     services: &[Service],
     strings: &mut SliceBuilder<StringSlice>,
 ) -> Result<(Metadata, String)> {
@@ -33,13 +29,13 @@ pub(super) fn build_metadata(
         active_until,
         compiler_version: text(Some(env!("CARGO_PKG_VERSION"))),
         source: text(input.source.as_deref()),
-        publisher_name: text(feed.publisher_name.as_deref()),
-        publisher_url: text(feed.publisher_url.as_deref()),
-        language: text(feed.language.as_deref()),
-        feed_version: text(feed.version.as_deref()),
-        contact_email: text(feed.contact_email.as_deref()),
-        agency_name: text(agency.name.as_deref()),
-        agency_url: text(agency.url.as_deref()),
+        publisher_name: text(info.publisher_name.as_deref()),
+        publisher_url: text(info.publisher_url.as_deref()),
+        language: text(info.language.as_deref()),
+        feed_version: text(info.version.as_deref()),
+        contact_email: text(info.contact_email.as_deref()),
+        agency_name: text(info.agency_name.as_deref()),
+        agency_url: text(info.agency_url.as_deref()),
     };
     Ok((metadata, build_json(input)?))
 }

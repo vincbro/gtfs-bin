@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use flatnet_core::models::{Index, Slice, SliceBuilder};
 use rayon::slice::ParallelSliceMut;
 
@@ -12,18 +10,11 @@ pub(super) struct IdTable<S, I> {
     pub buffer: String,
 }
 
-/// Builds the id table for `count` items from a map of id to index.
+/// Builds the id table for the items with these ids, in index order.
 ///
-/// Ids are laid out in index order, so the same input always gives the same bytes. An item with no
-/// entry in the map gets an empty id.
-pub(super) fn build_id_table<S: Slice, I: Index + Send>(
-    id_map: &HashMap<String, I>,
-    count: usize,
-) -> IdTable<S, I> {
-    let mut ids = vec![""; count];
-    for (id, index) in id_map {
-        ids[index.as_usize()] = id;
-    }
+/// Ids are laid out in index order, so the same input always gives the same bytes.
+pub(super) fn build_id_table<S: Slice, I: Index + Send>(ids: &[&str]) -> IdTable<S, I> {
+    let count = ids.len();
 
     let mut builder = SliceBuilder::with_capacity(ids.iter().map(|id| id.len()).sum());
     let slices = ids.iter().map(|id| builder.add(id)).collect();
@@ -78,13 +69,7 @@ mod tests {
 
     #[test]
     fn id_table_is_in_index_order_and_lookup_is_sorted() {
-        let id_map = HashMap::from([
-            ("b".to_owned(), StopIndex(0)),
-            ("c".to_owned(), StopIndex(1)),
-            ("a".to_owned(), StopIndex(2)),
-        ]);
-
-        let table = build_id_table::<StopIdSlice, StopIndex>(&id_map, 3);
+        let table = build_id_table::<StopIdSlice, StopIndex>(&["b", "c", "a"]);
 
         assert_eq!(table.buffer, "bca", "ids are laid out by item index");
         assert_eq!(

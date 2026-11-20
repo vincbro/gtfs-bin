@@ -80,8 +80,8 @@ fn shapes() -> String {
 fn with_consumer(check: impl FnOnce(&Consumer<'_>)) {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write_feed(directory.path());
-    let bytes = Compiler::new(directory.path())
-        .compile()
+    let bytes = Compiler::new()
+        .compile_gtfs(directory.path())
         .expect("the feed compiles");
     let (_file, mmap): (_, Mmap) = common::map(&bytes).expect("the file maps");
     check(&Consumer::new(&mmap).expect("the file is valid"));
@@ -165,8 +165,8 @@ fn a_trip_that_cannot_be_cut_has_no_shape() {
 fn damaged<T: Pod>(section_of: fn(&Header) -> Section, damage: impl FnOnce(&mut [T])) -> Vec<u8> {
     let directory = tempfile::tempdir().expect("a temp directory can be created");
     write_feed(directory.path());
-    let bytes = Compiler::new(directory.path())
-        .compile()
+    let bytes = Compiler::new()
+        .compile_gtfs(directory.path())
         .expect("the feed compiles");
     common::damage_section(bytes, section_of, damage)
 }
