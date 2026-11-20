@@ -491,18 +491,39 @@ name = "gtfs-bin"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "clap",
+ "gtfs-bin-compiler",
+ "gtfs-bin-core",
+ "memmap2",
+ "spinners",
+]
+
+[[package]]
+name = "gtfs-bin-compiler"
+version = "0.2.0"
+dependencies = [
  "bitvec",
  "bytemuck",
- "clap",
+ "csv",
+ "gtfs-bin-core",
+ "rayon",
+ "thiserror",
+ "zip",
+]
+
+[[package]]
+name = "gtfs-bin-core"
+version = "0.2.0"
+dependencies = [
+ "bytemuck",
  "criterion",
  "csv",
+ "gtfs-bin-compiler",
  "gtfs-rt",
  "jiff",
  "memmap2",
  "proptest",
  "prost",
- "rayon",
- "spinners",
  "tempfile",
  "thiserror",
  "zip",

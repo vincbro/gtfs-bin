@@ -16,7 +16,7 @@ All through `just`, which `just toolchain` sets up (the pinned Rust, the pinned 
 
 The code a router runs per query, by name. `PERFORMANCE.md` rules about hot paths apply to these and what they call.
 
-- The `Consumer` accessors in `src/consumer/` that return slices (`stop_times_by_trip`, `trips_by_stop`, `trips_by_route`, `outbound_transfers_by_stop`, `trip_patterns_by_stop`) and the `*_by_id` lookups.
+- The `Consumer` accessors in `crates/gtfs-bin-core/src/consumer/` that return slices (`stop_times_by_trip`, `trips_by_stop`, `trips_by_route`, `outbound_transfers_by_stop`, `trip_patterns_by_stop`) and the `*_by_id` lookups.
 - `Consumer::stops_near`, which fills a buffer it is given.
 - `Realtime` getters and `arrival_time`/`departure_time`, which a router calls per stop time.
 
@@ -37,7 +37,7 @@ Measured, not yet changed. A review doesn't repeat these. It reports one only if
 Rules from `code-standards/` this project bends, each with the reason.
 
 - **S-NAMES-TYPES / S-NAMES-ABBREVIATIONS**: none now. `Idx` and `Opt` were spelled out.
-- **S-TESTS**: integration tests in `tests/` aren't in a `mod tests`, because that is where the standards put them. `clippy::tests_outside_test_module` is therefore left off in `Cargo.toml`.
+- **S-TESTS**: integration tests in `crates/gtfs-bin-core/tests/` aren't in a `mod tests`, because that is where the standards put them. `clippy::tests_outside_test_module` is therefore left off in `Cargo.toml`.
 - **S-VISIBILITY**: `unreachable_pub` is on, so the helper modules shared by the integration tests use `pub(crate)`.
-- **S-INVARIANTS**: `Consumer` is immutable and built from untrusted bytes, so its invariants are checked by `validate` with a returned error, not by a debug-only `check_invariants`. `Realtime` has the debug-only check, and `tests/fuzz_rt.rs` drives it.
+- **S-INVARIANTS**: `Consumer` is immutable and built from untrusted bytes, so its invariants are checked by `validate` with a returned error, not by a debug-only `check_invariants`. `Realtime` has the debug-only check, and `crates/gtfs-bin-core/tests/fuzz_rt.rs` drives it.
 - **rustfmt options** (`imports_granularity`, `group_imports`) need nightly, so formatting runs through `just fmt` on the nightly pinned in the `justfile`. A plain `cargo fmt` on stable warns and skips them.

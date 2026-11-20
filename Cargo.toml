@@ -1,104 +1,45 @@
-[package]
-name = "gtfs-bin"
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+# Every crate is versioned in lockstep from here: `just bump <version>`.
+[workspace.package]
 version = "0.2.0"
 edition = "2024"
 rust-version = "1.95"
-description = "Pre compute GTFS transit networks into memory mapped binary files. Features zero copy deserialization, RAPTOR ready structures, and instant server startup."
 authors = ["Vincent Brodin <vincent.brodin21@gmail.com>"]
 license = "MIT OR Apache-2.0"
-readme = "README.md"
 repository = "https://github.com/vincbro/gtfs-bin"
-keywords = ["gtfs", "transit", "mmap", "zero-copy", "raptor"]
-categories = ["data-structures", "parsing", "caching"]
-# Development tooling, the shared code standards and the agent notes stay out of the package.
-exclude = [
-  ".claude",
-  ".githooks",
-  ".github",
-  ".gitmodules",
-  "AGENTS.md",
-  "CONTRIBUTING.md",
-  "STANDARDS.local.md",
-  "TODO.md",
-  "clippy.toml",
-  "code-standards",
-  "deny.toml",
-  "justfile",
-  "rust-toolchain.toml",
-  "rustfmt.toml",
-  "taplo.toml",
-]
+readme = "README.md"
 
-[lib]
-# Skip libtest's bench harness, the benches use criterion.
-bench = false
-
-[[bin]]
-name = "gtfs-bin"
-path = "src/main.rs"
-required-features = ["cli"]
-
-[features]
-default = ["consumer", "compiler", "rt", "cli"]
-
-compiler = ["dep:csv", "dep:zip"]
-
-consumer = ["dep:memmap2"]
-
-cli = ["compiler", "dep:anyhow", "dep:clap", "dep:spinners"]
-
-rt = ["consumer", "dep:gtfs-rt", "dep:jiff", "dep:prost"]
-
-[dependencies]
-anyhow = { version = "1.0.104", optional = true }
-bitvec = "1.0.1"
+# Internal crates require their exact sibling version, so a published gtfs-bin never mixes with
+# another release's gtfs-bin-core. Cargo can't inherit a version here, so `just bump` rewrites
+# these with [workspace.package]; a mismatch fails to build.
+[workspace.dependencies]
+anyhow = { version = "1.0.104" }
+bitvec = { version = "1.0.1" }
 bytemuck = { version = "1.25.0", features = ["derive"] }
-clap = { version = "4.5.60", features = ["derive"], optional = true }
-csv = { version = "1.4", optional = true }
-
-gtfs-rt = { version = "0.5.0", optional = true }
-jiff = { version = "0.2", optional = true }
-memmap2 = { version = "0.9.10", optional = true }
-# The version gtfs-rt is built with, so its messages decode with the same trait.
-prost = { version = "0.11", optional = true }
-rayon = "1.11.0"
-spinners = { version = "4.2.0", optional = true }
-thiserror = "2.0.18"
-zip = { version = "9.7", default-features = false, features = ["deflate"], optional = true }
-
-[dev-dependencies]
+clap = { version = "4.5.60", features = ["derive"] }
 criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
-proptest = "1.12.0"
-tempfile = "3.26.0"
-
-
-[[example]]
-name = "inspect"
-required-features = ["consumer", "cli"]
-
-[[example]]
-name = "apply_feed"
-required-features = ["consumer", "rt", "cli"]
-
-# How fast a feed compiles, a file opens and queries answer, over networks of growing size:
-# `just bench`.
-[[bench]]
-name = "transit"
-harness = false
-required-features = ["consumer", "compiler", "rt"]
-
-# What we ship: `cargo build --profile dist`. Kept out of `release` so contributors' --release
-# builds stay quick.
-[profile.dist]
-inherits = "release"
-codegen-units = 1
-lto = "fat"
-strip = true
+csv = { version = "1.4" }
+gtfs-bin-compiler = { path = "crates/gtfs-bin-compiler", version = "=0.2.0" }
+gtfs-bin-core = { path = "crates/gtfs-bin-core", version = "=0.2.0", default-features = false }
+gtfs-rt = { version = "0.5.0" }
+jiff = { version = "0.2" }
+memmap2 = { version = "0.9.10" }
+proptest = { version = "1.12.0" }
+# The version gtfs-rt is built with, so its messages decode with the same trait.
+prost = { version = "0.11" }
+rayon = { version = "1.11.0" }
+spinners = { version = "4.2.0" }
+tempfile = { version = "3.26.0" }
+thiserror = { version = "2.0.18" }
+zip = { version = "9.7", default-features = false, features = ["deflate"] }
 
 # Lint policy: CONTRIBUTING.md#lints, and code-standards/rust/STYLE.md for the rules each lint
 # enforces (S-* ids below). A new lint from a toolchain bump is fixed, or allowed here with a
 # comment, in the same change.
-[lints.rust]
+[workspace.lints.rust]
 # Off-by-default rustc lints we want on.
 elided_lifetimes_in_paths = "warn"
 explicit_outlives_requirements = "warn"
@@ -123,12 +64,12 @@ unused_lifetimes = "warn"
 unused_macro_rules = "warn"
 unused_qualifications = "warn"
 
-[lints.rustdoc]
+[workspace.lints.rustdoc]
 all = { level = "warn", priority = -1 }
 
 # all, pedantic and cargo are on. restriction is opted into lint by lint instead of as a group: the
 # group holds lints that contradict each other and grows with every toolchain.
-[lints.clippy]
+[workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
@@ -181,3 +122,11 @@ unused_result_ok = "warn"
 verbose_file_reads = "warn"
 # Opted in from nursery, one by one like restriction.
 use_self = "warn" # `Self { .. }`, not the type's name, inside its impl
+
+# What we ship: `cargo build --profile dist`. Kept out of `release` so contributors' --release
+# builds stay quick.
+[profile.dist]
+inherits = "release"
+codegen-units = 1
+lto = "fat"
+strip = true

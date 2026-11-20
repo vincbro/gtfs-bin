@@ -2,11 +2,11 @@
 
 A compiled file is a header followed by sections. Everything is little-endian on the machine that wrote it: the file is meant to be mapped, so a file moves between machines of the same byte order only.
 
-Version: `GTFS_BIN_VERSION` in `src/lib.rs`, currently 5. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
+Version: `GTFS_BIN_VERSION` in `crates/gtfs-bin-core/src/lib.rs`, currently 5. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
 
 ## Header
 
-`Header` in `src/models/header.rs`, `repr(C)`:
+`Header` in `crates/gtfs-bin-core/src/models/header.rs`, `repr(C)`:
 
 | Field | Size | Meaning |
 |---|---|---|
@@ -49,6 +49,6 @@ Every table is an array of fixed size `repr(C)` structs, with no pointers: they 
 
 ## What `Consumer::new` guarantees
 
-It checks the header, the length, that every section is in bounds and aligned, that text is UTF-8 and slices end on characters, that every index and slice points inside the table it names, that each item's `index` is its position, that the id lookups are strictly sorted, and that each trip's stop times are its own and in sequence order. The property tests in `tests/fuzz.rs` damage files in all of these ways, and fail if any one of the checks is removed.
+It checks the header, the length, that every section is in bounds and aligned, that text is UTF-8 and slices end on characters, that every index and slice points inside the table it names, that each item's `index` is its position, that the id lookups are strictly sorted, and that each trip's stop times are its own and in sequence order. The property tests in `crates/gtfs-bin-core/tests/fuzz.rs` damage files in all of these ways, and fail if any one of the checks is removed.
 
 `Consumer::new_unvalidated` skips the table checks. It never causes undefined behavior, but a damaged file can make an accessor panic.

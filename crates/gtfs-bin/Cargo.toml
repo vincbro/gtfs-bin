@@ -1,0 +1,23 @@
+[package]
+name = "gtfs-bin"
+description = "Pre compute GTFS transit networks into memory mapped binary files. Features zero copy deserialization, RAPTOR ready structures, and instant server startup."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords = ["gtfs", "transit", "mmap", "zero-copy", "raptor"]
+categories = ["data-structures", "parsing", "caching"]
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+gtfs-bin-compiler.workspace = true
+gtfs-bin-core = { workspace = true, features = ["consumer", "rt"] }
+memmap2.workspace = true
+spinners.workspace = true
+
+[lints]
+workspace = true

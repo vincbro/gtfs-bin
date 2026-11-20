@@ -20,14 +20,17 @@ Run `just` on its own to list every recipe.
 
 ## Layout
 
-One crate, `gtfs-bin`, with a library and a command line tool:
+A workspace of three crates under `crates/`, all versioned together:
 
-- `src/models/`: the fixed-size types the compiled file is made of, and the sentinel and index types they use.
-- `src/compiler/`: reads a feed (`source`, `table`, `records`) and writes the file (one builder per table, `writer`).
-- `src/consumer/`: maps the file, checks all of it (`validate`) and answers queries.
-- `src/rt/`: applies GTFS-realtime feeds on top of a consumer.
+- `gtfs-bin-core`: what reads the file.
+  - `src/models/`: the fixed-size types the compiled file is made of, and the sentinel and index types they use.
+  - `src/consumer/`: maps the file, checks all of it (`validate`) and answers queries.
+  - `src/rt/`: applies GTFS-realtime feeds on top of a consumer.
+  - `tests/`: integration and property tests, and `tests/common/` for what they share, including a generated feed. They compile feeds with `gtfs-bin-compiler`, a dev-dependency.
+  - `benches/`: the criterion benchmarks.
+- `gtfs-bin-compiler`: reads a feed (`source`, `table`, `records`) and writes the file (one builder per table, `writer`).
+- `gtfs-bin`: the command line tool and its examples.
 - `docs/FORMAT.md`: the layout of the file. Change it in the same commit as the layout.
-- `tests/`: integration and property tests, and `tests/common/` for what they share, including a generated feed.
 
 ## Style
 
@@ -46,13 +49,13 @@ To check a change against the rules tools can't enforce, ask your coding agent t
 ## Tests
 
 - **Unit tests** sit at the bottom of the file they test, in `mod tests`, named for the behavior.
-- **Integration tests** in `tests/` drive the public API: `parser.rs` reads feeds, `features.rs` the file's tables and queries, `rt_full.rs` realtime.
+- **Integration tests** in `crates/gtfs-bin-core/tests/` drive the public API: `parser.rs` reads feeds, `features.rs` the file's tables and queries, `rt_full.rs` realtime.
 - **Property tests** (`proptest`) damage files, feeds and realtime messages and check that nothing panics and that what the compiler writes the consumer reads: `fuzz.rs`, `fuzz_compiler.rs`, `fuzz_rt.rs`. A saved failing case goes in the `*.proptest-regressions` file beside the test, and is committed. Before you trust a new check, break the code on purpose once and see the test fail. `just test-full` runs them for 40000 cases.
 - **Real data** is tried with `just real-data FOLDER`, where the folder holds `static.zip` and any realtime `*.pb` files. The test does nothing without it, so nothing real is committed.
 
 ## Benchmarks
 
-`just bench` runs the benchmarks with [criterion](https://github.com/criterion-rs/criterion.rs). They live in `benches/transit.rs` and time compiling, opening a file with and without its checks, scanning every stop time, looking a trip up by id, finding stops near a position, searching by name, and applying a realtime feed. Each is a group with one entry per size, over generated networks of about 12 thousand, 120 thousand and 1.2 million stop times. criterion compares each run with the previous one on the same machine. To compare against a fixed point, save a baseline:
+`just bench` runs the benchmarks with [criterion](https://github.com/criterion-rs/criterion.rs). They live in `crates/gtfs-bin-core/benches/transit.rs` and time compiling, opening a file with and without its checks, scanning every stop time, looking a trip up by id, finding stops near a position, searching by name, and applying a realtime feed. Each is a group with one entry per size, over generated networks of about 12 thousand, 120 thousand and 1.2 million stop times. criterion compares each run with the previous one on the same machine. To compare against a fixed point, save a baseline:
 
 ```sh
 just bench --save-baseline before
@@ -74,7 +77,7 @@ Benchmarks aren't part of `just check`, but clippy lints them like any other cod
 
 ## Lints
 
-The lint policy lives in `[lints]` in `Cargo.toml`. In short:
+The lint policy lives in `[workspace.lints]` in the root `Cargo.toml`. In short:
 
 - clippy's `all`, `pedantic` and `cargo` groups are on, plus a set of `restriction` lints chosen to enforce [STYLE.md](code-standards/rust/STYLE.md). Each is listed with the `S-…` rule it enforces. Thresholds, such as nesting depth and the banned names, live in `clippy.toml`.
 - **No `unwrap()` or `panic!` outside tests.** Use `?`, or `expect("...")` stating the invariant when one really holds. A public function that can panic says so under `# Panics`.
@@ -111,11 +114,11 @@ return an error from `Consumer::new` instead.
 
 ## Changing the file format
 
-The compiled file has a version (`GTFS_BIN_VERSION`). Any change to a table, a header field or what a field means bumps it, updates `docs/FORMAT.md`, adds a validator in `src/consumer/validate.rs`, and extends the property tests so that removing the validator makes one fail.
+The compiled file has a version (`GTFS_BIN_VERSION`). Any change to a table, a header field or what a field means bumps it, updates `docs/FORMAT.md`, adds a validator in `crates/gtfs-bin-core/src/consumer/validate.rs`, and extends the property tests so that removing the validator makes one fail.
 
 ## Releases
 
-Change the version with `just bump <version>` (`cargo set-version`), never by hand. The shipped binary is built with `just dist` (the `dist` profile: fat LTO, one codegen unit, stripped). `cargo build --release` stays quick for day-to-day profiling.
+Change the version with `just bump <version>` (`cargo set-version --workspace`), never by hand. The shipped binary is built with `just dist` (the `dist` profile: fat LTO, one codegen unit, stripped). `cargo build --release` stays quick for day-to-day profiling.
 
 ## License
 

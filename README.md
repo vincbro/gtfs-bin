@@ -26,20 +26,21 @@ The layout of the file is in [docs/FORMAT.md](docs/FORMAT.md).
 ## Installation
 
 ```bash
-cargo add gtfs-bin
+cargo install gtfs-bin       # the command line tool
+cargo add gtfs-bin-compiler  # write a file from your own code
+cargo add gtfs-bin-core      # read one
 cargo add memmap2
 ```
 
-### Cargo features
+### Crates
 
-| Feature | Adds |
+| Crate | What it is |
 |---|---|
-| `compiler` | `Compiler`, which reads a feed and writes the binary file |
-| `consumer` | `Consumer`, which maps and reads it (needs `memmap2`) |
-| `rt` | GTFS-realtime on top of a consumer (needs `consumer`) |
-| `cli` | the `gtfs-bin` command and the `inspect` example |
+| `gtfs-bin` | the `gtfs-bin` command, which compiles a feed |
+| `gtfs-bin-compiler` | `Compiler`, which reads a feed and writes the binary file |
+| `gtfs-bin-core` | the types of the file, `Consumer`, which maps and reads it, and GTFS-realtime on top of it |
 
-All four are on by default. Libraries that only read files can use `default-features = false, features = ["consumer"]`.
+`gtfs-bin-core` has two features, both on by default: `consumer` (needs `memmap2`) and `rt` (needs `consumer`). A library that only reads files can turn `rt` off with `default-features = false, features = ["consumer"]`.
 
 ## Quick start
 
@@ -54,7 +55,7 @@ Or from Rust, if you are building a data pipeline:
 ```rust
 use std::{fs, path::Path};
 
-use gtfs_bin::compiler::Compiler;
+use gtfs_bin_compiler::Compiler;
 
 fn main() {
     // Read from a zip file or an extracted directory.
@@ -69,7 +70,7 @@ Then map the file and read it:
 ```rust
 use std::fs::File;
 
-use gtfs_bin::consumer::Consumer;
+use gtfs_bin_core::consumer::Consumer;
 use memmap2::Mmap;
 
 fn main() {
@@ -116,10 +117,10 @@ The parser reads byte order marks, Windows line endings, quoted fields and colum
 
 ### Realtime
 
-Enable the `rt` feature to apply GTFS-RT `FeedMessage` updates on top of a consumer. A `Realtime` has one slot per stop time and per trip, so reading it is an array index.
+With the `rt` feature of `gtfs-bin-core`, apply GTFS-RT `FeedMessage` updates on top of a consumer. A `Realtime` has one slot per stop time and per trip, so reading it is an array index.
 
 ```rust
-use gtfs_bin::{models::Date, rt::{Realtime, RealtimeBuilder}};
+use gtfs_bin_core::{models::Date, rt::{Realtime, RealtimeBuilder}};
 
 // `feed_messages` is an Iterator of parsed gtfs_rt::FeedMessage.
 let builder = RealtimeBuilder::new(&consumer)

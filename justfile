@@ -10,33 +10,33 @@ default:
 
 # Compile a feed: just compile path/to/gtfs.zip [output.gtfs]
 compile feed output="output.gtfs":
-    cargo run --release -- -i {{ quote(feed) }} -o {{ quote(output) }}
+    cargo run --release -p gtfs-bin -- -i {{ quote(feed) }} -o {{ quote(output) }}
 
 # Open a compiled file and time it, optionally with a query: just inspect network.gtfs [near LAT LON METERS | search TEXT]
 inspect file *query:
-    cargo run --release --example inspect -- {{ quote(file) }} {{ query }}
+    cargo run --release -p gtfs-bin --example inspect -- {{ quote(file) }} {{ query }}
 
 # Apply realtime files to a compiled file and report what matched: just apply network.gtfs TripUpdates.pb [more.pb ...]
 apply file *feeds:
-    cargo run --release --example apply_feed -- {{ quote(file) }} {{ feeds }}
+    cargo run --release -p gtfs-bin --example apply_feed -- {{ quote(file) }} {{ feeds }}
 
 # Build everything
 build:
-    cargo build --all-targets --all-features
+    cargo build --workspace --all-targets --all-features
 
 # Build the binary we ship (fat LTO, stripped) into target/dist/gtfs-bin
 dist:
-    cargo build --profile dist --locked
+    cargo build --profile dist -p gtfs-bin --locked
 
 # Format every Rust and TOML file, and sort Cargo.toml dependency tables
 fmt:
     cargo +{{ fmt_toolchain }} fmt --all
-    cargo sort --no-format
+    cargo sort --workspace --no-format
     taplo fmt
 
 # Apply clippy's automatic fixes, then format
 fix:
-    cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features
+    cargo clippy --fix --allow-dirty --allow-staged --workspace --all-targets --all-features
     cargo +{{ fmt_toolchain }} fmt --all
 
 # The CI gate: run it before you push
@@ -50,38 +50,39 @@ check-full: fmt-check clippy doc test-full features deps
 # Fail on any file `just fmt` would change
 fmt-check:
     cargo +{{ fmt_toolchain }} fmt --all -- --check
-    cargo sort --no-format --check
+    cargo sort --workspace --no-format --check
     taplo fmt --check
 
 # Fail on any lint
 clippy:
-    cargo clippy --all-targets --all-features --locked -- -D warnings
+    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
 # Build the docs; any rustdoc warning fails
 doc:
-    RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps --document-private-items --locked
+    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps --document-private-items --locked
 
 # Run every test
 test:
-    cargo test --all-features --locked
+    cargo test --workspace --all-features --locked
 
 # Run every test, the property tests for 40000 cases each
 test-full:
-    PROPTEST_CASES=40000 cargo test --all-features --locked --release
+    PROPTEST_CASES=40000 cargo test --workspace --all-features --locked --release
 
 # Run the tests against a real feed: a folder with static.zip and any number of .pb realtime
 # files: just real-data path/to/folder
 real-data folder:
-    GTFS_BIN_REAL_FEED={{ quote(folder) }} cargo test --release --all-features --test scale -- --nocapture
+    GTFS_BIN_REAL_FEED={{ quote(folder) }} cargo test --release -p gtfs-bin-core --all-features --test scale -- --nocapture
 
-# Build the library with each feature on its own, as a user of one of them would
+# Build each crate with each feature on its own, as a user of one of them would
 features:
-    for features in "" consumer compiler consumer,rt cli; do cargo build --lib --no-default-features --features "$features" --locked || exit 1; done
+    cargo build -p gtfs-bin-compiler --locked
+    for features in "" consumer consumer,rt; do cargo build -p gtfs-bin-core --no-default-features --features "$features" --locked || exit 1; done
 
 # Time compiling, opening and querying a generated network of a million stop times.
 # Extra args go to criterion: just bench [args]
 bench *args:
-    cargo bench --bench transit -- {{ args }}
+    cargo bench -p gtfs-bin-core --bench transit -- {{ args }}
 
 # Fail on unused dependencies, or on any cargo-deny check in deny.toml:
 # advisories, licenses, sources
@@ -91,12 +92,12 @@ deps:
 
 # Build the docs, private items included, and open them
 docs:
-    cargo doc --all-features --no-deps --document-private-items
-    open target/doc/gtfs_bin/index.html
+    cargo doc --workspace --all-features --no-deps --document-private-items
+    open target/doc/gtfs_bin_core/index.html
 
-# Set the crate's version: just bump 0.2.0
+# Set the version of every crate: just bump 0.2.0
 bump version:
-    cargo set-version {{ quote(version) }}
+    cargo set-version --workspace {{ quote(version) }}
 
 # Install the pinned toolchain from rust-toolchain.toml and the nightly rustfmt
 # `just fmt` uses, and off CI the cargo tools other recipes call (CI installs
