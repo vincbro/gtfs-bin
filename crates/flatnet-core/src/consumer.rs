@@ -7,14 +7,15 @@ use crate::{
     FLATNET_VERSION,
     consumer::reader::Reader,
     models::{
-        self, Coordinate, Date, Header, Metadata, Parts, PatternStop, Route, RouteIndex,
-        SearchStop, Sentinel, Service, ServiceIndex, Shape, ShapeIndex, Stop, StopCell, StopIndex,
-        StopInfo, Timing, Transfer, TransferIndex, TransferSlice, Trip, TripIndex, TripInfo,
-        TripPattern, TripPatternIndex, TripPatternSlice, TripSlice,
+        self, Coordinate, Date, Footpath, Header, Metadata, Parts, PatternStop, Place, Route,
+        RouteIndex, SearchStop, Sentinel, Service, ServiceIndex, Shape, ShapeIndex, Stop, StopCell,
+        StopIndex, StopInfo, Timing, Transfer, TransferIndex, TransferSlice, Trip, TripIndex,
+        TripInfo, TripPattern, TripPatternIndex, TripPatternSlice, TripSlice,
     },
 };
 
 mod error;
+mod footpaths;
 mod grid;
 mod metadata;
 mod reader;
@@ -92,6 +93,11 @@ pub struct Consumer<'a> {
     trip_to_trip_pattern: &'a [TripPatternIndex],
     stop_to_trip_pattern: &'a [TripPatternIndex],
     stop_to_trip_pattern_lookup: &'a [TripPatternSlice],
+
+    // Footpaths
+    footpaths: &'a [Footpath],
+    place_stops: &'a [StopIndex],
+    places: &'a [Place],
 
     // Transfer
     transfers: &'a [Transfer],
@@ -214,6 +220,10 @@ impl<'a> Consumer<'a> {
 
             search_stops: reader.cast_slice(header.search_stops)?,
             search_to_stops: reader.cast_slice(header.search_to_stops)?,
+
+            footpaths: reader.cast_slice(header.footpaths)?,
+            place_stops: reader.cast_slice(header.place_stops)?,
+            places: reader.cast_slice(header.places)?,
 
             transfers: reader.cast_slice(header.transfers)?,
             stop_to_transfer_out: reader.cast_slice(header.stop_to_transfers_out)?,

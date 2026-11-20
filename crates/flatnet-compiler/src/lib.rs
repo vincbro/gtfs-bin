@@ -12,8 +12,9 @@ use std::path::Path;
 
 use flatnet_core::{
     FLATNET_VERSION,
-    models::{self, Date, Header, Parts, Sentinel, SliceBuilder, StringSlice},
+    models::{self, Date, Header, Parts, Sentinel, Settings, SliceBuilder, StringSlice},
 };
+use footpaths::BuiltFootpaths;
 use metadata::MetadataInput;
 use services::BuiltServices;
 use shapes::BuiltShapes;
@@ -22,6 +23,7 @@ use trip_patterns::TripPatterns;
 use writer::BinaryWriter;
 
 mod error;
+mod footpaths;
 mod grid;
 mod metadata;
 mod network;
@@ -52,6 +54,7 @@ pub use network::{
 pub struct Compiler {
     metadata: MetadataInput,
     parts: Parts,
+    settings: Settings,
 }
 
 impl Compiler {
@@ -66,6 +69,14 @@ impl Compiler {
     #[must_use]
     pub const fn parts(mut self, parts: Parts) -> Self {
         self.parts = parts;
+        self
+    }
+
+    /// Chooses the settings that shape the tables, such as how far a footpath reaches, and the file
+    /// keeps them for its readers: see [`Settings`]. [`Settings::default`] is used otherwise.
+    #[must_use]
+    pub const fn settings(mut self, settings: Settings) -> Self {
+        self.settings = settings;
         self
     }
 
@@ -112,7 +123,7 @@ impl Compiler {
     ///
     /// Returns an error if the network has two things of one kind with the same id, a reference
     /// that points at nothing, a service with no days or one that runs for too long, or metadata
-    /// that is not a JSON object, or if search is asked for without text.
+    /// that is not a JSON object, if search is asked for without text, or if the settings are not valid.
     #[allow(
         clippy::too_many_lines,
         reason = "one pass that builds each table and then lists every section in file order"
@@ -122,6 +133,9 @@ impl Compiler {
         let parts = self.parts;
         if parts.contains(Parts::SEARCH) && !parts.contains(Parts::TEXT) {
             return Err(Error::SearchWithoutText);
+        }
+        if !self.settings.is_valid() {
+            return Err(Error::InvalidSettings);
         }
         let text = parts.contains(Parts::TEXT);
         if !text {
@@ -178,8 +192,23 @@ impl Compiler {
         } = transfers::build_transfers(&network.transfers, stops.len());
 
         let timezone = network.info.timezone.clone().unwrap_or_default();
-        let (metadata, metadata_json) =
-            metadata::build_metadata(&self.metadata, &network.info, &services, &mut slice_builder)?;
+        let (metadata, metadata_json) = metadata::build_metadata(
+            &self.metadata,
+            &network.info,
+            self.settings,
+            &services,
+            &mut slice_builder,
+        )?;
+
+        let BuiltFootpaths {
+            footpaths,
+            place_stops,
+            places,
+        } = if parts.contains(Parts::FOOTPATHS) {
+            footpaths::build_footpaths(&stops, self.settings)
+        } else {
+            BuiltFootpaths::empty()
+        };
 
         let (search_stops, search_to_stops) = if parts.contains(Parts::SEARCH) {
             stops::build_stop_search(&stops, &stop_infos)
@@ -268,6 +297,10 @@ impl Compiler {
 
             search_stops: writer.write_section(&search_stops),
             search_to_stops: writer.write_section(&search_to_stops),
+
+            footpaths: writer.write_section(&footpaths),
+            place_stops: writer.write_section(&place_stops),
+            places: writer.write_section(&places),
 
             transfers: writer.write_section(&transfers),
             stop_to_transfers_out: writer.write_section(&stop_to_transfers_out),

@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use flatnet_core::models::{Date, Metadata, Sentinel, Service, SliceBuilder, StringSlice};
+use flatnet_core::models::{
+    Date, Metadata, Sentinel, Service, Settings, SliceBuilder, StringSlice,
+};
 use serde_json::{Map, Value};
 
 use crate::{Error, Result, network::NetworkInfo};
@@ -18,6 +20,7 @@ pub(super) struct MetadataInput {
 pub(super) fn build_metadata(
     input: &MetadataInput,
     info: &NetworkInfo,
+    settings: Settings,
     services: &[Service],
     strings: &mut SliceBuilder<StringSlice>,
 ) -> Result<(Metadata, String)> {
@@ -36,6 +39,7 @@ pub(super) fn build_metadata(
         contact_email: text(info.contact_email.as_deref()),
         agency_name: text(info.agency_name.as_deref()),
         agency_url: text(info.agency_url.as_deref()),
+        settings,
     };
     Ok((metadata, build_json(input)?))
 }

@@ -6,3 +6,4 @@
 # everyone who runs the test benefits from these saved cases.
 cc 2dd0cb414e8ee597e1b3773d3d0ae786196ee1116c112045add636f790247d9f # shrinks to damage = [(0, [DuplicateLine(0.6781014222104321)])]
 cc ecb41244a7dc7d60ce754ad5672bf581021b5830fa131280f1b67c2cb0a3aa1a # shrinks to damage = [(4, [DuplicateLine(0.5724421040660805)])]
+cc 02cdfa10678372fa51c147cf241aff302052168cec8e486b0a86ab63426ead71 # shrinks to damage = [(0, [Insert(0.07456125951277306, 1), DeleteLine(0.40462033141327197), Replace(0.8667623306190191, 5)])]

@@ -64,6 +64,13 @@ pub struct Header {
     pub stop_to_trip_pattern: Section,
     pub stop_to_trip_pattern_lookup: Section,
 
+    /// The `Footpath` of every place, a place's together and nearest first.
+    pub footpaths: Section,
+    /// The stops of every place, back to back: those a passenger can board at.
+    pub place_stops: Section,
+    /// The `Place` of each stop, by stop. Empty when the file has no footpaths part.
+    pub places: Section,
+
     pub transfers: Section,
     pub stop_to_transfers_out: Section,
     pub transfers_in_indices: Section,

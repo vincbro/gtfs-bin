@@ -61,6 +61,8 @@ pub enum Error {
         table: &'static str,
         field: &'static str,
     },
+    #[error("the settings are not usable: a footpath reach of at most 50000 meters")]
+    InvalidSettings,
     #[error("search needs the text part, because a place is found by its name")]
     SearchWithoutText,
     #[error("the network's service {service_id:?} has no days")]

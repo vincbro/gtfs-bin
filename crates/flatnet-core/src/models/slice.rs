@@ -97,6 +97,8 @@ define_slice!(StopTimeSlice);
 define_slice!(StopSlice);
 define_slice!(SearchSlice);
 define_slice!(TransferSlice);
+define_slice!(FootpathSlice);
+define_slice!(PlaceStopSlice);
 define_slice!(ServiceBinarySlice);
 define_slice!(ShapePointSlice);
 define_slice!(TripShapeSlice);

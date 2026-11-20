@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 
-use crate::models::{Date, Optional, Sentinel, StringSlice};
+use crate::models::{Date, Optional, Sentinel, Settings, StringSlice};
 
 /// What the file says about itself: where it came from, when it was made and when it is good for.
 ///
@@ -45,6 +45,9 @@ pub struct Metadata {
 
     /// `agency_url` of the first agency in `agency.txt`.
     pub agency_url: Optional<StringSlice>,
+
+    /// The choices the compiler was given, such as how far a footpath reaches.
+    pub settings: Settings,
 }
 
 impl Default for Metadata {
@@ -62,6 +65,7 @@ impl Default for Metadata {
             contact_email: Optional::default(),
             agency_name: Optional::default(),
             agency_url: Optional::default(),
+            settings: Settings::default(),
         }
     }
 }

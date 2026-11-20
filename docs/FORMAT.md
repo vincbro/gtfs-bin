@@ -2,7 +2,7 @@
 
 A compiled file is a header followed by sections. Everything is little-endian on the machine that wrote it: the file is meant to be mapped, so a file moves between machines of the same byte order only.
 
-Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 13. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
+Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 14. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
 
 ## Header
 
@@ -12,8 +12,8 @@ Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 13. It
 |---|---|---|
 | `magic` | 4 | The bytes `FLNT` |
 | `version` | 4 | The format version |
-| `parts` | 8 | The optional parts the compiler wrote, as bits of `Parts`: shapes, search, text and ids. A part that is not set has empty sections, and the consumer rejects a file where it is not |
-| 40 `Section` fields | 16 each | `offset` and `count`, both `u64`, of each section below |
+| `parts` | 8 | The optional parts the compiler wrote, as bits of `Parts`: shapes, search, text, ids and footpaths. A part that is not set has empty sections, and the consumer rejects a file where it is not |
+| 43 `Section` fields | 16 each | `offset` and `count`, both `u64`, of each section below |
 | `feed_start_date`, `feed_end_date` | 4 each | `Date`, or `u32::MAX` when `feed_info.txt` has none |
 | `file_length` | 8 | The length of the whole file, so a truncated one is noticed on open |
 | `checksum` | 8 | `models::checksum` of every byte after the header. `Consumer::verify_checksum` checks it |
@@ -39,6 +39,7 @@ Every table is an array of fixed size `repr(C)` structs, with no pointers: they 
 | `route_to_trips` | `TripIndex` | Trips grouped by route, with a `route_to_trips_lookup` of slices by route. The trips that call at a stop are those of the patterns in `stop_to_trip_pattern` |
 | `trip_patterns` and its four lookups | `TripPattern` | Trips that call at the same stops in the same order, with the same sequence numbers, boarding rules, headsigns and distances, and that never overtake each other. A pattern is the run of `trip_patterns_stop_seq` for its stops, the run of `pattern_stops` at the same positions, and its trips in the order they leave |
 | `pattern_stops` | `PatternStop` | What a pattern says at each of its stops: the sequence, boarding rules, headsign and distance traveled. Stored once for the pattern, not for every trip |
+| `footpaths`, `place_stops`, `places` | `Footpath`, `StopIndex`, `Place` | Stops grouped into places, and the walks between places. A place is the top of a stop's parent chain (`Place::root_of`, at most 8 deep): a station with the stops under it, or a stop with no parent. `places` has one `Place` for each stop, at the stop's position, and it is empty unless the stop is a place. A place's `stops` are a run of `place_stops`, the stops a passenger can board at (not stations, entrances or generic nodes), and its `footpaths` a run of `footpaths`, nearest first (the lower place index first on a tie), which `Consumer::new` checks. A `Footpath` is the place it ends at, named by its root stop, and the length in meters. Walking between the stops of one place is a given and has no footpath. A walk between two places is the straight line between their nearest stops, and the walks are not symmetric when a place's limit cut a neighbor off. Empty without the footpaths part |
 | `transfers` and its lookups | `Transfer` | Sorted by the stop they start at, with slices by stop in both directions |
 | `search_stops`, `search_to_stops` | `SearchStop` | Named places and the stops under each |
 | `stop_grid`, `grid_stops` | `StopCell` | A grid of 0.005 degree cells, sorted, for finding stops near a position |
@@ -48,7 +49,9 @@ Every table is an array of fixed size `repr(C)` structs, with no pointers: they 
 
 ## Metadata
 
-The one `Metadata` item is `repr(C)`, 88 bytes: `compiled_at` (`u64`, seconds since the unix epoch, 0 if the compiler was not told), `active_from` and `active_until` (`Date`, the first and last day any service runs, both `NONE` for a feed with no services), then nine `Optional<StringSlice>` into `strings`: `compiler_version`, `source`, `publisher_name`, `publisher_url`, `language`, `feed_version`, `contact_email`, `agency_name` and `agency_url`.
+The one `Metadata` item is `repr(C)`, 96 bytes: `compiled_at` (`u64`, seconds since the unix epoch, 0 if the compiler was not told), `active_from` and `active_until` (`Date`, the first and last day any service runs, both `NONE` for a feed with no services), then nine `Optional<StringSlice>` into `strings`: `compiler_version`, `source`, `publisher_name`, `publisher_url`, `language`, `feed_version`, `contact_email`, `agency_name` and `agency_url`, then the `Settings`.
+
+`Settings` is `repr(C)`, 8 bytes, and holds the choices the compiler was given, so a reader knows what the tables mean and does not have to guess: `footpath_max_meters` (`u32`, the longest straight line between two places a footpath holds, at most 50,000) and `footpath_max_per_place` (`u32`, the most footpaths one place keeps, `u32::MAX` for all). `Consumer::settings` returns it, and `Consumer::new` rejects a value the compiler would not have accepted. The defaults are 400 m and 32 places. There is no detour and no walking speed: a `Footpath` holds the straight line in meters, and a reader that wants walks of at most some length asks for a shorter reach, then turns a line into a walk and a walk into time itself. Anything a later compile option changes in the tables has to be added here.
 
 The active range is what `Consumer::is_stale(today)` compares with, so a launch can check a file without reading a table. The compiler writes the JSON compact, with its keys sorted, so the same input gives the same bytes. The compiler never reads the clock: `compiled_at` and `source` are only set when the caller passes them, so the same feed gives the same bytes whether it is a folder or a zip.
 

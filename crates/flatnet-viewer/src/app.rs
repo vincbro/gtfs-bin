@@ -155,6 +155,20 @@ impl<'a> Viewer<'a> {
                     let value = labels::text(&self.consumer, slice).unwrap_or("none");
                     row(name, value.to_owned());
                 }
+                let settings = metadata.settings;
+                row(
+                    "footpaths",
+                    format!(
+                        "up to {} m and {} a place",
+                        settings.footpath_max_meters,
+                        if settings.footpath_max_per_place == u32::MAX {
+                            "all".to_owned()
+                        } else {
+                            settings.footpath_max_per_place.to_string()
+                        },
+                    ),
+                );
+                row("parts", format!("{:?}", self.consumer.parts()));
                 row(
                     "metadata json",
                     self.consumer.metadata_json().unwrap_or("none").to_owned(),

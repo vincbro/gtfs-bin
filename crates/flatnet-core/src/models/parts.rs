@@ -22,8 +22,13 @@ impl Parts {
     /// its kin find nothing, so realtime updates match no trip.
     pub const IDS: Self = Self(1 << 3);
 
+    /// The `places`, `place_stops` and `footpaths` sections: the stops grouped into places, and the
+    /// walks between places that are near each other, chosen by the file's `Settings`. Without them
+    /// no stop has a place to look up and no place has a footpath.
+    pub const FOOTPATHS: Self = Self(1 << 4);
+
     /// Every part.
-    pub const ALL: Self = Self(0b1111);
+    pub const ALL: Self = Self(0b1_1111);
 
     /// No part: a file for routing alone.
     pub const NONE: Self = Self(0);

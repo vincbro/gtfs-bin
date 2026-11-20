@@ -9,7 +9,7 @@ use std::{
 use anyhow::Context;
 use clap::{Parser, ValueEnum};
 use flatnet_compiler::Compiler;
-use flatnet_core::models::Parts;
+use flatnet_core::models::{Parts, Settings};
 use spinners::{Spinner, Spinners};
 
 #[derive(Parser, Debug)]
@@ -29,6 +29,15 @@ struct Args {
     #[arg(long, value_name = "FILE")]
     meta_json: Option<PathBuf>,
 
+    /// The longest straight line of a footpath between two places, in meters. The file
+    /// keeps it, so a reader knows how far footpaths reach.
+    #[arg(long, value_name = "METERS", default_value_t = Settings::default().footpath_max_meters)]
+    footpath_meters: u32,
+
+    /// The most footpaths one place keeps, the nearest first. The file keeps it too.
+    #[arg(long, value_name = "COUNT", default_value_t = Settings::default().footpath_max_per_place)]
+    footpath_max: u32,
+
     /// Leaves a part out of the file to make it smaller. Repeat it for more.
     #[arg(long, value_enum, value_name = "PART")]
     without: Vec<Part>,
@@ -43,6 +52,8 @@ enum Part {
     Search,
     /// Names, codes, descriptions, headsigns and blocks.
     Text,
+    /// The walks between stops that are near each other.
+    Footpaths,
     /// The GTFS ids and the lookups by id. Realtime updates match nothing without them.
     Ids,
 }
@@ -54,6 +65,7 @@ impl Part {
             Self::Search => Parts::SEARCH,
             Self::Text => Parts::TEXT.with(Parts::SEARCH),
             Self::Ids => Parts::IDS,
+            Self::Footpaths => Parts::FOOTPATHS,
         }
     }
 }
@@ -81,7 +93,10 @@ fn main() -> anyhow::Result<()> {
         .without
         .iter()
         .fold(Parts::ALL, |parts, part| parts.without(part.parts()));
-    compiler = compiler.parts(parts);
+    compiler = compiler.parts(parts).settings(Settings {
+        footpath_max_meters: args.footpath_meters,
+        footpath_max_per_place: args.footpath_max,
+    });
     for (key, value) in args.meta {
         compiler = compiler.metadata_entry(key, value);
     }

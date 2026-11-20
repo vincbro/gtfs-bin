@@ -2,7 +2,7 @@ use std::str;
 
 use crate::{
     consumer::{Consumer, Error, Result},
-    models::{Index, Optional, Parts, Sentinel, Slice, StopCell, Time, Timing, TripPattern},
+    models::{Index, Optional, Parts, Place, Sentinel, Slice, StopCell, Time, Timing, TripPattern},
 };
 
 impl Consumer<'_> {
@@ -19,6 +19,7 @@ impl Consumer<'_> {
         self.validate_services()?;
         self.validate_lookups()?;
         self.validate_patterns()?;
+        self.validate_footpaths()?;
         self.validate_transfers()?;
         self.validate_grid()?;
         self.validate_order()
@@ -45,6 +46,9 @@ impl Consumer<'_> {
         let [metadata] = self.metadata else {
             return Err(invalid("metadata", "count"));
         };
+        if !metadata.settings.is_valid() {
+            return Err(invalid("metadata", "settings"));
+        }
         let text = str::from_utf8(self.strings).unwrap_or_default();
         for (field, slice) in metadata.texts() {
             check_text("metadata", field, slice.as_option().into_iter(), text)?;
@@ -199,6 +203,14 @@ impl Consumer<'_> {
         let search = [self.search_stops.len(), self.search_to_stops.len()];
         if !absent(Parts::SEARCH, &search) {
             return Err(invalid("header", "search"));
+        }
+        let footpaths = [
+            self.footpaths.len(),
+            self.place_stops.len(),
+            self.places.len(),
+        ];
+        if !absent(Parts::FOOTPATHS, &footpaths) {
+            return Err(invalid("header", "footpaths"));
         }
         let ids = [
             self.stop_ids.len(),
@@ -592,6 +604,81 @@ impl Consumer<'_> {
 }
 
 impl Consumer<'_> {
+    fn validate_footpaths(&self) -> Result<()> {
+        // One place for each stop, or none when the file has no footpaths part.
+        let places = if self.parts.contains(Parts::FOOTPATHS) {
+            self.stops.len()
+        } else {
+            0
+        };
+        if self.places.len() != places {
+            return Err(Error::MismatchedSections {
+                table: "stops",
+                lookup: "places",
+            });
+        }
+        check_indices(
+            "footpaths",
+            "to_place_index",
+            self.footpaths
+                .iter()
+                .map(|footpath| footpath.to_place_index),
+            self.stops.len(),
+        )?;
+        if self
+            .footpaths
+            .iter()
+            .any(|footpath| !(footpath.meters.0 >= 0.0 && footpath.meters.0.is_finite()))
+        {
+            return Err(invalid("footpaths", "meters"));
+        }
+        check_indices(
+            "place_stops",
+            "entry",
+            self.place_stops.iter().copied(),
+            self.stops.len(),
+        )?;
+        check_slices(
+            "places",
+            "stops",
+            self.places.iter().map(|place| place.stops),
+            self.place_stops.len(),
+        )?;
+        check_slices(
+            "places",
+            "footpaths",
+            self.places.iter().map(|place| place.footpaths),
+            self.footpaths.len(),
+        )?;
+        // Each place's walks run from the nearest, the lower index first on a tie.
+        let unordered = self.places.iter().any(|place| {
+            self.footpaths[place.footpaths.range()]
+                .windows(2)
+                .any(|pair| {
+                    pair[0]
+                        .meters
+                        .0
+                        .total_cmp(&pair[1].meters.0)
+                        .then(pair[0].to_place_index.cmp(&pair[1].to_place_index))
+                        .is_gt()
+                })
+        });
+        if unordered {
+            return Err(Error::InvalidOrder { table: "footpaths" });
+        }
+        // Every stop listed under a place has that place at the top of its parent chain.
+        for (place_index, place) in self.places.iter().enumerate() {
+            let members = &self.place_stops[place.stops.range()];
+            if members
+                .iter()
+                .any(|&member| Place::root_of(self.stops, member).as_usize() != place_index)
+            {
+                return Err(invalid("places", "stops"));
+            }
+        }
+        Ok(())
+    }
+
     fn validate_grid(&self) -> Result<()> {
         let cells = self.stop_grid;
         let key = |cell: &StopCell| (cell.latitude_cell, cell.longitude_cell);
