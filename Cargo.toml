@@ -10,6 +10,24 @@ readme = "README.md"
 repository = "https://github.com/vincbro/gtfs-bin"
 keywords = ["gtfs", "transit", "mmap", "zero-copy", "raptor"]
 categories = ["data-structures", "parsing", "caching"]
+# Development tooling, the shared code standards and the agent notes stay out of the package.
+exclude = [
+  ".claude",
+  ".githooks",
+  ".github",
+  ".gitmodules",
+  "AGENTS.md",
+  "CONTRIBUTING.md",
+  "STANDARDS.local.md",
+  "TODO.md",
+  "clippy.toml",
+  "code-standards",
+  "deny.toml",
+  "justfile",
+  "rust-toolchain.toml",
+  "rustfmt.toml",
+  "taplo.toml",
+]
 
 [[bin]]
 name = "gtfs-bin"
