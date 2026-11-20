@@ -2,7 +2,7 @@
 
 A compiled file is a header followed by sections. Everything is little-endian on the machine that wrote it: the file is meant to be mapped, so a file moves between machines of the same byte order only.
 
-Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 12. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
+Version: `FLATNET_VERSION` in `crates/flatnet-core/src/lib.rs`, currently 13. It changes whenever a table or a header field does, and `Consumer::new` refuses any other version.
 
 ## Header
 

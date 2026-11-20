@@ -4,10 +4,7 @@
 use std::{io::Write, path::PathBuf};
 
 use flatnet_compiler::Compiler;
-use flatnet_core::{
-    consumer::Consumer,
-    models::{BitMask, Date, Weekday},
-};
+use flatnet_core::{consumer::Consumer, models::Date};
 use memmap2::Mmap;
 use tempfile::NamedTempFile;
 
@@ -414,13 +411,8 @@ fn services_and_calendar() {
     assert_eq!(service1.start_date.to_string(), "2017-01-01");
     assert_eq!(service1.end_date.to_string(), "2017-01-15");
 
-    assert!(service1.weekday.contains(Weekday::SATURDAY));
-    assert!(service1.weekday.contains(Weekday::SUNDAY));
-    assert!(!service1.weekday.contains(Weekday::MONDAY));
-
     assert_eq!(service2.start_date.to_string(), "2017-01-01");
     assert_eq!(service2.end_date.to_string(), "2017-01-07");
-    assert!(!service2.weekday.contains(Weekday::SUNDAY));
 
     assert!(
         !consumer.is_service_active(service1.index, Date(service1.start_date.0)),

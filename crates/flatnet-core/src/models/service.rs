@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 
-use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIndex, Weekday};
+use crate::models::{Date, ServiceBinarySlice, ServiceIdSlice, ServiceIndex};
 
 /// A single GTFS service.
 ///
@@ -21,10 +21,6 @@ pub struct Service {
 
     /// End service day for the service interval. This service day is included in the interval.
     pub end_date: Date,
-
-    pub weekday: Weekday,
-    /// Always zero. Makes the layout free of implicit padding, which `Pod` requires.
-    pub padding: [u8; 3],
 }
 
 impl Service {
@@ -35,7 +31,6 @@ impl Service {
         active_mask: ServiceBinarySlice,
         start_date: Date,
         end_date: Date,
-        weekday: Weekday,
     ) -> Self {
         Self {
             id,
@@ -43,8 +38,6 @@ impl Service {
             index,
             start_date,
             end_date,
-            weekday,
-            padding: [0_u8; 3],
         }
     }
 }

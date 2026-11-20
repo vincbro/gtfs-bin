@@ -258,7 +258,6 @@ fn service(ui: &mut Ui, consumer: &Consumer<'_>, index: ServiceIndex) {
             field(ui, "id", consumer.service_id(service.id));
             field(ui, "first day", service.start_date);
             field(ui, "last day", service.end_date);
-            field(ui, "weekdays", format!("{:?}", service.weekday));
         });
 }
 

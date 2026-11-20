@@ -33,6 +33,8 @@ pub(super) fn build_services(records: &[ServiceRecord]) -> Result<BuiltServices>
     // The dates the weekly pattern applies to, before exceptions stretch a service's range. A
     // service with no week never runs on a weekly pattern, so its base range is empty.
     let mut base_bounds: Vec<(Date, Date)> = Vec::with_capacity(records.len());
+    // The weekly pattern only builds the mask, so the file doesn't keep it.
+    let mut weekdays_of: Vec<Weekday> = Vec::with_capacity(records.len());
     let mut services: Vec<Service> = Vec::with_capacity(records.len());
 
     for (position, record) in records.iter().enumerate() {
@@ -60,17 +62,17 @@ pub(super) fn build_services(records: &[ServiceRecord]) -> Result<BuiltServices>
             });
         }
         base_bounds.push(bounds);
+        weekdays_of.push(weekday);
         services.push(Service::new(
             ServiceIdSlice::NONE,
             ServiceIndex::from(position),
             ServiceBinarySlice::NONE,
             start,
             end,
-            weekday,
         ));
     }
 
-    let active_mask = build_active_mask(&mut services, &base_bounds, records)?;
+    let active_mask = build_active_mask(&mut services, &base_bounds, &weekdays_of, records)?;
     Ok(BuiltServices {
         services,
         active_mask,
@@ -87,12 +89,16 @@ fn weekdays(days: [bool; 7]) -> Weekday {
 fn build_active_mask(
     services: &mut [Service],
     base_bounds: &[(Date, Date)],
+    weekdays_of: &[Weekday],
     records: &[ServiceRecord],
 ) -> Result<BitVec<u8, Msb0>> {
     let mut active_mask = BitVec::<u8, Msb0>::new();
 
-    for ((service, &(base_start, base_end)), record) in
-        services.iter_mut().zip(base_bounds).zip(records)
+    for (((service, &(base_start, base_end)), &weekday), record) in services
+        .iter_mut()
+        .zip(base_bounds)
+        .zip(weekdays_of)
+        .zip(records)
     {
         let days = service.end_date.0 - service.start_date.0 + 1;
         if days > MAX_SERVICE_DAYS {
@@ -110,8 +116,7 @@ fn build_active_mask(
         for day in service.start_date.0..=service.end_date.0 {
             let date = Date(day);
             let in_base_range = date >= base_start && date <= base_end;
-            let runs_today =
-                in_base_range && service.weekday.contains(Weekday::from(date.day_of_week()));
+            let runs_today = in_base_range && weekday.contains(Weekday::from(date.day_of_week()));
             active_mask.set(start + (day - service.start_date.0) as usize, runs_today);
         }
 
