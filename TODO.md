@@ -102,13 +102,13 @@ The direction, decided 2026-11-20: flatnet becomes its own transit network forma
 - [x] Tested on real SL feeds: 456 of 457 trip updates, 546 of 558 vehicles, 184 of 187 alerts matched, each in about a millisecond
 - [x] Property tests with arbitrary feeds and extreme timestamps
 - [x] `Realtime` and `Consumer` are `Send + Sync` (tested)
-- [ ] Added trips are stored but a router can't use them. They have no index in the static tables
+- [x] `Realtime::added_trips_at_stop(stop)` lists the added trips that call at a stop (a scan, because a feed adds a few at most), so a router can use them. They still have no index in the static tables, so a router has to ask for them beside the static trips
 - [ ] Trip modifications, shapes and stops sent in a feed. The spec marks them experimental, and SL sends none (`unsupported` in the report)
 - [ ] Replaced and duplicated trips (`unsupported`)
 - [ ] Frequency based trips (`unscheduled`), which need `frequencies.txt` first
-- [ ] Vehicle descriptor (id, label, license plate) from trip updates and vehicle positions. Needs strings, so not `Copy` like `Vehicle`
-- [ ] Occupancy per stop time and carriage details
-- [ ] A helper that swaps a `Realtime` behind an `Arc` for a router that reads while a feed is applied (the pattern is documented)
+- [x] Vehicle descriptor from vehicle positions: `Vehicle::description` (id, label, license plate, boxed), so `Vehicle` is no longer `Copy`. Still open: the vehicle a trip update names
+- [x] Occupancy per stop time: `Realtime::stop_time_occupancy`, from a stop time update's departure occupancy. Still open: carriage details
+- [x] `rt::SharedRealtime`: `current()` gives an `Arc<Realtime>` that doesn't change under the reader, and `update` applies to a copy and swaps it in whole, one update at a time. `Realtime` is `Clone` for it
 - [ ] Fetching feeds. This crate decodes and applies, and leaves the HTTP and the API key to the caller
 
 ## Tests and tooling

@@ -13,6 +13,7 @@ mod error;
 #[cfg(feature = "gtfs-rt")]
 mod gtfs;
 mod report;
+mod shared;
 mod update;
 mod vehicle;
 
@@ -23,11 +24,12 @@ pub use error::{Error, Result};
 #[cfg(feature = "gtfs-rt")]
 pub use gtfs::{decode_feed, to_feed};
 pub use report::ApplyReport;
+pub use shared::SharedRealtime;
 pub use update::{
     AlertUpdate, CallUpdate, Event, Feed, Kinds, Position, Removal, Selector, Text, Translation,
     TripRef, TripUpdate, Update, VehicleUpdate,
 };
-pub use vehicle::{Occupancy, Vehicle, VehicleStopStatus};
+pub use vehicle::{Occupancy, Vehicle, VehicleDescription, VehicleStopStatus};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TripStatus {
@@ -64,12 +66,13 @@ pub enum StopTimeStatus {
 ///
 /// A `Realtime` describes one service day when it is made with `for_service_date`, and an update
 /// for another day is ignored. Keep one per day to follow trips that run past midnight.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Realtime {
     service_date: Option<Date>,
     stop_time_departure_delays: Box<[Optional<Delay>]>,
     stop_time_arrival_delays: Box<[Optional<Delay>]>,
     stop_time_status: Box<[StopTimeStatus]>,
+    stop_time_occupancy: Box<[Option<Occupancy>]>,
     trip_status: Box<[TripStatus]>,
     trip_delay: Box<[Optional<Delay>]>,
     trip_vehicles: Box<[Option<Vehicle>]>,
@@ -93,6 +96,7 @@ impl Realtime {
             stop_time_arrival_delays: vec![Optional::new(Delay::NONE); stop_time_count]
                 .into_boxed_slice(),
             stop_time_status: vec![StopTimeStatus::Unchanged; stop_time_count].into_boxed_slice(),
+            stop_time_occupancy: vec![None; stop_time_count].into_boxed_slice(),
             trip_status: vec![TripStatus::Unchanged; trip_count].into_boxed_slice(),
             trip_vehicles: vec![None; trip_count].into_boxed_slice(),
             trip_delay: vec![Optional::new(Delay::NONE); trip_count].into_boxed_slice(),
@@ -131,6 +135,12 @@ impl Realtime {
         &self.stop_time_status
     }
 
+    /// How full the vehicle is when it leaves each stop time, where the feed says.
+    #[must_use]
+    pub fn stop_time_occupancy(&self) -> &[Option<Occupancy>] {
+        &self.stop_time_occupancy
+    }
+
     #[must_use]
     pub fn trip_status(&self) -> &[TripStatus] {
         &self.trip_status
@@ -154,6 +164,15 @@ impl Realtime {
     #[must_use]
     pub fn alerts(&self) -> &[Alert] {
         &self.alerts
+    }
+
+    /// Returns the added trips that call at a stop.
+    ///
+    /// It looks at every added trip, which is cheap because a feed adds a few at most.
+    pub fn added_trips_at_stop(&self, stop: StopIndex) -> impl Iterator<Item = &AddedTrip> {
+        self.added_trips
+            .iter()
+            .filter(move |trip| trip.stop_times.iter().any(|call| call.stop == stop))
     }
 
     /// Returns the alerts that apply at a POSIX time.
@@ -276,6 +295,7 @@ impl Realtime {
         self.stop_time_arrival_delays
             .fill(Optional::new(Delay::NONE));
         self.stop_time_status.fill(StopTimeStatus::Unchanged);
+        self.stop_time_occupancy.fill(None);
         self.trip_status.fill(TripStatus::Unchanged);
         self.trip_delay.fill(Optional::new(Delay::NONE));
         self.trip_timestamps.fill(0);
@@ -304,7 +324,8 @@ impl Realtime {
         assert!(
             self.stop_time_departure_delays.len() == stop_times
                 && self.stop_time_arrival_delays.len() == stop_times
-                && self.stop_time_status.len() == stop_times,
+                && self.stop_time_status.len() == stop_times
+                && self.stop_time_occupancy.len() == stop_times,
             "every stop time has one slot of each kind"
         );
         assert!(
@@ -336,7 +357,8 @@ impl Realtime {
         let stop_times = range.start as usize..(range.start + range.count) as usize;
         self.stop_time_departure_delays[stop_times.clone()].fill(Optional::new(Delay::NONE));
         self.stop_time_arrival_delays[stop_times.clone()].fill(Optional::new(Delay::NONE));
-        self.stop_time_status[stop_times].fill(StopTimeStatus::Unchanged);
+        self.stop_time_status[stop_times.clone()].fill(StopTimeStatus::Unchanged);
+        self.stop_time_occupancy[stop_times].fill(None);
         self.trip_status[trip.as_usize()] = TripStatus::Unchanged;
         self.trip_delay[trip.as_usize()] = Optional::new(Delay::NONE);
     }

@@ -14,7 +14,7 @@ use gtfs_rt::{
     translated_string::Translation,
     trip_descriptor::ScheduleRelationship as TripRelationship,
     trip_update::{StopTimeEvent, StopTimeUpdate, stop_time_update::ScheduleRelationship},
-    vehicle_position::VehicleStopStatus,
+    vehicle_position::{OccupancyStatus, VehicleStopStatus},
 };
 
 const SATURDAY: &str = "20170107";
@@ -690,6 +690,12 @@ fn vehicles_are_stored_with_their_stop_and_motion() {
                 }),
                 stop_id: Some("stop7".to_owned()),
                 current_status: Some(VehicleStopStatus::StoppedAt as i32),
+                vehicle: Some(gtfs_rt::VehicleDescriptor {
+                    id: Some("v1".to_owned()),
+                    label: Some("Bus 12".to_owned()),
+                    license_plate: None,
+                    ..Default::default()
+                }),
                 timestamp: Some(500),
                 ..Default::default()
             }),
@@ -700,6 +706,7 @@ fn vehicles_are_stored_with_their_stop_and_motion() {
             RealtimeBuilder::new(consumer).build_with_report([message(vec![vehicle])].into_iter());
 
         let stored = realtime.trip_vehicles()[trip_index(consumer, "trip3").as_usize()]
+            .as_ref()
             .expect("the vehicle was stored");
         assert_eq!(report.vehicles, 1, "one vehicle applied");
         assert_eq!(
@@ -721,6 +728,17 @@ fn vehicles_are_stored_with_their_stop_and_motion() {
             stored.current_status,
             rt::VehicleStopStatus::StoppedAt,
             "status is kept"
+        );
+        let description = stored.description.as_ref().expect("the vehicle is named");
+        assert_eq!(description.id.as_deref(), Some("v1"), "the id is kept");
+        assert_eq!(
+            description.label.as_deref(),
+            Some("Bus 12"),
+            "the label is kept"
+        );
+        assert_eq!(
+            description.license_plate, None,
+            "a missing plate stays missing"
         );
     });
 }
@@ -1058,6 +1076,83 @@ fn alerts_can_be_asked_for_by_stop_route_and_trip() {
                 .count(),
             0,
             "nor a trip"
+        );
+    });
+}
+
+#[test]
+fn departure_occupancy_is_kept_per_stop_time_and_reset_with_the_trip() {
+    with_consumer(|consumer| {
+        let crowded = StopTimeUpdate {
+            departure_occupancy_status: Some(OccupancyStatus::Full as i32),
+            ..stop_update(0, 60)
+        };
+        let builder = RealtimeBuilder::new(consumer);
+
+        let mut realtime = builder.build(
+            [message(vec![trip_update(
+                descriptor("trip1"),
+                vec![crowded],
+            )])]
+            .into_iter(),
+        );
+
+        let slot = first_slot(consumer, "trip1");
+        assert_eq!(
+            realtime.stop_time_occupancy()[slot],
+            Some(rt::Occupancy::Full),
+            "the first stop time leaves full"
+        );
+        assert_eq!(
+            realtime.stop_time_occupancy()[slot + 1],
+            None,
+            "a stop time with no say has none"
+        );
+
+        builder.apply(
+            [message(vec![trip_update(
+                descriptor("trip1"),
+                vec![stop_update(0, 60)],
+            )])]
+            .into_iter(),
+            &mut realtime,
+        );
+        assert_eq!(
+            realtime.stop_time_occupancy()[slot],
+            None,
+            "a later update replaces what the trip had"
+        );
+    });
+}
+
+#[test]
+fn a_shared_realtime_swaps_whole_states() {
+    with_consumer(|consumer| {
+        let builder = RealtimeBuilder::new(consumer);
+        let shared = rt::SharedRealtime::new(Realtime::new(consumer));
+        let before = shared.current();
+
+        let report = shared.update(|realtime| {
+            builder.apply(
+                [message(vec![trip_update(
+                    descriptor("trip1"),
+                    vec![stop_update(0, 60)],
+                )])]
+                .into_iter(),
+                realtime,
+            )
+        });
+
+        assert_eq!(report.trip_updates, 1, "the update ran on the copy");
+        let slot = first_slot(consumer, "trip1");
+        assert!(
+            before.stop_time_arrival_delays()[slot].is_none(),
+            "a reader holding the old state doesn't see the update"
+        );
+        assert_eq!(
+            shared.current().stop_time_arrival_delays()[slot].as_option(),
+            Some(Delay(60)),
+            "a new reader does"
         );
     });
 }

@@ -19,7 +19,7 @@ use crate::{
         ActivePeriod, AlertUpdate, ApplyReport, CallUpdate, Cause, Effect, Event, Feed, Kinds,
         Occupancy, Position, Realtime, RealtimeBuilder, Removal, Result, Selector, Severity,
         StopTimeStatus, Text, Translation, TripRef, TripStatus, TripUpdate, Update,
-        VehicleStopStatus, VehicleUpdate,
+        VehicleDescription, VehicleStopStatus, VehicleUpdate,
     },
 };
 
@@ -138,6 +138,14 @@ fn entity_updates(entity: &FeedEntity, updates: &mut Vec<Update>) {
             current_stop_sequence: vehicle.current_stop_sequence,
             stop_id: vehicle.stop_id.clone(),
             timestamp: vehicle.timestamp,
+            description: vehicle
+                .vehicle
+                .as_ref()
+                .map(|descriptor| VehicleDescription {
+                    id: descriptor.id.as_deref().map(Box::from),
+                    label: descriptor.label.as_deref().map(Box::from),
+                    license_plate: descriptor.license_plate.as_deref().map(Box::from),
+                }),
         }));
     }
     if let Some(alert) = &entity.alert {
@@ -199,6 +207,10 @@ fn call(update: &StopTimeUpdate) -> CallUpdate {
             StopRelationship::NoData => StopTimeStatus::NoData,
             StopRelationship::Unscheduled => StopTimeStatus::Unscheduled,
         },
+        occupancy: update
+            .departure_occupancy_status
+            .and_then(OccupancyStatus::from_i32)
+            .map(occupancy),
     }
 }
 

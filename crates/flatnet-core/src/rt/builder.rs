@@ -326,6 +326,7 @@ impl<'a> RealtimeBuilder<'a> {
     ) {
         let status = update.status;
         realtime.stop_time_status[slot] = status;
+        realtime.stop_time_occupancy[slot] = update.occupancy;
         if matches!(status, StopTimeStatus::Skipped | StopTimeStatus::NoData) {
             return;
         }
@@ -574,6 +575,7 @@ impl<'a> RealtimeBuilder<'a> {
             bearing: position.bearing,
             speed: position.speed,
             timestamp: vehicle.timestamp,
+            description: vehicle.description.clone().map(Box::new),
         });
         report.vehicles += 1;
         report

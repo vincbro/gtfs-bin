@@ -44,6 +44,7 @@ fn a_hand_built_feed_delays_a_stop_time() {
                     arrival: Some(late),
                     departure: Some(late),
                     status: StopTimeStatus::Scheduled,
+                    occupancy: None,
                 }],
             })],
             ..Feed::default()
@@ -94,6 +95,45 @@ fn a_full_dataset_forgets_the_updates_it_leaves_out() {
         assert!(
             !realtime.is_trip_canceled(index),
             "a full dataset with no trip updates clears them"
+        );
+    });
+}
+
+#[test]
+fn an_added_trip_is_found_by_the_stops_it_calls_at() {
+    with_consumer(|consumer| {
+        let stop = consumer.stop_by_id("stop9").expect("the stop exists").index;
+        let other = consumer.stop_by_id("stop1").expect("the stop exists").index;
+        let feed = Feed {
+            updates: vec![Update::Trip(TripUpdate {
+                trip: trip_ref("extra"),
+                status: TripStatus::Added,
+                unsupported: false,
+                delay: None,
+                timestamp: None,
+                calls: vec![CallUpdate {
+                    sequence: None,
+                    stop_id: Some("stop9".to_owned()),
+                    arrival: None,
+                    departure: None,
+                    status: StopTimeStatus::Scheduled,
+                    occupancy: None,
+                }],
+            })],
+            ..Feed::default()
+        };
+
+        let realtime = RealtimeBuilder::new(consumer).build_feeds([feed]);
+
+        assert_eq!(
+            realtime.added_trips_at_stop(stop).count(),
+            1,
+            "the added trip calls at stop9"
+        );
+        assert_eq!(
+            realtime.added_trips_at_stop(other).count(),
+            0,
+            "and not at another stop"
         );
     });
 }

@@ -8,7 +8,7 @@ use crate::{
     models::{Date, Time},
     rt::{
         ActivePeriod, Cause, Effect, Occupancy, Severity, StopTimeStatus, TripStatus,
-        VehicleStopStatus,
+        VehicleDescription, VehicleStopStatus,
     },
 };
 
@@ -72,6 +72,8 @@ pub struct CallUpdate {
     pub departure: Option<Event>,
     /// What the source says happens at the stop. `Unchanged` says nothing, so the call is ignored.
     pub status: StopTimeStatus,
+    /// How full the vehicle is when it leaves the stop.
+    pub occupancy: Option<Occupancy>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -106,6 +108,7 @@ pub struct VehicleUpdate {
     pub current_stop_sequence: Option<u32>,
     pub stop_id: Option<String>,
     pub timestamp: Option<u64>,
+    pub description: Option<VehicleDescription>,
 }
 
 /// One thing an alert is about, by the source's ids.

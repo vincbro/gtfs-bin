@@ -160,7 +160,7 @@ for (position, timing) in consumer.timings_by_trip(trip.index).iter().enumerate(
 }
 ```
 
-`rt::decode_feed` decodes the bytes a publisher serves, so you don't need a protobuf crate of your own. A `Realtime` is plain data and is `Send + Sync`: to read it from many threads while a feed is applied, apply to a second copy and swap an `Arc`.
+`rt::decode_feed` decodes the bytes a publisher serves, so you don't need a protobuf crate of your own. A `Realtime` is plain data and is `Send + Sync`: to read it from many threads while a feed is applied, put it in a `rt::SharedRealtime`: readers take `current()`, and `update` applies a feed to a copy and swaps it in.
 
 What is supported:
 

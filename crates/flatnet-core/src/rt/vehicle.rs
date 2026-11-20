@@ -22,7 +22,15 @@ pub enum Occupancy {
     NotBoardable,
 }
 
-#[derive(Default, Debug, Clone, Copy)]
+/// What a source calls a vehicle, for a person to tell it apart.
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct VehicleDescription {
+    pub id: Option<Box<str>>,
+    pub label: Option<Box<str>>,
+    pub license_plate: Option<Box<str>>,
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct Vehicle {
     pub position: Coordinate,
     pub current_status: VehicleStopStatus,
@@ -37,4 +45,6 @@ pub struct Vehicle {
     pub speed: Option<f32>,
     /// When the position was measured, as a POSIX time.
     pub timestamp: Option<u64>,
+    /// Boxed, because most feeds name no vehicle and the position is read far more than this.
+    pub description: Option<Box<VehicleDescription>>,
 }
