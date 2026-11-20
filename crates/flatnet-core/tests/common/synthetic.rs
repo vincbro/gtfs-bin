@@ -1,6 +1,9 @@
 //! A feed generator for tests and benchmarks, so the code can be tried on a network far bigger
 //! than the fixture without committing megabytes of text.
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    reason = "each test binary that shares these helpers uses only some of them"
+)]
 
 use std::{fmt::Write as _, fs, path::Path};
 

@@ -83,8 +83,11 @@ fn fill_between(run: &mut [Call], first: usize, last: usize) {
             }
             _ => share(offset + 1, last - first),
         };
-        // The result is between the two times, so it fits in u32.
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "the result is between the two times, so it fits in u32"
+        )]
         let time = Optional::new(Time(start.0 + (span * fraction).round() as u32));
         stop_time.arrival = time;
         stop_time.departure = time;

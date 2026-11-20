@@ -1,34 +1,14 @@
-#![allow(clippy::all)]
-#![allow(clippy::pedantic, clippy::restriction, clippy::nursery)]
+mod common;
 
-use std::{io::Write, path::PathBuf};
-
-use flatnet_compiler::Compiler;
 use flatnet_core::{consumer::Consumer, models::Date};
 use memmap2::Mmap;
 use tempfile::NamedTempFile;
 
-// Helper to compile the GTFS and map it into memory.
-// Returns the NamedTempFile alongside the Mmap so the file isn't deleted
-// until the test finishes.
-#[must_use]
-#[allow(
-    unsafe_code,
-    reason = "mapping a file is unsafe in memmap2, and this file is not modified"
-)]
-pub fn compile_test() -> (NamedTempFile, Mmap) {
-    let mut input_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    input_path.push("tests/fixtures/gtfs");
-
-    let compiled_bytes = Compiler::new()
-        .compile_gtfs(&input_path)
-        .expect("Failed to compile GTFS");
-
-    let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
-    temp_file.write_all(&compiled_bytes).unwrap();
-
-    let mmap = unsafe { Mmap::map(temp_file.as_file()).unwrap() };
-    (temp_file, mmap)
+/// Compiles the fixture and maps it. The file is returned beside the map so it lives as long as
+/// the test does.
+fn compile_test() -> (NamedTempFile, Mmap) {
+    let bytes = common::compile_fixture();
+    common::map(&bytes).expect("the fixture maps")
 }
 
 #[test]
@@ -70,8 +50,14 @@ fn stops_lookup_and_hierarchy() {
         .coordinate
         .as_option()
         .expect("Expected coordinate on stop1");
-    assert_eq!(coord.latitude_f64(), 48.796_058);
-    assert_eq!(coord.longitude_f64(), 2.449_386);
+    assert!(
+        (coord.latitude_f64() - 48.796_058).abs() < 1e-9,
+        "the latitude is kept to seven decimals"
+    );
+    assert!(
+        (coord.longitude_f64() - 2.449_386).abs() < 1e-9,
+        "the longitude is kept to seven decimals"
+    );
 }
 
 #[test]
@@ -109,9 +95,9 @@ fn stop_times_and_trip_iterations() {
     let stop3 = consumer.stop_by_id("stop3").unwrap();
 
     let pattern = consumer.trip_pattern_by_trip(trip1.index);
-    let stops = consumer.stop_sequence_by_trip_pattern(pattern.index);
-    assert_eq!(stops[0], stop2.index);
-    assert_eq!(stops[1], stop3.index);
+    let visited = consumer.stop_sequence_by_trip_pattern(pattern.index);
+    assert_eq!(visited[0], stop2.index);
+    assert_eq!(visited[1], stop3.index);
 
     let stop2_trips: Vec<_> = consumer.iter_trips_by_stop(stop2.index).collect();
     assert_eq!(stop2_trips.len(), 2);
@@ -240,14 +226,14 @@ fn all_routes_iteration() {
     let route_ids: Vec<String> = consumer
         .routes()
         .iter()
-        .map(|r| consumer.route_id(r.id).to_string())
+        .map(|route| consumer.route_id(route.id).to_owned())
         .collect();
 
     assert_eq!(route_ids.len(), 4);
-    assert!(route_ids.contains(&"route1".to_string()));
-    assert!(route_ids.contains(&"route2".to_string()));
-    assert!(route_ids.contains(&"route3".to_string()));
-    assert!(route_ids.contains(&"route4".to_string()));
+    assert!(route_ids.contains(&"route1".to_owned()));
+    assert!(route_ids.contains(&"route2".to_owned()));
+    assert!(route_ids.contains(&"route3".to_owned()));
+    assert!(route_ids.contains(&"route4".to_owned()));
 }
 
 #[test]
@@ -258,12 +244,12 @@ fn all_trips_iteration() {
     let trip_ids: Vec<String> = consumer
         .trips()
         .iter()
-        .map(|t| consumer.trip_id(t.id).to_string())
+        .map(|trip| consumer.trip_id(trip.id).to_owned())
         .collect();
 
     assert_eq!(trip_ids.len(), 7);
     for i in 1..=7 {
-        assert!(trip_ids.contains(&format!("trip{}", i)));
+        assert!(trip_ids.contains(&format!("trip{i}")));
     }
 }
 
@@ -460,7 +446,7 @@ fn trip_patterns() {
 
     let trips_in_pattern: Vec<_> = consumer
         .iter_trips_in_trip_pattern(pattern_idx_3)
-        .map(|t| consumer.trip_id(t.id))
+        .map(|trip| consumer.trip_id(trip.id))
         .collect();
 
     assert_eq!(trips_in_pattern.len(), 2);
@@ -469,7 +455,7 @@ fn trip_patterns() {
 
     let stops_in_pattern: Vec<_> = consumer
         .iter_stop_sequence_by_trip_pattern(pattern_idx_3)
-        .map(|s| consumer.stop_id(s.id))
+        .map(|stop| consumer.stop_id(stop.id))
         .collect();
 
     assert_eq!(stops_in_pattern.len(), 3);
@@ -482,7 +468,7 @@ fn trip_patterns() {
 
     let trips_in_pattern_1: Vec<_> = consumer
         .iter_trips_in_trip_pattern(pattern_idx_1)
-        .map(|t| consumer.trip_id(t.id))
+        .map(|trip| consumer.trip_id(trip.id))
         .collect();
 
     assert_eq!(trips_in_pattern_1.len(), 1);
@@ -490,5 +476,5 @@ fn trip_patterns() {
 
     let stop6 = consumer.stop_by_id("stop6").expect("stop6 not found");
     let patterns: Vec<_> = consumer.iter_trip_patterns_by_stop(stop6.index).collect();
-    assert_eq!(2, patterns.len())
+    assert_eq!(2, patterns.len());
 }

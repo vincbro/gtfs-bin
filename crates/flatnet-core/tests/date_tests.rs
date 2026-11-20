@@ -1,6 +1,3 @@
-#![allow(clippy::all)]
-#![allow(clippy::pedantic, clippy::restriction)]
-
 use flatnet_core::models::{BitMask, Date, Weekday};
 
 #[test]
