@@ -4,7 +4,7 @@ What is done, what is open, and what is deliberately left out. Update it when th
 
 Status: `[x]` done and tested, `[ ]` open, `[-]` decided against, with the reason.
 
-Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M stop times): compile 3.0 s and 480 MB peak, output 159 MB, open and validate 39 ms, checksum 34 ms, 456 of 457 realtime trip updates matched. Benchmarks on a generated network of 1M stop times are in `benches/network.rs`.
+Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M stop times): compile 3.0 s and 480 MB peak, output 159 MB, open and validate 39 ms, checksum 34 ms, 456 of 457 realtime trip updates matched. Benchmarks on a generated network of 1M stop times are in `benches/transit.rs`.
 
 ## Parser (own GTFS reader)
 
@@ -85,7 +85,7 @@ Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M sto
 - [x] 147 tests: unit, integration, parser, features, realtime, scale, and four property test files
 - [x] Larger generated feed (`tests/common/synthetic.rs`, up to 1M stop times)
 - [x] Real data test, run with `GTFS_BIN_REAL_FEED`
-- [x] Benchmarks (`cargo bench --bench network`)
+- [x] Benchmarks (`cargo bench --bench transit`)
 - [x] `examples/inspect.rs` and `examples/apply_feed.rs`
 - [x] CI on the `just` recipes: format, clippy, docs, tests, features, dependencies, and a long property run on `main` (`.github/workflows/ci.yml`, not run yet: it needs pushing)
 - [x] The same lint policy as `wend` (clippy `all`, `pedantic`, `cargo` and chosen `restriction` lints, rustc and rustdoc lints), `clippy.toml`, `rust-version`, a `dist` profile, `CONTRIBUTING.md`

@@ -81,7 +81,7 @@ features:
 # Time compiling, opening and querying a generated network of a million stop times.
 # Extra args go to criterion: just bench [args]
 bench *args:
-    cargo bench --bench network -- {{ args }}
+    cargo bench --bench transit -- {{ args }}
 
 # Fail on unused dependencies, or on any cargo-deny check in deny.toml:
 # advisories, licenses, sources
