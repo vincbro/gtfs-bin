@@ -1,4 +1,7 @@
-use crate::{consumer::Consumer, models::SearchIndex};
+use crate::{
+    consumer::Consumer,
+    models::{Optional, Route, RouteIndex, SearchIndex, StopIndex},
+};
 
 /// Lowercases text and strips accents, so `Örebro` and `orebro` compare equal.
 ///
@@ -36,6 +39,70 @@ pub(super) fn fold(text: &str) -> String {
 }
 
 impl Consumer<'_> {
+    /// Replaces the contents of `found` with the stops whose code matches `query`, best first.
+    ///
+    /// Case is ignored. A code that equals the query comes first, then codes that start with it,
+    /// each in stop order. An empty query finds nothing, and neither does a file without the text
+    /// part, which holds no codes.
+    ///
+    /// It reads every stop, which is fine for a search box and not for a loop.
+    pub fn search_by_code(&self, query: &str, found: &mut Vec<StopIndex>) {
+        found.clear();
+        let query = fold(query.trim());
+        if query.is_empty() {
+            return;
+        }
+
+        let mut ranked: Vec<(u8, StopIndex)> = Vec::new();
+        for (position, info) in self.stop_infos.iter().enumerate() {
+            let Some(code) = info.code.as_option() else {
+                continue;
+            };
+            let code = fold(self.string(code));
+            let rank = if code == query {
+                0
+            } else if code.starts_with(&query) {
+                1
+            } else {
+                continue;
+            };
+            ranked.push((rank, StopIndex::from(position)));
+        }
+        ranked.sort_unstable();
+        found.extend(ranked.into_iter().map(|(_, index)| index));
+    }
+
+    /// Replaces the contents of `found` with the routes whose short or long name matches `query`,
+    /// best first, ranked like `search_by_name`.
+    ///
+    /// A route is ranked by the better of its two names. An empty query finds nothing.
+    ///
+    /// It reads every route, which is fine for a search box and not for a loop.
+    pub fn search_by_route_name(&self, query: &str, found: &mut Vec<RouteIndex>) {
+        found.clear();
+        let query = fold(query.trim());
+        if query.is_empty() {
+            return;
+        }
+
+        let mut ranked: Vec<(u8, RouteIndex)> = Vec::new();
+        for route in self.routes {
+            if let Some(rank) = self.route_name_rank(route, &query) {
+                ranked.push((rank, route.index));
+            }
+        }
+        ranked.sort_unstable();
+        found.extend(ranked.into_iter().map(|(_, index)| index));
+    }
+
+    fn route_name_rank(&self, route: &Route, query: &str) -> Option<u8> {
+        [route.short_name, route.long_name]
+            .into_iter()
+            .filter_map(Optional::as_option)
+            .filter_map(|name| name_rank(&fold(self.string(name)), query))
+            .min()
+    }
+
     /// Replaces the contents of `found` with the named places that match `query`, best first.
     ///
     /// Case and accents are ignored. A name that equals the query comes first, then names that
@@ -53,21 +120,28 @@ impl Consumer<'_> {
         let mut ranked: Vec<(u8, SearchIndex)> = Vec::new();
         for search in self.search_stops {
             let name = fold(self.string(search.name));
-            let rank = if name == query {
-                0
-            } else if name.starts_with(&query) {
-                1
-            } else if name.split(' ').any(|word| word.starts_with(&query)) {
-                2
-            } else if name.contains(&query) {
-                3
-            } else {
-                continue;
-            };
-            ranked.push((rank, search.index));
+            if let Some(rank) = name_rank(&name, &query) {
+                ranked.push((rank, search.index));
+            }
         }
         ranked.sort_unstable();
         found.extend(ranked.into_iter().map(|(_, index)| index));
+    }
+}
+
+/// Ranks how well a folded name matches a folded query: 0 for equal, 1 for a name that starts with
+/// it, 2 for a word that does, 3 for a name that contains it. `None` is no match.
+fn name_rank(name: &str, query: &str) -> Option<u8> {
+    if name == query {
+        Some(0)
+    } else if name.starts_with(query) {
+        Some(1)
+    } else if name.split(' ').any(|word| word.starts_with(query)) {
+        Some(2)
+    } else if name.contains(query) {
+        Some(3)
+    } else {
+        None
     }
 }
 

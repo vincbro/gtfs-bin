@@ -11,7 +11,9 @@ use flatnet_compiler::{
 };
 use flatnet_core::{
     consumer::{self, Consumer},
-    models::{BoardingRule, Coordinate, Date, Direction, SearchIndex, Sentinel, StopIndex},
+    models::{
+        BoardingRule, Coordinate, Date, Direction, RouteIndex, SearchIndex, Sentinel, StopIndex,
+    },
     rt::Realtime,
 };
 use proptest::prelude::*;
@@ -540,5 +542,72 @@ fn names_are_found_ignoring_case_and_accents() {
             found.is_empty(),
             "an empty query finds nothing, and clears the old result"
         );
+    });
+}
+
+#[test]
+fn stops_are_found_by_code_exact_first() {
+    let stops = "stop_id,stop_name,stop_code,stop_lat,stop_lon\nA,Alpha,12,59.3,18.0\nB,Beta,123,59.4,18.1\nC,Gamma,x12,59.5,18.2\nD,Delta,,59.6,18.3\n";
+    let trips = "route_id,service_id,trip_id\nR,S,T\n";
+    let mut files = feed(trips, "trip_id,stop_id,stop_sequence\nT,A,1\n");
+    files[0] = ("stops.txt", stops);
+    let (bytes, _) = compile_with(&files).expect("a valid feed");
+
+    with_consumer(&bytes, |consumer| {
+        let mut found = Vec::new();
+        let ids = |found: &[StopIndex]| -> Vec<String> {
+            found
+                .iter()
+                .map(|&stop| consumer.stop_id(consumer.stop(stop).id).to_owned())
+                .collect()
+        };
+
+        consumer.search_by_code("12", &mut found);
+        assert_eq!(
+            ids(&found),
+            ["A", "B"],
+            "the exact code first, then the one that starts with it, and not x12"
+        );
+
+        consumer.search_by_code("X12", &mut found);
+        assert_eq!(ids(&found), ["C"], "case is ignored");
+
+        consumer.search_by_code(" ", &mut found);
+        assert!(
+            found.is_empty(),
+            "an empty query finds nothing, and clears the old result"
+        );
+    });
+}
+
+#[test]
+fn routes_are_found_by_short_or_long_name() {
+    let routes = "route_id,route_short_name,route_long_name,route_type\nR1,4,Blue Line,1\nR2,40,Östra Express,3\nR3,,Line 4 Night,3\n";
+    let trips = "route_id,service_id,trip_id\nR1,S,T\n";
+    let mut files = feed(trips, "trip_id,stop_id,stop_sequence\nT,A,1\n");
+    files[1] = ("routes.txt", routes);
+    let (bytes, _) = compile_with(&files).expect("a valid feed");
+
+    with_consumer(&bytes, |consumer| {
+        let mut found = Vec::new();
+        let ids = |found: &[RouteIndex]| -> Vec<String> {
+            found
+                .iter()
+                .map(|&route| consumer.route_id(consumer.route(route).id).to_owned())
+                .collect()
+        };
+
+        consumer.search_by_route_name("4", &mut found);
+        assert_eq!(
+            ids(&found),
+            ["R1", "R2", "R3"],
+            "an equal short name, then one that starts with it, then a word of a long name"
+        );
+
+        consumer.search_by_route_name("ostra", &mut found);
+        assert_eq!(ids(&found), ["R2"], "accents are ignored");
+
+        consumer.search_by_route_name("", &mut found);
+        assert!(found.is_empty(), "an empty query finds nothing");
     });
 }

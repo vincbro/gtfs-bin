@@ -78,7 +78,8 @@ The direction, decided 2026-11-20: flatnet becomes its own transit network forma
 - [x] Time arithmetic never panics
 - [x] `Consumer::stops_in_box(south, west, north, east, found)` fills a buffer with the stops inside a box, in stop order, through the grid, and agrees with a scan of every stop (property test). A box over the 180th meridian is two searches
 - [ ] A spatial query for stops near a line
-- [ ] Search by stop code and by route name, and typo-tolerant search
+- [x] `Consumer::search_by_code` (a stop's code, exact then prefix, in stop order) and `search_by_route_name` (short or long name, ranked like `search_by_name`, by a route's better name). Both ignore case and accents, fill a buffer, and read every stop or route, so like `search_by_name` they are for a search box, not a loop. No format change
+- [ ] Typo-tolerant search
 - [ ] `search_by_name` allocates per name. Index folded names at compile time if it is ever called in a loop
 - [ ] Decide the future of `Slice` and `Index` as 23 macro-made types. Kept for type safety. Revisit when the API next breaks
 - [-] Replace the flat `Pod` layout or `Optional<T>`: kept on purpose, and SL's numbers (39 ms open, 2 ms scan of 2.5M stop times) don't call for it
