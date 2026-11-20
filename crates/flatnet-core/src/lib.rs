@@ -3,7 +3,8 @@
 //!
 //! - [`consumer`] maps the file and answers queries from it: trips by stop, stops near a position,
 //!   places by name.
-//! - [`rt`], behind the `gtfs-rt` feature, applies GTFS-realtime feeds on top of a consumer.
+//! - [`rt`], behind the `realtime` feature, applies updates from a realtime source on top of a
+//!   consumer. The `gtfs-rt` feature adds the decoder for GTFS-realtime.
 //! - [`models`] holds the fixed-size types the file is made of.
 //!
 //! The layout of the file is described in `docs/FORMAT.md`.
@@ -15,5 +16,5 @@ pub mod models;
 
 #[cfg(feature = "consumer")]
 pub mod consumer;
-#[cfg(feature = "gtfs-rt")]
+#[cfg(feature = "realtime")]
 pub mod rt;

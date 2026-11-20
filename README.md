@@ -22,7 +22,7 @@ Working with flatnet is split into two phases, **compilation** and **consumption
 - **Compile.** The `Compiler` reads a GTFS feed, a directory or a `.zip`, with its own parser. String ids become integer indices, so a trip points straight at its route. Text is deduplicated into one contiguous block. The flat arrays are written to one file, and the same feed always compiles to the same bytes.
 - **Consume.** The `Consumer` maps the file with `mmap` and reads it where it lies. Data is paged into RAM by the OS only when you touch it, and because the tables are flat and pointer-free, walking from a route to its trips is friendly to the CPU cache.
 - **Validated.** `Consumer::new` checks the header, every section, that all text is UTF-8, and that every index and slice points inside the table it names. The checks are covered by property tests. Opening SL's whole regional feed (54 MB, 2.5 million stop times) takes about 10 ms with them. `Consumer::verify_checksum` also detects any changed byte.
-- **Live.** With the `gtfs-rt` feature, GTFS-realtime updates are applied on top of a consumer, and reading a delay is an array index.
+- **Live.** With the `realtime` feature, updates from a realtime source are applied on top of a consumer (the `gtfs-rt` feature decodes GTFS-realtime into them), and reading a delay is an array index.
 
 The layout of the file is in [docs/FORMAT.md](docs/FORMAT.md).
 
@@ -44,7 +44,7 @@ cargo add memmap2
 | `flatnet-core` | the types of the file, `Consumer`, which maps and reads it, and GTFS-realtime on top of it |
 | `flatnet-viewer` | an egui app to walk a compiled file and see it on a map (`just view`). Not published |
 
-`flatnet-core` has two features, both on by default: `consumer` (needs `memmap2`) and `gtfs-rt` (needs `consumer`). A library that only reads files can turn `gtfs-rt` off with `default-features = false, features = ["consumer"]`.
+`flatnet-core` has three features, all on by default: `consumer` (needs `memmap2`), `realtime` (applies source-neutral updates, needs `consumer`) and `gtfs-rt` (decodes GTFS-realtime into those updates, needs `realtime`). A library that only reads files can turn the last two off with `default-features = false, features = ["consumer"]`.
 
 `flatnet-compiler` has one, `gtfs`, on by default: it adds `gtfs::Reader`, which reads a GTFS feed into a `Network`. Without it the compiler has no source of its own and takes a `Network` that you build, which also leaves out the `csv` and `zip` dependencies.
 

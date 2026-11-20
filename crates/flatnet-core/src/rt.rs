@@ -1,30 +1,33 @@
-use gtfs_rt::{
-    trip_descriptor,
-    trip_update::stop_time_update,
-    vehicle_position::{OccupancyStatus, VehicleStopStatus},
-};
-
 use crate::{
     consumer::Consumer,
     models::{
-        Coordinate, Date, Delay, Optional, RouteIndex, Sentinel, StopIndex, StopTimeIndex, Time,
-        Timing, TripIndex,
+        Date, Delay, Optional, RouteIndex, Sentinel, StopIndex, StopTimeIndex, Time, Timing,
+        TripIndex,
     },
 };
 
 mod added;
 mod alert;
 mod builder;
-mod decode;
 mod error;
+#[cfg(feature = "gtfs-rt")]
+mod gtfs;
 mod report;
+mod update;
+mod vehicle;
 
 pub use added::{AddedStopTime, AddedTrip};
-pub use alert::{ActivePeriod, Alert, InformedEntity};
+pub use alert::{ActivePeriod, Alert, Cause, Effect, InformedEntity, Severity};
 pub use builder::RealtimeBuilder;
-pub use decode::decode_feed;
 pub use error::{Error, Result};
+#[cfg(feature = "gtfs-rt")]
+pub use gtfs::{decode_feed, to_feed};
 pub use report::ApplyReport;
+pub use update::{
+    AlertUpdate, CallUpdate, Event, Feed, Kinds, Position, Removal, Selector, Text, Translation,
+    TripRef, TripUpdate, Update, VehicleUpdate,
+};
+pub use vehicle::{Occupancy, Vehicle, VehicleStopStatus};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TripStatus {
@@ -39,20 +42,6 @@ pub enum TripStatus {
     Unscheduled,
 }
 
-impl From<trip_descriptor::ScheduleRelationship> for TripStatus {
-    fn from(value: trip_descriptor::ScheduleRelationship) -> Self {
-        match value {
-            trip_descriptor::ScheduleRelationship::Scheduled => Self::Scheduled,
-            trip_descriptor::ScheduleRelationship::Added => Self::Added,
-            trip_descriptor::ScheduleRelationship::Unscheduled => Self::Unscheduled,
-            trip_descriptor::ScheduleRelationship::Canceled => Self::Canceled,
-            trip_descriptor::ScheduleRelationship::Deleted => Self::Deleted,
-            // Replaced and duplicated trips aren't supported, so they leave the trip as it was.
-            _ => Self::Unchanged,
-        }
-    }
-}
-
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StopTimeStatus {
     /// No update has been applied.
@@ -62,34 +51,6 @@ pub enum StopTimeStatus {
     Skipped,
     NoData,
     Unscheduled,
-}
-
-impl From<stop_time_update::ScheduleRelationship> for StopTimeStatus {
-    fn from(value: stop_time_update::ScheduleRelationship) -> Self {
-        match value {
-            stop_time_update::ScheduleRelationship::Scheduled => Self::Scheduled,
-            stop_time_update::ScheduleRelationship::Skipped => Self::Skipped,
-            stop_time_update::ScheduleRelationship::NoData => Self::NoData,
-            stop_time_update::ScheduleRelationship::Unscheduled => Self::Unscheduled,
-        }
-    }
-}
-
-#[derive(Default, Debug, Clone, Copy)]
-pub struct Vehicle {
-    pub position: Coordinate,
-    pub current_status: VehicleStopStatus,
-    pub occupancy_status: OccupancyStatus,
-    pub occupancy_percentage: Option<u32>,
-    pub current_stop_sequence: Option<u32>,
-    /// The stop the vehicle is at or heading to, if the feed names one the static data has.
-    pub current_stop: Optional<StopIndex>,
-    /// Degrees clockwise from north.
-    pub bearing: Option<f32>,
-    /// Meters per second.
-    pub speed: Option<f32>,
-    /// When the position was measured, as a POSIX time.
-    pub timestamp: Option<u64>,
 }
 
 /// The live state of every stop time and trip of one `Consumer`, indexed the same way, plus the

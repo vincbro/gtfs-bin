@@ -25,7 +25,7 @@ A workspace of three crates under `crates/`, all versioned together:
 - `flatnet-core`: what reads the file.
   - `src/models/`: the fixed-size types the compiled file is made of, and the sentinel and index types they use.
   - `src/consumer/`: maps the file, checks all of it (`validate`) and answers queries.
-  - `src/rt/`: applies GTFS-realtime feeds on top of a consumer.
+  - `src/rt/`: applies realtime updates on top of a consumer (`update.rs` holds the source-neutral types, `gtfs.rs` the GTFS-realtime decoder).
   - `tests/`: integration and property tests, and `tests/common/` for what they share, including a generated feed. They compile feeds with `flatnet-compiler`, a dev-dependency.
   - `benches/`: the criterion benchmarks.
 - `flatnet-compiler`: turns a `Network` (`network.rs`) into the file (one builder per table, `writer`), and with the `gtfs` feature reads a GTFS feed into one (`gtfs.rs` and `gtfs/`: `source`, `table`, `records`).

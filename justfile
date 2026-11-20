@@ -86,7 +86,7 @@ real-data folder:
 # Build each crate with each feature on its own, as a user of one of them would
 features:
     for features in "" gtfs; do cargo build -p flatnet-compiler --no-default-features --features "$features" --locked || exit 1; done
-    for features in "" consumer consumer,gtfs-rt; do cargo build -p flatnet-core --no-default-features --features "$features" --locked || exit 1; done
+    for features in "" consumer realtime consumer,gtfs-rt; do cargo build -p flatnet-core --no-default-features --features "$features" --locked || exit 1; done
 
 # Time compiling, opening and querying a generated network of a million stop times.
 # Extra args go to criterion: just bench [args]

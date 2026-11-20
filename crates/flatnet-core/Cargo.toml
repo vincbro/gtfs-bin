@@ -20,8 +20,11 @@ default = ["consumer", "gtfs-rt"]
 
 consumer = ["dep:memmap2"]
 
-# Applies GTFS-realtime feeds on top of a consumer.
-gtfs-rt = ["consumer", "dep:gtfs-rt", "dep:jiff", "dep:prost"]
+# Applies realtime updates, whatever sent them, on top of a consumer.
+realtime = ["consumer", "dep:jiff"]
+
+# Decodes GTFS-realtime feeds into those updates.
+gtfs-rt = ["realtime", "dep:gtfs-rt", "dep:prost"]
 
 [dependencies]
 bytemuck.workspace = true

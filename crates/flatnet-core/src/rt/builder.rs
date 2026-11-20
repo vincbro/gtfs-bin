@@ -1,11 +1,5 @@
 use std::ops::Range;
 
-use gtfs_rt::{
-    EntitySelector, FeedEntity, FeedMessage, TripDescriptor, TripUpdate, VehiclePosition,
-    feed_header::Incrementality,
-    trip_descriptor::ScheduleRelationship,
-    trip_update::{StopTimeEvent, StopTimeUpdate},
-};
 use jiff::{Timestamp, civil, tz::TimeZone};
 
 use crate::{
@@ -15,8 +9,9 @@ use crate::{
         TripPatternIndex,
     },
     rt::{
-        ActivePeriod, AddedStopTime, AddedTrip, Alert, ApplyReport, Error, InformedEntity,
-        Realtime, Result, StopTimeStatus, TripStatus, Vehicle, alert,
+        AddedStopTime, AddedTrip, Alert, AlertUpdate, ApplyReport, CallUpdate, Error, Event, Feed,
+        InformedEntity, Kinds, Realtime, Removal, Result, Selector, StopTimeStatus, TripRef,
+        TripStatus, TripUpdate, Update, Vehicle, VehicleUpdate, alert,
     },
 };
 
@@ -30,7 +25,8 @@ enum Resolved {
     Ambiguous,
 }
 
-/// Applies GTFS-realtime feeds to a `Realtime`.
+/// Applies a realtime source's feeds to a `Realtime`, knowing nothing of the wire format they came
+/// in. With the `gtfs-rt` feature, `apply` and `build` take GTFS-realtime messages.
 ///
 /// Trips are matched by `trip_id`, or by route, start time and date when there is no id. Stop times
 /// are matched by `stop_sequence`, or by `stop_id`.
@@ -111,14 +107,14 @@ impl<'a> RealtimeBuilder<'a> {
         self
     }
 
-    /// Applies every message to `realtime`. Later updates replace earlier ones.
+    /// Applies every feed to `realtime`. Later updates replace earlier ones.
     ///
     /// # Panics
     ///
     /// Panics if `realtime` was not built from the consumer this builder was created with.
-    pub fn apply<I>(&self, messages: I, realtime: &mut Realtime) -> ApplyReport
+    pub fn apply_feeds<I>(&self, feeds: I, realtime: &mut Realtime) -> ApplyReport
     where
-        I: Iterator<Item = FeedMessage>,
+        I: IntoIterator<Item = Feed>,
     {
         assert!(
             realtime.stop_time_status.len() == self.consumer.timings().len()
@@ -126,83 +122,60 @@ impl<'a> RealtimeBuilder<'a> {
             "realtime must be built from the consumer it is applied with"
         );
         let mut report = ApplyReport::default();
-        for message in messages {
-            report += self.apply_message(message, realtime);
+        for feed in feeds {
+            report += self.apply_feed(&feed, realtime);
         }
         realtime.check_invariants(self.consumer);
         report
     }
 
-    pub fn build<I>(&self, messages: I) -> Realtime
+    pub fn build_feeds<I>(&self, feeds: I) -> Realtime
     where
-        I: Iterator<Item = FeedMessage>,
+        I: IntoIterator<Item = Feed>,
     {
-        self.build_with_report(messages).0
+        self.build_feeds_with_report(feeds).0
     }
 
-    pub fn build_with_report<I>(&self, messages: I) -> (Realtime, ApplyReport)
+    pub fn build_feeds_with_report<I>(&self, feeds: I) -> (Realtime, ApplyReport)
     where
-        I: Iterator<Item = FeedMessage>,
+        I: IntoIterator<Item = Feed>,
     {
         let mut realtime = Realtime::new(self.consumer);
-        let report = self.apply(messages, &mut realtime);
+        let report = self.apply_feeds(feeds, &mut realtime);
         (realtime, report)
     }
 
-    fn apply_message(&self, message: FeedMessage, realtime: &mut Realtime) -> ApplyReport {
-        let message_time = message.header.timestamp.unwrap_or(0);
-        if self.replace_on_full_dataset
-            && message.header.incrementality() == Incrementality::FullDataset
-        {
-            clear_kinds_in(&message.entity, realtime);
+    fn apply_feed(&self, feed: &Feed, realtime: &mut Realtime) -> ApplyReport {
+        if self.replace_on_full_dataset {
+            clear_kinds(feed.replaces, realtime);
         }
 
         let mut report = ApplyReport::default();
-        for entity in message.entity {
-            report += self.apply_entity(&entity, message_time, realtime);
+        for update in &feed.updates {
+            report += match update {
+                Update::Trip(update) => self.apply_trip_update(update, feed.timestamp, realtime),
+                Update::Vehicle(update) => self.apply_vehicle(update, realtime),
+                Update::Alert(update) => self.apply_alert(update, realtime),
+                Update::Remove(removal) => self.remove(removal, realtime),
+                Update::Unsupported => ApplyReport {
+                    unsupported: 1,
+                    ..ApplyReport::default()
+                },
+            };
         }
         report
     }
 
-    fn apply_entity(
-        &self,
-        entity: &FeedEntity,
-        message_time: u64,
-        realtime: &mut Realtime,
-    ) -> ApplyReport {
-        if entity.is_deleted() {
-            return self.delete_entity(entity, realtime);
+    fn remove(&self, removal: &Removal, realtime: &mut Realtime) -> ApplyReport {
+        if let Some(trip) = &removal.trip {
+            self.delete_trip_update(trip, realtime);
         }
-
-        let mut report = ApplyReport::default();
-        if let Some(trip_update) = &entity.trip_update {
-            report += self.apply_trip_update(trip_update, message_time, realtime);
-        }
-        if let Some(vehicle) = &entity.vehicle {
-            report += self.apply_vehicle(vehicle, realtime);
-        }
-        if let Some(alert) = &entity.alert {
-            report += self.apply_alert(&entity.id, alert, realtime);
-        }
-        if entity.shape.is_some() || entity.stop.is_some() || entity.trip_modifications.is_some() {
-            report.unsupported += 1;
-        }
-        report
-    }
-
-    fn delete_entity(&self, entity: &FeedEntity, realtime: &mut Realtime) -> ApplyReport {
-        if let Some(trip_update) = &entity.trip_update {
-            self.delete_trip_update(trip_update, realtime);
-        }
-        if let Some(descriptor) = entity
-            .vehicle
-            .as_ref()
-            .and_then(|vehicle| vehicle.trip.as_ref())
+        if let Some(descriptor) = &removal.vehicle_trip
             && let Resolved::Trip(trip) = self.resolve_trip(descriptor, realtime.service_date)
         {
             realtime.trip_vehicles[trip.as_usize()] = None;
         }
-        realtime.alerts.retain(|alert| *alert.id != *entity.id);
+        realtime.alerts.retain(|alert| *alert.id != *removal.id);
 
         ApplyReport {
             deleted: 1,
@@ -210,8 +183,7 @@ impl<'a> RealtimeBuilder<'a> {
         }
     }
 
-    fn delete_trip_update(&self, trip_update: &TripUpdate, realtime: &mut Realtime) {
-        let descriptor = &trip_update.trip;
+    fn delete_trip_update(&self, descriptor: &TripRef, realtime: &mut Realtime) {
         if let Some(trip_id) = &descriptor.trip_id {
             realtime.added_trips.retain(|added| *added.id != **trip_id);
         }
@@ -229,17 +201,14 @@ impl<'a> RealtimeBuilder<'a> {
     ) -> ApplyReport {
         let mut report = ApplyReport::default();
         let descriptor = &update.trip;
-        let date = descriptor.start_date.as_deref().and_then(Date::parse_gtfs);
+        let date = descriptor.start_date;
         if let (Some(expected), Some(actual)) = (realtime.service_date, date)
             && expected != actual
         {
             report.wrong_service_date += 1;
             return report;
         }
-        if matches!(
-            descriptor.schedule_relationship(),
-            ScheduleRelationship::Replacement | ScheduleRelationship::Duplicated
-        ) {
+        if update.unsupported {
             report.unsupported += 1;
             return report;
         }
@@ -265,7 +234,7 @@ impl<'a> RealtimeBuilder<'a> {
 
         realtime.reset_trip(self.consumer, trip);
         realtime.trip_timestamps[trip.as_usize()] = timestamp;
-        realtime.trip_status[trip.as_usize()] = descriptor.schedule_relationship().into();
+        realtime.trip_status[trip.as_usize()] = update.status;
         realtime.trip_delay[trip.as_usize()] =
             update.delay.map_or(Optional::new(Delay::NONE), |delay| {
                 Optional::new(Delay::from(delay))
@@ -296,7 +265,7 @@ impl<'a> RealtimeBuilder<'a> {
         // Updates come in trip order, so each search starts after the last match. That is what
         // tells apart a stop a trip visits twice.
         let mut from = 0;
-        for stop_update in &update.stop_time_update {
+        for stop_update in &update.calls {
             let Some(found) = self.find_stop_time(pattern, stop_update, from) else {
                 report.stop_time_updates_unmatched += 1;
                 continue;
@@ -313,7 +282,7 @@ impl<'a> RealtimeBuilder<'a> {
         }
 
         let slots = first_slot..first_slot + timings.len();
-        if update.stop_time_update.is_empty() {
+        if update.calls.is_empty() {
             spread_trip_delay(slots, trip, realtime);
         } else if self.cascade_delays {
             cascade_delays(slots, realtime);
@@ -325,11 +294,11 @@ impl<'a> RealtimeBuilder<'a> {
     fn find_stop_time(
         &self,
         pattern: TripPatternIndex,
-        update: &StopTimeUpdate,
+        update: &CallUpdate,
         from: usize,
     ) -> Option<usize> {
         let pattern_stops = self.consumer.pattern_stops_by_trip_pattern(pattern);
-        if let Some(sequence) = update.stop_sequence
+        if let Some(sequence) = update.sequence
             && let Ok(position) =
                 pattern_stops.binary_search_by_key(&sequence, |stop| stop.sequence)
         {
@@ -349,20 +318,20 @@ impl<'a> RealtimeBuilder<'a> {
 
     fn apply_stop_time_update(
         &self,
-        update: &StopTimeUpdate,
+        update: &CallUpdate,
         slot: usize,
         timing: Timing,
         day: Option<Date>,
         realtime: &mut Realtime,
     ) {
-        let status = update.schedule_relationship().into();
+        let status = update.status;
         realtime.stop_time_status[slot] = status;
         if matches!(status, StopTimeStatus::Skipped | StopTimeStatus::NoData) {
             return;
         }
 
-        let arrival = self.event_delay(update.arrival.as_ref(), timing.arrival, day);
-        let mut departure = self.event_delay(update.departure.as_ref(), timing.departure, day);
+        let arrival = self.event_delay(update.arrival, timing.arrival, day);
+        let mut departure = self.event_delay(update.departure, timing.departure, day);
         // A vehicle that arrives late leaves late, unless the feed says otherwise.
         if update.departure.is_none() {
             departure = arrival;
@@ -375,7 +344,7 @@ impl<'a> RealtimeBuilder<'a> {
     /// far its `time` is from the scheduled time.
     fn event_delay(
         &self,
-        event: Option<&StopTimeEvent>,
+        event: Option<Event>,
         scheduled: Optional<Time>,
         day: Option<Date>,
     ) -> Optional<Delay> {
@@ -441,7 +410,7 @@ impl<'a> RealtimeBuilder<'a> {
     }
 
     /// Returns an event's time as seconds since the start of the service day.
-    fn event_time(&self, event: Option<&StopTimeEvent>, day: Option<Date>) -> Optional<Time> {
+    fn event_time(&self, event: Option<Event>, day: Option<Date>) -> Optional<Time> {
         let Some(time) = event.and_then(|event| event.time) else {
             return Optional::new(Time::NONE);
         };
@@ -452,7 +421,7 @@ impl<'a> RealtimeBuilder<'a> {
         Optional::new(Time::from(seconds))
     }
 
-    fn resolve_trip(&self, descriptor: &TripDescriptor, day: Option<Date>) -> Resolved {
+    fn resolve_trip(&self, descriptor: &TripRef, day: Option<Date>) -> Resolved {
         if let Some(trip_id) = descriptor.trip_id.as_deref() {
             return self
                 .consumer
@@ -463,12 +432,12 @@ impl<'a> RealtimeBuilder<'a> {
     }
 
     /// Finds the one trip of a route that starts at the time, running on the date if there is one.
-    fn resolve_by_start_time(&self, descriptor: &TripDescriptor, day: Option<Date>) -> Resolved {
+    fn resolve_by_start_time(&self, descriptor: &TripRef, day: Option<Date>) -> Resolved {
         let route = descriptor
             .route_id
             .as_deref()
             .and_then(|route_id| self.consumer.route_by_id(route_id));
-        let start = descriptor.start_time.as_deref().and_then(Time::from_hms);
+        let start = descriptor.start_time;
         let (Some(route), Some(start)) = (route, start) else {
             return Resolved::Unmatched;
         };
@@ -491,8 +460,8 @@ impl<'a> RealtimeBuilder<'a> {
     }
 
     /// A trip with no direction fits any, as does a descriptor with none.
-    fn runs_in_direction(trip: &Trip, descriptor: &TripDescriptor) -> bool {
-        let Some(wanted) = descriptor.direction_id else {
+    fn runs_in_direction(trip: &Trip, descriptor: &TripRef) -> bool {
+        let Some(wanted) = descriptor.direction else {
             return true;
         };
         trip.direction.is_none() || u32::from(trip.direction.0) == wanted
@@ -508,10 +477,7 @@ impl<'a> RealtimeBuilder<'a> {
     ) -> ApplyReport {
         let mut report = ApplyReport::default();
         let descriptor = &update.trip;
-        let is_new = matches!(
-            descriptor.schedule_relationship(),
-            ScheduleRelationship::Added
-        );
+        let is_new = update.status == TripStatus::Added;
         let (true, Some(trip_id)) = (is_new, descriptor.trip_id.as_deref()) else {
             report.trip_updates_unmatched += 1;
             return report;
@@ -549,28 +515,27 @@ impl<'a> RealtimeBuilder<'a> {
 
     fn added_stop_times(&self, update: &TripUpdate, day: Option<Date>) -> Box<[AddedStopTime]> {
         update
-            .stop_time_update
+            .calls
             .iter()
             .filter_map(|stop_update| {
                 let stop = self.consumer.stop_by_id(stop_update.stop_id.as_deref()?)?;
                 Some(AddedStopTime {
                     stop: stop.index,
-                    sequence: stop_update.stop_sequence,
-                    arrival_time: self.event_time(stop_update.arrival.as_ref(), day),
-                    departure_time: self.event_time(stop_update.departure.as_ref(), day),
-                    status: stop_update.schedule_relationship().into(),
+                    sequence: stop_update.sequence,
+                    arrival_time: self.event_time(stop_update.arrival, day),
+                    departure_time: self.event_time(stop_update.departure, day),
+                    status: stop_update.status,
                 })
             })
             .collect()
     }
 
-    fn apply_vehicle(&self, vehicle: &VehiclePosition, realtime: &mut Realtime) -> ApplyReport {
+    fn apply_vehicle(&self, vehicle: &VehicleUpdate, realtime: &mut Realtime) -> ApplyReport {
         let mut report = ApplyReport::default();
         let date = vehicle
             .trip
             .as_ref()
-            .and_then(|descriptor| descriptor.start_date.as_deref())
-            .and_then(Date::parse_gtfs);
+            .and_then(|descriptor| descriptor.start_date);
         if let (Some(expected), Some(actual)) = (realtime.service_date, date)
             && expected != actual
         {
@@ -595,9 +560,9 @@ impl<'a> RealtimeBuilder<'a> {
             return report;
         }
         *slot = Some(Vehicle {
-            position: Coordinate::new(f64::from(position.latitude), f64::from(position.longitude)),
-            current_status: vehicle.current_status(),
-            occupancy_status: vehicle.occupancy_status(),
+            position: Coordinate::new(position.latitude, position.longitude),
+            current_status: vehicle.status,
+            occupancy_status: vehicle.occupancy,
             occupancy_percentage: vehicle.occupancy_percentage,
             current_stop_sequence: vehicle.current_stop_sequence,
             current_stop: vehicle
@@ -614,39 +579,27 @@ impl<'a> RealtimeBuilder<'a> {
         report
     }
 
-    fn apply_alert(
-        &self,
-        id: &str,
-        source: &gtfs_rt::Alert,
-        realtime: &mut Realtime,
-    ) -> ApplyReport {
+    fn apply_alert(&self, source: &AlertUpdate, realtime: &mut Realtime) -> ApplyReport {
         let language = self.language.as_deref();
         let alert = Alert {
-            id: Box::from(id),
-            active_periods: source
-                .active_period
-                .iter()
-                .map(|period| ActivePeriod {
-                    start: period.start,
-                    end: period.end,
-                })
-                .collect(),
+            id: Box::from(source.id.as_str()),
+            active_periods: source.active_periods.iter().copied().collect(),
             informed: source
-                .informed_entity
+                .selectors
                 .iter()
                 .filter_map(|selector| self.informed_entity(selector))
                 .collect(),
-            cause: source.cause(),
-            effect: source.effect(),
-            severity: source.severity_level(),
-            header: alert::translated(source.header_text.as_ref(), language),
-            description: alert::translated(source.description_text.as_ref(), language),
+            cause: source.cause,
+            effect: source.effect,
+            severity: source.severity,
+            header: alert::translated(source.header.as_ref(), language),
+            description: alert::translated(source.description.as_ref(), language),
             url: alert::translated(source.url.as_ref(), language),
         };
 
         realtime.alerts.retain(|existing| existing.id != alert.id);
         // An alert whose entities are all unknown to this network is about something else.
-        if !source.informed_entity.is_empty() && alert.informed.is_empty() {
+        if !source.selectors.is_empty() && alert.informed.is_empty() {
             return ApplyReport::default();
         }
         realtime.alerts.push(alert);
@@ -658,7 +611,7 @@ impl<'a> RealtimeBuilder<'a> {
 
     /// Resolves what an alert is about. An id the static data doesn't have makes the whole entity
     /// useless, because dropping just that id would widen what the alert applies to.
-    fn informed_entity(&self, selector: &EntitySelector) -> Option<InformedEntity> {
+    fn informed_entity(&self, selector: &Selector) -> Option<InformedEntity> {
         let route = match selector.route_id.as_deref() {
             Some(route_id) => Optional::new(self.consumer.route_by_id(route_id)?.index),
             None => Optional::default(),
@@ -667,19 +620,11 @@ impl<'a> RealtimeBuilder<'a> {
             Some(stop_id) => Optional::new(self.consumer.stop_by_id(stop_id)?.index),
             None => Optional::default(),
         };
-        let trip = match selector
-            .trip
-            .as_ref()
-            .and_then(|descriptor| descriptor.trip_id.as_deref())
-        {
+        let trip = match selector.trip_id.as_deref() {
             Some(trip_id) => Optional::new(self.consumer.trip_by_id(trip_id)?.index),
             None => Optional::default(),
         };
-        let route_type = selector
-            .route_type
-            .and_then(|code| u16::try_from(code).ok())
-            .map(RouteType::from)
-            .into();
+        let route_type = selector.route_type.map(RouteType::from).into();
 
         let entity = InformedEntity {
             agency_id: selector.agency_id.clone(),
@@ -693,15 +638,15 @@ impl<'a> RealtimeBuilder<'a> {
     }
 }
 
-/// Forgets the kinds of entity a full dataset message is about, so what it leaves out disappears.
-fn clear_kinds_in(entities: &[FeedEntity], realtime: &mut Realtime) {
-    if entities.iter().any(|entity| entity.trip_update.is_some()) {
+/// Forgets the kinds of update a full dataset is about, so what it leaves out disappears.
+fn clear_kinds(kinds: Kinds, realtime: &mut Realtime) {
+    if kinds.trip_updates {
         realtime.clear_trip_updates();
     }
-    if entities.iter().any(|entity| entity.vehicle.is_some()) {
+    if kinds.vehicles {
         realtime.clear_vehicles();
     }
-    if entities.iter().any(|entity| entity.alert.is_some()) {
+    if kinds.alerts {
         realtime.clear_alerts();
     }
 }

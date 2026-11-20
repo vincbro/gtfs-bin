@@ -1,9 +1,7 @@
-use gtfs_rt::{
-    TranslatedString,
-    alert::{Cause, Effect, SeverityLevel},
+use crate::{
+    models::{Optional, RouteIndex, RouteType, StopIndex, TripIndex},
+    rt::Text,
 };
-
-use crate::models::{Optional, RouteIndex, RouteType, StopIndex, TripIndex};
 
 /// A service alert, with the entities it affects resolved against the static data.
 #[derive(Debug, Clone, PartialEq)]
@@ -15,10 +13,52 @@ pub struct Alert {
     pub informed: Box<[InformedEntity]>,
     pub cause: Cause,
     pub effect: Effect,
-    pub severity: SeverityLevel,
+    pub severity: Severity,
     pub header: Box<str>,
     pub description: Box<str>,
     pub url: Box<str>,
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Cause {
+    #[default]
+    Unknown,
+    Other,
+    TechnicalProblem,
+    Strike,
+    Demonstration,
+    Accident,
+    Holiday,
+    Weather,
+    Maintenance,
+    Construction,
+    PoliceActivity,
+    MedicalEmergency,
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Effect {
+    NoService,
+    ReducedService,
+    SignificantDelays,
+    Detour,
+    AdditionalService,
+    ModifiedService,
+    Other,
+    #[default]
+    Unknown,
+    StopMoved,
+    NoEffect,
+    AccessibilityIssue,
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Severity {
+    #[default]
+    Unknown,
+    Info,
+    Warning,
+    Severe,
 }
 
 /// A span of time, where a missing end means it never ends and a missing start means it already
@@ -77,17 +117,17 @@ impl Alert {
 }
 
 /// Picks the text in the preferred language, or the first one if there is no such translation.
-pub(super) fn translated(text: Option<&TranslatedString>, language: Option<&str>) -> Box<str> {
+pub(super) fn translated(text: Option<&Text>, language: Option<&str>) -> Box<str> {
     let Some(text) = text else {
         return Box::default();
     };
     let preferred = language.and_then(|language| {
-        text.translation
+        text.translations
             .iter()
             .find(|translation| translation.language.as_deref() == Some(language))
     });
     preferred
-        .or_else(|| text.translation.first())
+        .or_else(|| text.translations.first())
         .map_or_else(Box::default, |translation| {
             Box::from(translation.text.as_str())
         })

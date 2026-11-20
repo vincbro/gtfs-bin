@@ -5,7 +5,7 @@ mod common;
 use flatnet_core::{
     consumer::Consumer,
     models::{Date, Delay, Sentinel, StopTimeIndex, Time, TripIndex},
-    rt::{Realtime, RealtimeBuilder, StopTimeStatus, TripStatus},
+    rt::{self, Realtime, RealtimeBuilder, StopTimeStatus, TripStatus},
 };
 use gtfs_rt::{
     FeedEntity, FeedHeader, FeedMessage, TripDescriptor, TripUpdate, VehiclePosition,
@@ -719,7 +719,7 @@ fn vehicles_are_stored_with_their_stop_and_motion() {
         );
         assert_eq!(
             stored.current_status,
-            VehicleStopStatus::StoppedAt,
+            rt::VehicleStopStatus::StoppedAt,
             "status is kept"
         );
     });
@@ -789,7 +789,7 @@ fn alerts_are_resolved_and_filtered_by_time() {
             .index;
         let alert = &realtime.alerts()[0];
         assert_eq!(&*alert.header, "Roadworks", "the text is kept");
-        assert_eq!(alert.effect, Effect::Detour, "the effect is kept");
+        assert_eq!(alert.effect, rt::Effect::Detour, "the effect is kept");
         assert!(alert.affects_stop(stop), "it is about stop2");
         assert!(!alert.affects_stop(other), "and not stop3");
         assert_eq!(
