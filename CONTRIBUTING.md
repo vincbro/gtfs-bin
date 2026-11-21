@@ -30,7 +30,7 @@ A workspace of three crates under `crates/`, all versioned together:
   - `benches/`: the criterion benchmarks.
 - `flatnet-compiler`: turns a `Network` (`network.rs`) into the file (one builder per table, `writer`), and with the `gtfs` feature reads a GTFS feed into one (`gtfs.rs` and `gtfs/`: `source`, `table`, `records`).
 - `flatnet`: the command line tool and its examples.
-- `docs/FORMAT.md`: the layout of the file. Change it in the same commit as the layout.
+- `docs/file-format.md`: the layout of the file. Change it in the same commit as the layout.
 
 ## Style
 
@@ -114,7 +114,7 @@ return an error from `Consumer::new` instead.
 
 ## Changing the file format
 
-The compiled file has a version (`FLATNET_VERSION`). Any change to a table, a header field or what a field means bumps it, updates `docs/FORMAT.md`, adds a validator in `crates/flatnet-core/src/consumer/validate.rs`, and extends the property tests so that removing the validator makes one fail.
+The compiled file has a version (`FLATNET_VERSION`). Any change to a table, a header field or what a field means bumps it, updates `docs/file-format.md`, adds a validator in `crates/flatnet-core/src/consumer/validate.rs`, and extends the property tests so that removing the validator makes one fail.
 
 ## Releases
 

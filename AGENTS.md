@@ -3,7 +3,7 @@
 Before writing or reviewing code here, read:
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): setup, `just` recipes, lints, formatting and commits.
-- [docs/FORMAT.md](docs/FORMAT.md): the layout of the compiled file. A change to a table or a header field changes it and bumps `FLATNET_VERSION`.
+- [docs/file-format.md](docs/file-format.md): the layout of the compiled file. A change to a table or a header field changes it and bumps `FLATNET_VERSION`.
 - [STANDARDS.local.md](STANDARDS.local.md): flatnet's gate, hot paths, known performance problems and the overrides of the shared rules.
 - [TODO.md](TODO.md): what is done, open, and decided against.
 

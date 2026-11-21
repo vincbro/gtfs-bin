@@ -1,4 +1,10 @@
-# The binary format
+# The file format
+
+This page describes the bytes of a `.flnt` file: the header, every section, and the conventions they share. You don't need it to use flatnet. Read it when you write another reader, debug a file, or want to know why something costs what it costs.
+
+Related pages: [Concepts](concepts.md) for the ideas, [Safety and validation](safety.md) for what `Consumer::new` checks, and [Design](design.md) for why it is laid out this way.
+
+**Contents:** [Header](#header) · [Sections](#sections) · [Metadata](#metadata) · [Conventions](#conventions) · [What `Consumer::new` guarantees](#what-consumernew-guarantees) · [Reading the bytes yourself](#reading-the-bytes-yourself)
 
 A compiled file is a header followed by sections. Everything is little-endian on the machine that wrote it: the file is meant to be mapped, so a file moves between machines of the same byte order only.
 
@@ -68,3 +74,33 @@ The active range is what `Consumer::is_stale(today)` compares with, so a launch 
 It checks the header, the length, that every section is in bounds and aligned, that text is UTF-8 and slices end on characters, that every index and slice points inside the table it names, that each item's `index` is its position, that the id lookups are strictly sorted, and that each pattern's sequence numbers rise, that its trips lie back to back in `timings` starting where the pattern before ends, each with a `Timing` for every stop of the pattern, that no trip is earlier than the one before it at any stop, and that no `Timing` is left over, that each shape has points and a length, and that a trip with shapes has one fewer than it has stop times. For the metadata: that it holds exactly one item, that its text slices lie inside `strings`, that the JSON is UTF-8, and that the active range has both ends or neither and doesn't run backwards. The property tests in `crates/flatnet-core/tests/fuzz.rs` damage files in the ways of the tables, and `tests/shapes.rs` and `tests/metadata.rs` damage a file once for each check of the shapes and the metadata. Each fails if its check is removed.
 
 `Consumer::new_unvalidated` skips the table checks. It never causes undefined behavior, but a damaged file can make an accessor panic.
+
+## Reading the bytes yourself
+
+A file begins with the bytes `FLNT`, then the version as a little-endian `u32`:
+
+```sh
+head -c 8 network.flnt | xxd
+# 00000000: 464c 4e54 0f00 0000                      FLNT....
+```
+
+That is magic `FLNT` and version 15. From Rust, `Header` is `Pod`, so you can view the start of a mapped file as one:
+
+```rust
+use flatnet_core::{FLATNET_VERSION, models::Header};
+
+fn version(bytes: &[u8]) -> Option<u32> {
+    let header: &Header = bytemuck::try_from_bytes(bytes.get(..size_of::<Header>())?).ok()?;
+    (header.magic == *b"FLNT").then_some(header.version)
+}
+
+fn is_current(bytes: &[u8]) -> bool {
+    version(bytes) == Some(FLATNET_VERSION)
+}
+```
+
+Everything is little-endian, so a file moves between machines of the same byte order only. A reader in another language needs the header layout above and the `repr(C)` structs of each table, which are in `crates/flatnet-core/src/models/`.
+
+## Changing the format
+
+Any change to a table, a header field or what a field means bumps `FLATNET_VERSION`, updates this page, adds a validator and extends the property tests so that removing the validator makes one fail. `CONTRIBUTING.md` has the checklist. `Consumer::new` refuses any version but its own, so an old file is recompiled, never migrated.

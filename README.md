@@ -24,7 +24,7 @@ Working with flatnet is split into two phases, **compilation** and **consumption
 - **Validated.** `Consumer::new` checks the header, every section, that all text is UTF-8, and that every index and slice points inside the table it names. The checks are covered by property tests. Opening SL's whole regional feed (54 MB, 2.5 million stop times) takes about 10 ms with them. `Consumer::verify_checksum` also detects any changed byte.
 - **Live.** With the `realtime` feature, updates from a realtime source are applied on top of a consumer (the `gtfs-rt` feature decodes GTFS-realtime into them), and reading a delay is an array index.
 
-The layout of the file is in [docs/FORMAT.md](docs/FORMAT.md).
+The documentation is in [docs/](docs/README.md), and the layout of the file in [docs/file-format.md](docs/file-format.md).
 
 ## Installation
 
@@ -192,7 +192,7 @@ What is not: shapes and stops sent in a feed, trip modifications, and replaced o
 
 ## Where it is going
 
-flatnet is moving from a compiled GTFS to a format of its own, with a reader for each source. The first two changes below exist. The plan and the reasons are in [TODO.md](TODO.md) and [docs/OWN-SCHEMA.md](docs/OWN-SCHEMA.md).
+flatnet is moving from a compiled GTFS to a format of its own, with a reader for each source. The first two changes below exist. The plan and the reasons are in [TODO.md](TODO.md) and [docs/design.md](docs/design.md).
 
 - **A schema we own.** A field is in the file because something reads it, not because a source has it. The first change is done: times are stored once for each trip pattern, which took SL's file from 132 MB to 54 MB.
 - **One feature for each source.** The compiler already takes a source-neutral `Network`, and GTFS is a reader behind the `gtfs` feature. A NeTEx reader would be a `netex` feature beside it, and the realtime side gets a `siri` feature next to `gtfs-rt`. The compiler builds everything derived from a `Network` (patterns, grids, walking paths, search) and writes the file.

@@ -2,7 +2,7 @@
 //!
 //! A reader turns a source into a [`Network`], and [`Compiler`] turns a `Network` into the file:
 //! it turns every id into an index, groups the trips into patterns, builds the lookups and the
-//! indexes, and writes the tables in the layout `docs/FORMAT.md` describes. The same network always
+//! indexes, and writes the tables in the layout `docs/file-format.md` describes. The same network always
 //! compiles to the same bytes.
 //!
 //! The `gtfs` feature, on by default, adds [`gtfs::Reader`], which reads a GTFS feed.

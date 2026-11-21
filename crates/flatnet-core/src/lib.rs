@@ -7,7 +7,7 @@
 //!   consumer. The `gtfs-rt` feature adds the decoder for GTFS-realtime.
 //! - [`models`] holds the fixed-size types the file is made of.
 //!
-//! The layout of the file is described in `docs/FORMAT.md`.
+//! The layout of the file is described in `docs/file-format.md`.
 
 /// The version of the file layout. It changes whenever a table or header field does.
 pub const FLATNET_VERSION: u32 = 15;

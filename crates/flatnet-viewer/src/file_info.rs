@@ -1,4 +1,4 @@
-//! The header of the file and the sections it lists, to check the layout against `FORMAT.md`.
+//! The header of the file and the sections it lists, to check the layout against `docs/file-format.md`.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
