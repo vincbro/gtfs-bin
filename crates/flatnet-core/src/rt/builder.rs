@@ -392,7 +392,7 @@ impl<'a> RealtimeBuilder<'a> {
         )
         .ok()?
         .at(12, 0, 0, 0)
-        .to_zoned(zone.clone())
+        .to_zoned_datetime(zone.clone())
         .ok()?;
         Some(noon.timestamp().as_second() - SECONDS_PER_DAY / 2)
     }

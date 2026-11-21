@@ -25,7 +25,7 @@ csv = { version = "1.4" }
 flatnet-compiler = { path = "crates/flatnet-compiler", version = "=0.2.0" }
 flatnet-core = { path = "crates/flatnet-core", version = "=0.2.0", default-features = false }
 gtfs-rt = { version = "0.5.0" }
-jiff = { version = "0.2" }
+jiff = { version = "1.0.1" }
 memmap2 = { version = "0.9.10" }
 proptest = { version = "1.12.0" }
 # The version gtfs-rt is built with, so its messages decode with the same trait.
