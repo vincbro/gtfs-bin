@@ -8,7 +8,7 @@ Measured on SL's regional feed (Trafiklab, 21,872 stops, 123,866 trips, 2.5M sto
 
 ## Own schema and sources
 
-The direction, decided 2026-11-20: flatnet becomes its own transit network format, built to make a network easy and fast to work with at any size. It does not aim to cover GTFS, GTFS-RT, NeTEx or SIRI. Each source is a reader behind a cargo feature, and a field is in the format because a consumer needs it, not because a source has it. Reasoning and the comparison of the four formats: `docs/OWN-SCHEMA.md`.
+The direction, decided 2026-11-20: flatnet becomes its own transit network format, built to make a network easy and fast to work with at any size. It does not aim to cover GTFS, GTFS-RT, NeTEx or SIRI. Each source is a reader behind a cargo feature, and a field is in the format because a consumer needs it, not because a source has it. Reasoning and the comparison of the four formats: `docs/design.md`.
 
 - [ ] Go through every field of every table and write down what reads it and what it costs. Drop what nothing reads, add what a consumer needs (`blaise` first). Measure size and speed on SL and the generated feed
 - [x] Features, not crates (2026-11-20). The compiler takes a source-neutral `Network` (`network.rs`) and builds everything derived from it: patterns and their timings, shapes cut at stops, the grid, search, the id lookups, the metadata. Each source is a reader behind a cargo feature of `flatnet-compiler`, today `gtfs` (`gtfs::Reader`, on by default, which owns the CSV and zip parsing and resolves ids to positions), and later `netex` and `siri`. Without a reader feature the compiler has no `csv` or `zip` dependency and takes a `Network` you build. `Compiler::compile_gtfs(path)` reads and compiles. On SL, SL's dummy feed and the test fixture the output is byte for byte what the compiler wrote before the change. `flatnet-core` has the matching `gtfs-rt` feature (was `rt`). A `flatnet-model` crate for `Network` is only worth it if a reader has to live in a crate of its own
@@ -64,7 +64,7 @@ The direction, decided 2026-11-20: flatnet becomes its own transit network forma
 - [x] Id lookups checked strictly sorted. Each trip's stop times checked to be its own and in order
 - [x] Header holds the file length (always checked) and a checksum (`verify_checksum`)
 - [x] `Consumer::new_unvalidated` for a file the program wrote itself
-- [x] Format version 8 (the rename: magic `FLNT`), documented in `docs/FORMAT.md`
+- [x] Format version 8 (the rename: magic `FLNT`), documented in `docs/file-format.md`
 - [x] Metadata in the file: a fixed `Metadata` (compile time, active day range, compiler version, source, feed_info and agency fields) and a JSON section from `--meta` and `--meta-json`. `Consumer::is_stale(today)` is two comparisons
 - [ ] Metadata JSON is text for the caller to parse. A typed reader for a few well known keys would need a JSON dependency in core
 - [x] Shapes cut at the stops: a `Shape` is the path between two stops, stored once however many trips use it, and a trip holds one per hop. On SL 2.79M shape points became 610k, 28 MB off the file. Hops are snapped to the nearest shape vertex going forward, so a loop that passes a stop twice can snap to the wrong pass
@@ -123,11 +123,12 @@ The direction, decided 2026-11-20: flatnet becomes its own transit network forma
 - [x] CI on the `just` recipes: format, clippy, docs, tests, features, dependencies, and a long property run on `main` (`.github/workflows/ci.yml`, not run yet: it needs pushing)
 - [x] The same lint policy as `wend` (clippy `all`, `pedantic`, `cargo` and chosen `restriction` lints, rustc and rustdoc lints), `clippy.toml`, `rust-version`, a `dist` profile, `CONTRIBUTING.md`
 - [x] CI also checks the commit messages of a PR and builds on `rust-version`
+- [x] Property tests that compare with a plain model, not only for panics (2026-11-20): `fuzz_network` (any network compiles to a file the consumer accepts), `fuzz_services` (a calendar), `fuzz_footpaths` (a scan of every pair of stops, also across the 180th meridian and by a pole), `fuzz_queries` (stops near and in a box anywhere on the globe, ids, trips by start, trips at a stop, name search), `fuzz_parts` (damaged files of every combination of parts and of arbitrary networks), `fuzz_rt_neutral` (feeds with any date, time zone and timestamp), `fuzz_dates` (every day up to year 9999, time parsing, arbitrary realtime bytes)
 - [x] Saved failing cases are committed (`crates/flatnet-core/tests/*.proptest-regressions`)
 - [x] `.env` is ignored (it held API keys and wasn't)
 - [-] `cargo fuzz`: the proptest suites cover the parser, the consumer and the realtime builder, and found every bug so far. A coverage-guided fuzzer needs nightly and libFuzzer for little more. Revisit if a bug turns up that proptest missed
 - [x] `justfile`, `rustfmt.toml` (import grouping on a pinned nightly), `taplo.toml`, `deny.toml`, `rust-toolchain.toml` and a `commit-msg` hook, as `wend` has them
 - [x] `cargo deny` found seven advisories in `zip` 7, and ones in `memmap2` and `crossbeam`. All fixed by updating (`zip` is now 9)
 - [ ] Run the benchmarks in CI and keep the numbers, so a slowdown shows
-- [ ] Run the `review` skill again on the whole tree: this change is large
+- [x] Run the `review` skill on the whole tree (2026-11-20). It found a panic on a service date past year 9999, dates and positions the compiler accepted without checking, stops missed across the 180th meridian and near the poles, and a few smaller things. All fixed
 - [ ] Publish: bump the crate version for the format and API breaks, and write the changelog
