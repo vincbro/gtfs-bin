@@ -4,7 +4,7 @@ mod common;
 
 use flatnet_core::{
     consumer::Consumer,
-    models::Delay,
+    models::{Date, Delay},
     rt::{
         CallUpdate, Event, Feed, Kinds, Realtime, RealtimeBuilder, StopTimeStatus, TripRef,
         TripStatus, TripUpdate, Update,
@@ -135,5 +135,41 @@ fn an_added_trip_is_found_by_the_stops_it_calls_at() {
             0,
             "and not at another stop"
         );
+    });
+}
+
+#[test]
+fn a_service_date_past_year_9999_is_ignored_not_a_panic() {
+    with_consumer(|consumer| {
+        for days in [2_932_897, 3_000_000, u32::MAX] {
+            let feed = Feed {
+                updates: vec![Update::Trip(TripUpdate {
+                    trip: TripRef {
+                        start_date: Some(Date(days)),
+                        ..trip_ref("trip4")
+                    },
+                    status: TripStatus::Scheduled,
+                    unsupported: false,
+                    delay: None,
+                    timestamp: None,
+                    calls: vec![CallUpdate {
+                        sequence: Some(1),
+                        stop_id: None,
+                        arrival: Some(Event {
+                            delay: None,
+                            time: Some(1_483_000_000),
+                        }),
+                        departure: None,
+                        status: StopTimeStatus::Scheduled,
+                        occupancy: None,
+                    }],
+                })],
+                ..Feed::default()
+            };
+
+            let (_, report) = RealtimeBuilder::new(consumer).build_feeds_with_report([feed]);
+
+            assert_eq!(report.trip_updates, 1, "{days} still updates the trip");
+        }
     });
 }

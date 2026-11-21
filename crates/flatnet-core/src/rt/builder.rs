@@ -385,11 +385,12 @@ impl<'a> RealtimeBuilder<'a> {
             return Some(i64::from(day.0) * SECONDS_PER_DAY - i64::from(self.utc_offset_seconds));
         };
         let (year, month, date) = day.to_year_month_day()?;
-        let noon = civil::date(
+        let noon = civil::Date::new(
             i16::try_from(year).ok()?,
             i8::try_from(month).ok()?,
             i8::try_from(date).ok()?,
         )
+        .ok()?
         .at(12, 0, 0, 0)
         .to_zoned(zone.clone())
         .ok()?;
@@ -555,9 +556,9 @@ impl<'a> RealtimeBuilder<'a> {
         };
 
         let slot = &mut realtime.trip_vehicles[trip.as_usize()];
-        let is_older =
-            |newer: &Vehicle| newer.timestamp > vehicle.timestamp && vehicle.timestamp.is_some();
-        if slot.as_ref().is_some_and(is_older) {
+        let stored_is_newer =
+            |stored: &Vehicle| stored.timestamp > vehicle.timestamp && vehicle.timestamp.is_some();
+        if slot.as_ref().is_some_and(stored_is_newer) {
             return report;
         }
         *slot = Some(Vehicle {

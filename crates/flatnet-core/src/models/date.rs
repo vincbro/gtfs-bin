@@ -64,8 +64,9 @@ impl Date {
         Some(Self(era * 146_097 + day_of_era - 719_468))
     }
 
-    /// Returns the calendar day as year, month and day, or `None` for a date too large to have
-    /// one, which includes the sentinel.
+    /// Returns the calendar day as year, month and day, or `None` for a date after year 9999,
+    /// which includes the sentinel. That is the last year `from_year_month_day` builds, and the
+    /// last one a calendar library accepts.
     #[must_use]
     pub fn to_year_month_day(self) -> Option<(u32, u32, u32)> {
         // Shift the epoch from 1970-01-01 to 0000-03-01.
@@ -92,7 +93,7 @@ impl Date {
             shifted_month - 9
         };
         let year = if month <= 2 { year + 1 } else { year };
-        Some((year, month, day))
+        (year <= 9999).then_some((year, month, day))
     }
 
     /// Parses a GTFS date, which is exactly 8 digits as `YYYYMMDD`.
@@ -181,6 +182,27 @@ mod tests {
                 "round trip of {text}"
             );
         }
+    }
+
+    #[test]
+    fn a_date_after_year_9999_has_no_calendar_day() {
+        let last = Date::from_year_month_day(9999, 12, 31).expect("the last valid day");
+
+        assert_eq!(
+            last.to_year_month_day(),
+            Some((9999, 12, 31)),
+            "the last day still converts"
+        );
+        assert_eq!(
+            Date(last.0 + 1).to_year_month_day(),
+            None,
+            "the day after is out of range"
+        );
+        assert_eq!(
+            Date(u32::MAX).to_year_month_day(),
+            None,
+            "the sentinel has none"
+        );
     }
 
     #[test]
