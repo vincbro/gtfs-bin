@@ -41,7 +41,7 @@ allow-wildcard-paths = true
 # being shown, and they live in this package.
 [[bans.deny]]
 crate = "anyhow"
-wrappers = ["flatnet-cli", "flatnet-viewer", "prost-derive"]
+wrappers = ["flatnet-cli", "prost-derive"]
 reason = "S-ERRORS: anyhow is only for the binary"
 
 [sources]
