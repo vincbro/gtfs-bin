@@ -1,17 +1,9 @@
-use std::f64::consts::PI;
+use std::ops::RangeInclusive;
 
 use crate::{
     consumer::Consumer,
     models::{Coordinate, Slice, StopCell, StopIndex},
 };
-
-/// Meters in a degree of latitude on the sphere `distance_meters` uses, to size the part of the
-/// grid to look at. A larger figure would make the search area too small, and a stop right at the
-/// radius would be missed.
-const METERS_PER_DEGREE: f64 = 6_371_008.8 * PI / 180.0;
-
-/// Widens the search area a little, as the longitude span is only exact for small radii.
-const SPAN_MARGIN: f64 = 1.01;
 
 impl Consumer<'_> {
     /// Replaces the contents of `found` with the stops within `radius_meters` of a position,
@@ -32,23 +24,13 @@ impl Consumer<'_> {
         let radius_meters = radius_meters.max(0.0);
         let here = Coordinate::new(latitude, longitude);
 
-        // A degree of longitude is shorter away from the equator. The floor keeps the width finite
-        // next to the poles.
-        let latitude_span = radius_meters / METERS_PER_DEGREE * SPAN_MARGIN;
-        let longitude_span = latitude_span / latitude.to_radians().cos().abs().max(0.01);
-        let (first_row, first_column) =
-            StopCell::cell_of(latitude - latitude_span, longitude - longitude_span);
-        let (last_row, last_column) =
-            StopCell::cell_of(latitude + latitude_span, longitude + longitude_span);
-
-        for row in first_row..=last_row {
-            let start = self.stop_grid.partition_point(|cell| {
-                (cell.latitude_cell, cell.longitude_cell) < (row, first_column)
-            });
-            let cells = self.stop_grid[start..]
-                .iter()
-                .take_while(|cell| cell.latitude_cell == row && cell.longitude_cell <= last_column);
-            for cell in cells {
+        let span = StopCell::cells_around(latitude, longitude, radius_meters);
+        let runs = span
+            .rows
+            .clone()
+            .flat_map(|row| span.columns.iter().map(move |columns| (row, columns)));
+        for (row, columns) in runs {
+            for cell in self.cells_in_row(row, columns) {
                 self.collect_near(here, radius_meters, cell, found);
             }
         }
@@ -84,17 +66,27 @@ impl Consumer<'_> {
         let (first_row, first_column) = StopCell::cell_of(south, west);
         let (last_row, last_column) = StopCell::cell_of(north, east);
         for row in first_row..=last_row {
-            let start = self.stop_grid.partition_point(|cell| {
-                (cell.latitude_cell, cell.longitude_cell) < (row, first_column)
-            });
-            let cells = self.stop_grid[start..]
-                .iter()
-                .take_while(|cell| cell.latitude_cell == row && cell.longitude_cell <= last_column);
-            for cell in cells {
+            for cell in self.cells_in_row(row, &(first_column..=last_column)) {
                 self.collect_in_box([south, west, north, east], cell, found);
             }
         }
         found.sort_unstable();
+    }
+
+    /// Returns the cells of one row that lie in a run of columns, found by binary search because
+    /// the cells are sorted.
+    fn cells_in_row(
+        &self,
+        row: u32,
+        columns: &RangeInclusive<u32>,
+    ) -> impl Iterator<Item = &StopCell> {
+        let start = self.stop_grid.partition_point(|cell| {
+            (cell.latitude_cell, cell.longitude_cell) < (row, *columns.start())
+        });
+        let last = *columns.end();
+        self.stop_grid[start..]
+            .iter()
+            .take_while(move |cell| cell.latitude_cell == row && cell.longitude_cell <= last)
     }
 
     fn collect_in_box(&self, bounds: [f64; 4], cell: &StopCell, found: &mut Vec<StopIndex>) {

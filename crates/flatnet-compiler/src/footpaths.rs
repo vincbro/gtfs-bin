@@ -1,16 +1,10 @@
-use std::{collections::HashMap, f64::consts::PI};
+use std::collections::HashMap;
 
 use flatnet_core::models::{
     Coordinate, Distance, Footpath, FootpathSlice, LocationType, Place, PlaceStopSlice, Settings,
     Slice, Stop, StopCell, StopIndex,
 };
 use rayon::prelude::*;
-
-/// Meters in a degree of latitude on the sphere `Coordinate::distance_meters` uses.
-const METERS_PER_DEGREE: f64 = 6_371_008.8 * PI / 180.0;
-
-/// Widens the area searched a little, as the longitude span is only exact for small radii.
-const SPAN_MARGIN: f64 = 1.01;
 
 /// The places, their stops and the walks between them.
 pub(super) struct BuiltFootpaths {
@@ -33,8 +27,9 @@ impl BuiltFootpaths {
 }
 
 /// Groups the stops into places and finds, for every place, the places within
-/// `settings.footpath_max_meters` in a straight line between their nearest stops. A place keeps its nearest `settings.footpath_max_per_place`, nearest
-/// first and the lower index first on a tie, so the same network always gives the same bytes.
+/// `settings.footpath_max_meters` in a straight line between their nearest stops. A place keeps its
+/// nearest `settings.footpath_max_per_place`, nearest first and the lower index first on a tie, so
+/// the same network always gives the same bytes.
 ///
 /// A place is the root of a parent chain (see [`Place::root_of`]), and it holds the stops a
 /// passenger can board at. Stations, entrances and generic nodes are not among them. Walking
@@ -140,17 +135,9 @@ impl Nearby<'_> {
         let max_meters = f64::from(self.settings.footpath_max_meters);
 
         let (latitude, longitude) = here.to_f64_pair();
-        let latitude_span = max_meters / METERS_PER_DEGREE * SPAN_MARGIN;
-        // A degree of longitude is shorter away from the equator. The floor keeps the width finite
-        // next to the poles.
-        let longitude_span = latitude_span / latitude.to_radians().cos().abs().max(0.01);
-        let (first_row, first_column) =
-            StopCell::cell_of(latitude - latitude_span, longitude - longitude_span);
-        let (last_row, last_column) =
-            StopCell::cell_of(latitude + latitude_span, longitude + longitude_span);
+        let span = StopCell::cells_around(latitude, longitude, max_meters);
 
-        (first_row..=last_row)
-            .flat_map(move |row| (first_column..=last_column).map(move |column| (row, column)))
+        span.cells()
             .filter_map(|cell| self.cells.get(&cell))
             .flatten()
             .filter_map(move |&other| {
@@ -168,9 +155,14 @@ impl Nearby<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::PI;
+
     use flatnet_core::models::{Optional, Sentinel, StopIdSlice};
 
     use super::*;
+
+    /// Meters in a degree of latitude on the sphere `Coordinate::distance_meters` uses.
+    const METERS_PER_DEGREE: f64 = 6_371_008.8 * PI / 180.0;
 
     /// A stop point `meters` east of the origin on the equator, under `parent` if it has one.
     fn stop_at(index: usize, meters: f64, parent: Option<usize>) -> Stop {
