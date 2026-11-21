@@ -176,9 +176,7 @@ fn a_service_with_no_days_is_refused() {
 #[test]
 fn a_service_that_runs_for_centuries_is_refused() {
     let mut network = network();
-    network.services[0]
-        .exceptions
-        .push((Date(u32::MAX / 2), true));
+    network.services[0].exceptions.push((Date(2_000_000), true));
 
     let result = Compiler::new().compile(network);
 
@@ -186,4 +184,35 @@ fn a_service_that_runs_for_centuries_is_refused() {
         matches!(result, Err(Error::ServiceRangeTooLong { .. })),
         "{result:?}"
     );
+}
+
+#[test]
+fn a_date_that_is_not_a_real_day_is_refused() {
+    for bad in [Date(u32::MAX), Date(3_000_000)] {
+        let mut network = network();
+        network.services[0].exceptions.push((bad, true));
+
+        let result = Compiler::new().compile(network);
+
+        assert!(
+            matches!(result, Err(Error::InvalidDate { .. })),
+            "{bad:?} is past the year 9999 or the sentinel: {result:?}"
+        );
+    }
+}
+
+#[test]
+fn a_position_off_the_globe_is_refused() {
+    for (latitude, longitude) in [(1000.0, 18.0), (59.0, 181.0), (f64::NAN, 18.0)] {
+        let mut network = network();
+        network.stops[0].latitude = Some(latitude);
+        network.stops[0].longitude = Some(longitude);
+
+        let result = Compiler::new().compile(network);
+
+        assert!(
+            matches!(result, Err(Error::InvalidPosition { .. })),
+            "({latitude}, {longitude}) is not on the globe: {result:?}"
+        );
+    }
 }

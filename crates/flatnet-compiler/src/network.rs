@@ -161,7 +161,26 @@ impl Network {
 
         for stop in &self.stops {
             optional("stops", "parent", stop.parent, self.stops.len())?;
+            let position = stop.latitude.zip(stop.longitude);
+            if position
+                .is_some_and(|(latitude, longitude)| !Coordinate::is_on_globe(latitude, longitude))
+            {
+                return Err(Error::InvalidPosition {
+                    table: "stops",
+                    field: "latitude",
+                });
+            }
         }
+        for point in self.lines.iter().flatten() {
+            let (latitude, longitude) = point.to_f64_pair();
+            if !Coordinate::is_on_globe(latitude, longitude) {
+                return Err(Error::InvalidPosition {
+                    table: "lines",
+                    field: "point",
+                });
+            }
+        }
+        self.check_dates()?;
         for trip in &self.trips {
             reference("trips", "route", trip.route, self.routes.len())?;
             optional("trips", "service", trip.service, self.services.len())?;
@@ -192,6 +211,34 @@ impl Network {
                 self.trips.len(),
             )?;
             optional("transfers", "to_trip", transfer.to_trip, self.trips.len())?;
+        }
+        Ok(())
+    }
+}
+
+impl Network {
+    /// Checks that every date is a real day up to the year 9999, which keeps the day arithmetic of
+    /// the service masks from overflowing and keeps the sentinel out.
+    fn check_dates(&self) -> Result<()> {
+        let invalid = |table, field| Error::InvalidDate { table, field };
+        let real = |date: Date| date.to_year_month_day().is_some();
+        for date in [self.info.valid_from, self.info.valid_until]
+            .into_iter()
+            .flatten()
+        {
+            if !real(date) {
+                return Err(invalid("info", "valid_from"));
+            }
+        }
+        for service in &self.services {
+            let weekly = service
+                .weekly
+                .iter()
+                .flat_map(|weekly| [weekly.start, weekly.end]);
+            let exceptions = service.exceptions.iter().map(|&(date, _)| date);
+            if !weekly.chain(exceptions).all(real) {
+                return Err(invalid("services", "dates"));
+            }
         }
         Ok(())
     }

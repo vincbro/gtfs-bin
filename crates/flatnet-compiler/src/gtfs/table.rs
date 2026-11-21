@@ -179,9 +179,28 @@ impl<'a> Row<'a> {
         }
     }
 
-    /// Parses a decimal number that must be there and be finite.
-    pub(super) fn float_required(&self, column: usize, name: &'static str) -> Result<f64> {
-        self.float(Some(column), name)?
+    /// Parses an optional number of degrees, which must be finite and within `limit` either way.
+    pub(super) fn degrees(
+        &self,
+        column: Option<usize>,
+        name: &'static str,
+        limit: f64,
+    ) -> Result<Option<f64>> {
+        let value = self.float(column, name)?;
+        if value.is_some_and(|degrees| degrees.abs() > limit) {
+            return Err(self.invalid(name, self.text(column).unwrap_or_default()));
+        }
+        Ok(value)
+    }
+
+    /// Parses a number of degrees that must be there, finite and within `limit` either way.
+    pub(super) fn degrees_required(
+        &self,
+        column: usize,
+        name: &'static str,
+        limit: f64,
+    ) -> Result<f64> {
+        self.degrees(Some(column), name, limit)?
             .ok_or_else(|| self.invalid(name, ""))
     }
 

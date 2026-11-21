@@ -316,6 +316,24 @@ fn lenient_mode_skips_bad_rows_and_says_which() {
 }
 
 #[test]
+fn a_position_off_the_globe_is_a_bad_row() {
+    let trips = "route_id,service_id,trip_id\nR,S,T\n";
+    let stop_times = "trip_id,stop_id,stop_sequence\nT,A,1\n";
+    for stops in [
+        "stop_id,stop_lat,stop_lon\nA,1000,18.0\n",
+        "stop_id,stop_lat,stop_lon\nA,59.3,-180.5\n",
+    ] {
+        let mut files = feed(trips, stop_times);
+        files[0] = ("stops.txt", stops);
+
+        assert!(
+            matches!(compile_with(&files), Err(Error::InvalidValue { .. })),
+            "{stops:?} has a coordinate off the globe"
+        );
+    }
+}
+
+#[test]
 fn lenient_mode_still_fails_for_a_missing_column() {
     let stops = "stop_name,stop_lat\nAlpha,59.30\n";
     let trips = "route_id,service_id,trip_id\nR,S,T\n";

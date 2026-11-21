@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use flatnet_core::models::{Date, Direction, LocationType, RouteType, Sentinel};
+use flatnet_core::models::{Coordinate, Date, Direction, LocationType, RouteType, Sentinel};
 
 use super::table::{Row, Table};
 use crate::Result;
@@ -122,8 +122,8 @@ pub(super) fn read_stops(table: &mut Table<'_>) -> Result<Vec<RawStop>> {
             code: owned(row.text(code)),
             name: owned(row.text(name)),
             description: owned(row.text(description)),
-            latitude: row.float(latitude, "stop_lat")?,
-            longitude: row.float(longitude, "stop_lon")?,
+            latitude: row.degrees(latitude, "stop_lat", Coordinate::MAX_LATITUDE)?,
+            longitude: row.degrees(longitude, "stop_lon", Coordinate::MAX_LONGITUDE)?,
             location_type: row
                 .parse::<u8>(location_type, "location_type")?
                 .map_or(LocationType::STOP_POINT, LocationType::from),

@@ -125,7 +125,7 @@ fn build_active_mask(
 
     for (service, record) in services.iter().zip(records) {
         for &(date, added) in &record.exceptions {
-            let bit_index = (service.active_mask.start + date.0 - service.start_date.0) as usize;
+            let bit_index = (service.active_mask.start + (date.0 - service.start_date.0)) as usize;
             active_mask.set(bit_index, added);
         }
     }

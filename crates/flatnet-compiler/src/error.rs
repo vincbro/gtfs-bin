@@ -61,6 +61,16 @@ pub enum Error {
         table: &'static str,
         field: &'static str,
     },
+    #[error("{field} of the network's {table} is not a date up to the year 9999")]
+    InvalidDate {
+        table: &'static str,
+        field: &'static str,
+    },
+    #[error("{field} of the network's {table} is not a position on the globe")]
+    InvalidPosition {
+        table: &'static str,
+        field: &'static str,
+    },
     #[error("the settings are not usable: a footpath reach of at most 50000 meters")]
     InvalidSettings,
     #[error("search needs the text part, because a place is found by its name")]

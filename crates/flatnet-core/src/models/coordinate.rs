@@ -15,6 +15,19 @@ pub struct Coordinate {
 }
 
 impl Coordinate {
+    /// The largest latitude, in degrees either way, a position can have.
+    pub const MAX_LATITUDE: f64 = 90.0;
+
+    /// The largest longitude, in degrees either way, a position can have.
+    pub const MAX_LONGITUDE: f64 = 180.0;
+
+    /// Whether the degrees are a position on the globe, which is what `new` needs to keep them: a
+    /// number out of range would saturate, and could end up as the `NONE` sentinel.
+    #[must_use]
+    pub fn is_on_globe(latitude: f64, longitude: f64) -> bool {
+        latitude.abs() <= Self::MAX_LATITUDE && longitude.abs() <= Self::MAX_LONGITUDE
+    }
+
     /// Packs floating-point degrees into a `Coordinate`.
     #[must_use]
     pub fn new(latitude: f64, longitude: f64) -> Self {

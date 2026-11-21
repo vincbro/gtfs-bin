@@ -26,8 +26,8 @@ pub(super) fn read_shape_lines(table: &mut Table<'_>) -> Result<ShapeLines> {
         let point = (
             row.parse_required(sequence, "shape_pt_sequence")?,
             Coordinate::new(
-                row.float_required(latitude, "shape_pt_lat")?,
-                row.float_required(longitude, "shape_pt_lon")?,
+                row.degrees_required(latitude, "shape_pt_lat", Coordinate::MAX_LATITUDE)?,
+                row.degrees_required(longitude, "shape_pt_lon", Coordinate::MAX_LONGITUDE)?,
             ),
         );
         // Looked up by `&str` first so a point of a known shape allocates nothing.
