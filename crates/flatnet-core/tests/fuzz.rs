@@ -2,27 +2,8 @@
 
 mod common;
 
-use flatnet_core::{consumer::Consumer, models::Header};
+use flatnet_core::consumer::Consumer;
 use proptest::{collection, prelude::*};
-
-/// The byte range of every non-empty section, read from the header.
-fn section_ranges(bytes: &[u8]) -> Vec<(usize, usize)> {
-    // The header ends with two dates, the file length and the checksum, which aren't sections.
-    let section_bytes = size_of::<Header>() - 8 - 24;
-    let words: &[u64] = bytemuck::cast_slice(&bytes[8..8 + section_bytes]);
-    let mut starts: Vec<usize> = words
-        .chunks(2)
-        .map(|pair| usize::try_from(pair[0]).expect("an offset in a file fits in usize"))
-        .collect();
-    starts.push(bytes.len());
-    starts.sort_unstable();
-    starts.dedup();
-    starts
-        .windows(2)
-        .map(|pair| (pair[0], pair[1]))
-        .filter(|&(start, end)| end > start)
-        .collect()
-}
 
 #[test]
 fn the_untouched_fixture_passes_the_exercise() {
@@ -69,7 +50,7 @@ proptest! {
         // Random bytes mostly miss the tables, so aim at a word inside a random section and write
         // a value that is small, huge or just past a plausible end.
         let mut bytes = common::compile_fixture();
-        let sections = section_ranges(&bytes);
+        let sections = common::section_ranges(&bytes);
         for (section, fraction, kind, random) in edits {
             let (start, end) = sections[section % sections.len()];
             if end - start < 4 {

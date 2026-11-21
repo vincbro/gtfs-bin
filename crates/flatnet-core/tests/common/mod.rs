@@ -3,6 +3,7 @@
 
 use std::{io::Write, path::PathBuf};
 
+pub(crate) mod arbitrary;
 pub(crate) mod synthetic;
 
 use bytemuck::Pod;
@@ -161,4 +162,23 @@ pub(crate) fn open_and_exercise(bytes: &[u8]) {
     if let Ok(consumer) = Consumer::new(&mmap) {
         exercise(&consumer);
     }
+}
+
+/// The byte range of every non-empty section, read from the header.
+pub(crate) fn section_ranges(bytes: &[u8]) -> Vec<(usize, usize)> {
+    // The header ends with two dates, the file length and the checksum, which aren't sections.
+    let section_bytes = size_of::<Header>() - 8 - 24;
+    let words: &[u64] = bytemuck::cast_slice(&bytes[8..8 + section_bytes]);
+    let mut starts: Vec<usize> = words
+        .chunks(2)
+        .map(|pair| usize::try_from(pair[0]).expect("an offset in a file fits in usize"))
+        .collect();
+    starts.push(bytes.len());
+    starts.sort_unstable();
+    starts.dedup();
+    starts
+        .windows(2)
+        .map(|pair| (pair[0], pair[1]))
+        .filter(|&(start, end)| end > start)
+        .collect()
 }

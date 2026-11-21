@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 08ee459888ec513e147bde1ae3d23b52734290e060df2798fe964ec2576e2d9d # shrinks to stops = [StopRecord { id: "s0", code: None, name: None, description: None, latitude: Some(89.97527984213421), longitude: Some(0.0), location_type: LocationType(0), parent: None }, StopRecord { id: "s1", code: None, name: None, description: None, latitude: Some(89.97524718365337), longitude: Some(0.023909707162175664), location_type: LocationType(0), parent: None }], reach = 4, per_place = 1
